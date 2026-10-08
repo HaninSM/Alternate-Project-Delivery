@@ -55,10 +55,77 @@ function include(filename) {
 }
 
 /**
- * Mengidentifikasi email Google pengguna aktif dan mencocokkannya dengan sheet Users.
- * Mengembalikan informasi profil pengguna beserta role aksesnya.
+ * Definisi Preset Izin Akses Bawaan (Default Permissions Matrix)
+ */
+const DEFAULT_PERMISSIONS = {
+  ADMIN: {
+    can_create_project: true,
+    can_manage_sprint: true,
+    can_create_task: true,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: true
+  },
+  PM: {
+    can_create_project: true,
+    can_manage_sprint: true,
+    can_create_task: true,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: false
+  },
+  MEMBER: {
+    can_create_project: false,
+    can_manage_sprint: false,
+    can_create_task: false,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: false
+  },
+  CLIENT: {
+    can_create_project: false,
+    can_manage_sprint: false,
+    can_create_task: false,
+    can_move_task: false,
+    can_view_insights: true,
+    can_manage_users: false
+  }
+};
+
+/**
+ * Helper untuk mengurai dan menggabungkan izin granular user
  *
- * @return {Object} Objek profil pengguna { success: boolean, data: { id, name, email, role } }
+ * @param {string} role - Role pengguna ('ADMIN', 'PM', 'MEMBER', 'CLIENT')
+ * @param {string|Object} [permissions_input] - JSON string atau objek izin dari sheet Users
+ * @return {Object} Objek izin granular lengkap
+ */
+function resolve_user_permissions(role, permissions_input) {
+  const formatted_role = String(role || 'CLIENT').toUpperCase().trim();
+  const base_perms = Object.assign({}, DEFAULT_PERMISSIONS[formatted_role] || DEFAULT_PERMISSIONS.CLIENT);
+  if (!permissions_input) return base_perms;
+
+  let parsed = null;
+  if (typeof permissions_input === 'object' && permissions_input !== null) {
+    parsed = permissions_input;
+  } else if (typeof permissions_input === 'string' && permissions_input.trim() !== '') {
+    try {
+      parsed = JSON.parse(permissions_input);
+    } catch (e) {
+      return base_perms;
+    }
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    return Object.assign({}, base_perms, parsed);
+  }
+  return base_perms;
+}
+
+/**
+ * Mengidentifikasi email Google pengguna aktif dan mencocokkannya dengan sheet Users.
+ * Mengembalikan informasi profil pengguna beserta role aksesnya dan izin granular.
+ *
+ * @return {Object} Objek profil pengguna { success: boolean, data: { id, name, email, role, permissions } }
  */
 function get_user_role() {
   try {
@@ -82,7 +149,8 @@ function get_user_role() {
           id: 'GUEST',
           name: user_email || 'Tamu Google',
           email: user_email,
-          role: 'CLIENT' // Default fallback ke read-only
+          role: 'CLIENT',
+          permissions: DEFAULT_PERMISSIONS.CLIENT
         }
       };
     }
@@ -92,6 +160,7 @@ function get_user_role() {
     const id_index = header.indexOf('id');
     const name_index = header.indexOf('name');
     const role_index = header.indexOf('role');
+    const perm_index = header.indexOf('permissions');
 
     // Cari baris yang cocok dengan email pengguna aktif
     for (let row_idx = 1; row_idx < data_values.length; row_idx++) {
@@ -99,13 +168,16 @@ function get_user_role() {
       const registered_email = String(row[email_index]).toLowerCase().trim();
 
       if (user_email && registered_email === user_email) {
+        const user_role = String(row[role_index]).toUpperCase().trim();
+        const raw_perm = perm_index !== -1 ? row[perm_index] : null;
         return {
           success: true,
           data: {
             id: row[id_index],
             name: row[name_index],
             email: registered_email,
-            role: String(row[role_index]).toUpperCase().trim()
+            role: user_role,
+            permissions: resolve_user_permissions(user_role, raw_perm)
           }
         };
       }
@@ -118,7 +190,8 @@ function get_user_role() {
         id: 'UNREGISTERED',
         name: user_email || 'Pengguna Tidak Terdaftar',
         email: user_email,
-        role: 'CLIENT' // Default read-only untuk keamanan data
+        role: 'CLIENT',
+        permissions: DEFAULT_PERMISSIONS.CLIENT
       }
     };
   } catch (error) {

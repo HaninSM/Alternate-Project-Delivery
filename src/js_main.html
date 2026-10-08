@@ -13,6 +13,7 @@ const app_state = {
   backlog_tasks: [],
   sprints: [],
   insights: null,
+  users_list: [],
   is_loading: false,
   burndown_chart_instance: null
 };
@@ -97,25 +98,71 @@ function render_user_profile(user) {
 }
 
 /**
- * Menyesuaikan kontrol UI berdasarkan RBAC
+ * Menyesuaikan kontrol UI berdasarkan RBAC dan Granular Permissions
  */
 function apply_rbac_permissions(role) {
+  const user = app_state.current_user || {};
+  const perms = user.permissions || {
+    can_create_project: role === 'ADMIN' || role === 'PM',
+    can_manage_sprint: role === 'ADMIN' || role === 'PM',
+    can_create_task: role === 'ADMIN' || role === 'PM',
+    can_move_task: role !== 'CLIENT',
+    can_view_insights: true,
+    can_manage_users: role === 'ADMIN'
+  };
+
   const rbac_tag = document.getElementById('rbac-permission-tag');
   const btn_add_task = document.getElementById('btn-add-task');
+  const nav_btn_users = document.getElementById('nav-btn-users');
+  const btn_add_project = document.getElementById('btn-add-project');
+  const btn_header_add_task = document.getElementById('btn-header-add-task');
+  const btn_backlog_add_task = document.getElementById('btn-backlog-add-task');
+  const btn_header_add_sprint = document.getElementById('btn-header-add-sprint');
 
   if (rbac_tag) {
-    if (role === 'ADMIN' || role === 'PM') {
-      rbac_tag.textContent = 'Mode: ' + role + ' (Akses Penuh)';
-      rbac_tag.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full';
-      if (btn_add_task) btn_add_task.classList.remove('hidden');
+    if (role === 'ADMIN') {
+      rbac_tag.textContent = 'Mode: ADMIN (Akses Penuh)';
+      rbac_tag.className = 'text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-full';
+    } else if (role === 'PM') {
+      rbac_tag.textContent = 'Mode: PM (Project Manager)';
+      rbac_tag.className = 'text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full';
     } else if (role === 'MEMBER') {
       rbac_tag.textContent = 'Mode: Team Member';
       rbac_tag.className = 'text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full';
-      if (btn_add_task) btn_add_task.classList.add('hidden');
     } else {
       rbac_tag.textContent = 'Mode: External Client (Read-only)';
       rbac_tag.className = 'text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full';
-      if (btn_add_task) btn_add_task.classList.add('hidden');
+    }
+  }
+
+  // Kontrol visibilitas tombol berdasarkan granular permissions
+  if (btn_add_task) {
+    if (perms.can_create_task) btn_add_task.classList.remove('hidden');
+    else btn_add_task.classList.add('hidden');
+  }
+  if (btn_header_add_task) {
+    if (perms.can_create_task) btn_header_add_task.classList.remove('hidden');
+    else btn_header_add_task.classList.add('hidden');
+  }
+  if (btn_backlog_add_task) {
+    if (perms.can_create_task) btn_backlog_add_task.classList.remove('hidden');
+    else btn_backlog_add_task.classList.add('hidden');
+  }
+  if (btn_header_add_sprint) {
+    if (perms.can_manage_sprint) btn_header_add_sprint.classList.remove('hidden');
+    else btn_header_add_sprint.classList.add('hidden');
+  }
+  if (btn_add_project) {
+    if (perms.can_create_project) btn_add_project.classList.remove('hidden');
+    else btn_add_project.classList.add('hidden');
+  }
+
+  // Menu Manajemen Pengguna hanya muncul jika can_manage_users = true
+  if (nav_btn_users) {
+    if (perms.can_manage_users) {
+      nav_btn_users.classList.remove('hidden');
+    } else {
+      nav_btn_users.classList.add('hidden');
     }
   }
 }
@@ -584,7 +631,7 @@ function handle_task_status_change(task_id, new_status) {
  * Logika SPA Navigasi antar tampilan tanpa reload browser
  */
 function switch_view(target_view) {
-  const views = ['dashboard', 'board', 'scrum-planning', 'insights', 'settings'];
+  const views = ['dashboard', 'board', 'scrum-planning', 'insights', 'settings', 'users'];
   
   views.forEach(view_name => {
     const section_el = document.getElementById('view-' + view_name);
@@ -606,6 +653,9 @@ function switch_view(target_view) {
         }
         if (view_name === 'board') {
           load_sprint_tasks();
+        }
+        if (view_name === 'users') {
+          load_users_management();
         }
       } else {
         section_el.classList.remove('block');
@@ -1617,5 +1667,522 @@ function init_mock_projects() {
     }
   ];
   render_projects_dashboard(app_state.projects);
+}
+
+/**
+ * ============================================================================
+ * USER MANAGEMENT CONTROLLER (RBAC OPSI 2: HYBRID + MODULAR PERMISSIONS)
+ * ============================================================================
+ */
+
+const DEFAULT_ROLE_PERMS = {
+  ADMIN: {
+    can_create_project: true,
+    can_manage_sprint: true,
+    can_create_task: true,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: true
+  },
+  PM: {
+    can_create_project: true,
+    can_manage_sprint: true,
+    can_create_task: true,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: false
+  },
+  MEMBER: {
+    can_create_project: false,
+    can_manage_sprint: false,
+    can_create_task: false,
+    can_move_task: true,
+    can_view_insights: true,
+    can_manage_users: false
+  },
+  CLIENT: {
+    can_create_project: false,
+    can_manage_sprint: false,
+    can_create_task: false,
+    can_move_task: false,
+    can_view_insights: true,
+    can_manage_users: false
+  }
+};
+
+/**
+ * Handler saat dropdown Role Preset dipilih - otomatis centang checkbox permissions
+ */
+function handle_role_preset_change(role) {
+  const formatted_role = String(role || 'MEMBER').toUpperCase().trim();
+  const perms = DEFAULT_ROLE_PERMS[formatted_role] || DEFAULT_ROLE_PERMS.MEMBER;
+
+  const cb_create_proj = document.getElementById('perm-can-create-project');
+  const cb_manage_spr = document.getElementById('perm-can-manage-sprint');
+  const cb_create_task = document.getElementById('perm-can-create-task');
+  const cb_move_task = document.getElementById('perm-can-move-task');
+  const cb_view_insights = document.getElementById('perm-can-view-insights');
+  const cb_manage_users = document.getElementById('perm-can-manage-users');
+
+  if (cb_create_proj) cb_create_proj.checked = perms.can_create_project;
+  if (cb_manage_spr) cb_manage_spr.checked = perms.can_manage_sprint;
+  if (cb_create_task) cb_create_task.checked = perms.can_create_task;
+  if (cb_move_task) cb_move_task.checked = perms.can_move_task;
+  if (cb_view_insights) cb_view_insights.checked = perms.can_view_insights;
+  if (cb_manage_users) cb_manage_users.checked = perms.can_manage_users;
+}
+
+/**
+ * Memuat daftar seluruh pengguna dari backend GAS
+ */
+function load_users_management() {
+  const tbody = document.getElementById('users-table-body');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="py-8 text-center text-slate-400">
+          <div class="flex items-center justify-center space-x-2">
+            <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Memuat data pengguna...</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    set_loading_state(true);
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          app_state.users_list = response.data || [];
+          render_users_table(app_state.users_list);
+        } else {
+          show_notification('Gagal memuat pengguna: ' + (response ? response.message : ''), 'error');
+          if (tbody) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="5" class="py-6 text-center text-rose-500 font-medium">
+                  ${escape_html(response ? response.message : 'Akses Ditolak')}
+                </td>
+              </tr>
+            `;
+          }
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error memuat data pengguna: ' + err.message, 'error');
+      })
+      .get_users_management_list();
+  } else {
+    // Mode simulasi lokal
+    app_state.users_list = [
+      {
+        id: 'USR-001',
+        name: 'Admin Utama',
+        email: 'admin@example.com',
+        role: 'ADMIN',
+        permissions: Object.assign({}, DEFAULT_ROLE_PERMS.ADMIN)
+      },
+      {
+        id: 'USR-002',
+        name: 'Budi PM',
+        email: 'pm@example.com',
+        role: 'PM',
+        permissions: Object.assign({}, DEFAULT_ROLE_PERMS.PM)
+      },
+      {
+        id: 'USR-003',
+        name: 'Siti Developer',
+        email: 'dev@example.com',
+        role: 'MEMBER',
+        permissions: Object.assign({}, DEFAULT_ROLE_PERMS.MEMBER)
+      },
+      {
+        id: 'USR-004',
+        name: 'Rian QA Engineer',
+        email: 'qa@example.com',
+        role: 'MEMBER',
+        permissions: Object.assign({}, DEFAULT_ROLE_PERMS.MEMBER)
+      },
+      {
+        id: 'USR-005',
+        name: 'Klien Eksternal PT ABC',
+        email: 'client@example.com',
+        role: 'CLIENT',
+        permissions: Object.assign({}, DEFAULT_ROLE_PERMS.CLIENT)
+      }
+    ];
+    render_users_table(app_state.users_list);
+  }
+}
+
+/**
+ * Merender tabel daftar pengguna beserta badges role dan permission tags
+ */
+function render_users_table(users) {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+
+  if (!users || users.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="py-8 text-center text-slate-400 italic">
+          Belum ada pengguna terdaftar.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const active_email = (app_state.current_user ? app_state.current_user.email : '').toLowerCase().trim();
+  const active_id = app_state.current_user ? app_state.current_user.id : '';
+
+  tbody.innerHTML = '';
+  users.forEach(user => {
+    const is_current_user = (active_email && user.email.toLowerCase() === active_email) || (active_id && user.id === active_id);
+    const perms = user.permissions || DEFAULT_ROLE_PERMS[user.role] || DEFAULT_ROLE_PERMS.CLIENT;
+
+    // Badge role styling
+    let role_badge_cls = 'bg-slate-100 text-slate-700 border-slate-200';
+    if (user.role === 'ADMIN') role_badge_cls = 'bg-purple-100 text-purple-700 border-purple-200';
+    else if (user.role === 'PM') role_badge_cls = 'bg-indigo-100 text-indigo-700 border-indigo-200';
+    else if (user.role === 'MEMBER') role_badge_cls = 'bg-blue-100 text-blue-700 border-blue-200';
+    else if (user.role === 'CLIENT') role_badge_cls = 'bg-amber-100 text-amber-700 border-amber-200';
+
+    // Permissions tags
+    const perm_tags = [];
+    if (perms.can_create_project) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700 font-medium">Buat Proyek</span>');
+    if (perms.can_manage_sprint) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-700 font-medium">Kelola Sprint</span>');
+    if (perms.can_create_task) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 font-medium">Buat Task</span>');
+    if (perms.can_move_task) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 font-medium">Geser Task</span>');
+    if (perms.can_view_insights) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-teal-50 text-teal-700 font-medium">Insights</span>');
+    if (perms.can_manage_users) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 font-semibold border border-purple-200">Kelola User</span>');
+
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/60 transition-colors border-b border-slate-100';
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs uppercase flex-shrink-0">
+            ${escape_html(user.name.charAt(0) || 'U')}
+          </div>
+          <div class="min-w-0">
+            <div class="font-bold text-slate-900 flex items-center space-x-1.5">
+              <span>${escape_html(user.name)}</span>
+              ${is_current_user ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">Anda</span>' : ''}
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">${escape_html(user.id)}</span>
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <span class="text-xs text-slate-600 font-mono">${escape_html(user.email)}</span>
+      </td>
+      <td class="py-3 px-4">
+        <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${role_badge_cls}">
+          ${escape_html(user.role)}
+        </span>
+      </td>
+      <td class="py-3 px-4">
+        <div class="flex flex-wrap gap-1 max-w-sm">
+          ${perm_tags.length > 0 ? perm_tags.join('') : '<span class="text-[11px] text-slate-400 italic">Tidak ada izin khusus</span>'}
+        </div>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="inline-flex items-center space-x-1.5">
+          <button 
+            type="button" 
+            onclick="open_user_modal('edit', '${escape_html(user.id)}')" 
+            class="px-2.5 py-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors cursor-pointer">
+            Edit
+          </button>
+          ${is_current_user ? `
+            <button 
+              type="button" 
+              disabled 
+              title="Anda tidak dapat menghapus akun Anda sendiri"
+              class="px-2 py-1 text-[11px] font-medium text-slate-300 border border-slate-200 rounded-md cursor-not-allowed opacity-50">
+              Hapus
+            </button>
+          ` : `
+            <button 
+              type="button" 
+              onclick="open_delete_user_modal('${escape_html(user.id)}', '${escape_html(user.name)}', '${escape_html(user.email)}')" 
+              class="px-2 py-1 text-[11px] font-medium text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer">
+              Hapus
+            </button>
+          `}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Membuka Modal Tambah atau Edit Pengguna
+ */
+function open_user_modal(mode, user_id) {
+  const modal = document.getElementById('modal-user-form');
+  if (!modal) return;
+
+  const mode_input = document.getElementById('input-user-mode');
+  const id_input = document.getElementById('input-user-id');
+  const name_input = document.getElementById('input-user-name');
+  const email_input = document.getElementById('input-user-email');
+  const role_select = document.getElementById('input-user-role');
+  const title_el = document.getElementById('modal-user-form-title');
+  const submit_label = document.getElementById('btn-submit-user-label');
+
+  if (mode === 'create') {
+    if (mode_input) mode_input.value = 'create';
+    if (id_input) id_input.value = '';
+    if (name_input) name_input.value = '';
+    if (email_input) email_input.value = '';
+    if (role_select) role_select.value = 'MEMBER';
+    if (title_el) title_el.textContent = 'Tambah Pengguna Baru';
+    if (submit_label) submit_label.textContent = 'Simpan Pengguna';
+    handle_role_preset_change('MEMBER');
+  } else if (mode === 'edit') {
+    const target_user = (app_state.users_list || []).find(u => u.id === user_id);
+    if (!target_user) {
+      show_notification('Data pengguna tidak ditemukan.', 'error');
+      return;
+    }
+
+    if (mode_input) mode_input.value = 'edit';
+    if (id_input) id_input.value = target_user.id;
+    if (name_input) name_input.value = target_user.name;
+    if (email_input) email_input.value = target_user.email;
+    if (role_select) role_select.value = target_user.role;
+    if (title_el) title_el.textContent = 'Edit Pengguna: ' + target_user.name;
+    if (submit_label) submit_label.textContent = 'Perbarui Pengguna';
+
+    // Isi checkbox sesuai izin user
+    const perms = target_user.permissions || DEFAULT_ROLE_PERMS[target_user.role] || DEFAULT_ROLE_PERMS.CLIENT;
+    const cb_create_proj = document.getElementById('perm-can-create-project');
+    const cb_manage_spr = document.getElementById('perm-can-manage-sprint');
+    const cb_create_task = document.getElementById('perm-can-create-task');
+    const cb_move_task = document.getElementById('perm-can-move-task');
+    const cb_view_insights = document.getElementById('perm-can-view-insights');
+    const cb_manage_users = document.getElementById('perm-can-manage-users');
+
+    if (cb_create_proj) cb_create_proj.checked = !!perms.can_create_project;
+    if (cb_manage_spr) cb_manage_spr.checked = !!perms.can_manage_sprint;
+    if (cb_create_task) cb_create_task.checked = !!perms.can_create_task;
+    if (cb_move_task) cb_move_task.checked = !!perms.can_move_task;
+    if (cb_view_insights) cb_view_insights.checked = !!perms.can_view_insights;
+    if (cb_manage_users) cb_manage_users.checked = !!perms.can_manage_users;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Pengguna
+ */
+function close_user_modal() {
+  const modal = document.getElementById('modal-user-form');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  const form = document.getElementById('form-user-management');
+  if (form) form.reset();
+}
+
+/**
+ * Submit form Tambah / Edit Pengguna
+ */
+function handle_submit_user(e) {
+  e.preventDefault();
+  const mode = document.getElementById('input-user-mode').value;
+  const user_id = document.getElementById('input-user-id').value;
+  const name = document.getElementById('input-user-name').value.trim();
+  const email = document.getElementById('input-user-email').value.trim();
+  const role = document.getElementById('input-user-role').value;
+
+  const permissions = {
+    can_create_project: document.getElementById('perm-can-create-project').checked,
+    can_manage_sprint: document.getElementById('perm-can-manage-sprint').checked,
+    can_create_task: document.getElementById('perm-can-create-task').checked,
+    can_move_task: document.getElementById('perm-can-move-task').checked,
+    can_view_insights: document.getElementById('perm-can-view-insights').checked,
+    can_manage_users: document.getElementById('perm-can-manage-users').checked
+  };
+
+  const payload = {
+    id: user_id,
+    name: name,
+    email: email,
+    role: role,
+    permissions: permissions
+  };
+
+  const submit_btn = document.getElementById('btn-submit-user');
+  const submit_label = document.getElementById('btn-submit-user-label');
+  if (submit_btn) {
+    submit_btn.disabled = true;
+    if (submit_label) submit_label.textContent = 'Menyimpan...';
+  }
+
+  set_loading_state(true);
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    const success_handler = response => {
+      set_loading_state(false);
+      if (submit_btn) {
+        submit_btn.disabled = false;
+        if (submit_label) submit_label.textContent = (mode === 'create' ? 'Simpan Pengguna' : 'Perbarui Pengguna');
+      }
+      if (response && response.success) {
+        show_notification(response.message || 'Operasi berhasil!', 'success');
+        close_user_modal();
+        load_users_management();
+        // Update user session jika admin mengedit profilnya sendiri
+        if (app_state.current_user && app_state.current_user.email.toLowerCase() === email.toLowerCase()) {
+          fetch_user_session();
+        }
+      } else {
+        show_notification('Gagal: ' + (response ? response.message : ''), 'error');
+      }
+    };
+
+    const failure_handler = err => {
+      set_loading_state(false);
+      if (submit_btn) {
+        submit_btn.disabled = false;
+        if (submit_label) submit_label.textContent = (mode === 'create' ? 'Simpan Pengguna' : 'Perbarui Pengguna');
+      }
+      show_notification('Error: ' + err.message, 'error');
+    };
+
+    if (mode === 'create') {
+      google.script.run
+        .withSuccessHandler(success_handler)
+        .withFailureHandler(failure_handler)
+        .create_new_user(payload);
+    } else {
+      google.script.run
+        .withSuccessHandler(success_handler)
+        .withFailureHandler(failure_handler)
+        .update_existing_user(payload);
+    }
+  } else {
+    // Mode simulasi lokal
+    set_loading_state(false);
+    if (submit_btn) {
+      submit_btn.disabled = false;
+      if (submit_label) submit_label.textContent = (mode === 'create' ? 'Simpan Pengguna' : 'Perbarui Pengguna');
+    }
+    if (mode === 'create') {
+      const new_user = {
+        id: 'USR-' + ('000' + (app_state.users_list.length + 1)).slice(-3),
+        name: name,
+        email: email,
+        role: role,
+        permissions: permissions
+      };
+      app_state.users_list.push(new_user);
+      show_notification('Pengguna ' + name + ' berhasil ditambahkan!', 'success');
+    } else {
+      const idx = app_state.users_list.findIndex(u => u.id === user_id);
+      if (idx !== -1) {
+        app_state.users_list[idx] = Object.assign({}, app_state.users_list[idx], payload);
+        show_notification('Data pengguna ' + name + ' berhasil diperbarui!', 'success');
+      }
+    }
+    close_user_modal();
+    render_users_table(app_state.users_list);
+  }
+}
+
+/**
+ * Membuka Modal Konfirmasi Hapus Pengguna
+ */
+function open_delete_user_modal(id, name, email) {
+  const active_email = (app_state.current_user ? app_state.current_user.email : '').toLowerCase().trim();
+  const active_id = app_state.current_user ? app_state.current_user.id : '';
+
+  if ((active_email && email.toLowerCase() === active_email) || (active_id && id === active_id)) {
+    show_notification('Akses Ditolak: Anda tidak dapat menghapus akun Anda sendiri yang sedang aktif.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-delete-user');
+  if (!modal) return;
+
+  document.getElementById('delete-user-id').value = id;
+  const name_el = document.getElementById('delete-user-name-display');
+  const email_el = document.getElementById('delete-user-email-display');
+  if (name_el) name_el.textContent = name;
+  if (email_el) email_el.textContent = email;
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Konfirmasi Hapus Pengguna
+ */
+function close_delete_user_modal() {
+  const modal = document.getElementById('modal-delete-user');
+  if (!modal) return;
+  modal.classList.add('hidden');
+}
+
+/**
+ * Konfirmasi Penghapusan Pengguna ke Backend
+ */
+function confirm_delete_user() {
+  const user_id = document.getElementById('delete-user-id').value;
+  if (!user_id) return;
+
+  const confirm_btn = document.getElementById('btn-confirm-delete-user');
+  if (confirm_btn) {
+    confirm_btn.disabled = true;
+    confirm_btn.textContent = 'Menghapus...';
+  }
+
+  set_loading_state(true);
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (confirm_btn) {
+          confirm_btn.disabled = false;
+          confirm_btn.textContent = 'Hapus Akun';
+        }
+        close_delete_user_modal();
+        if (response && response.success) {
+          show_notification(response.message || 'Pengguna berhasil dihapus.', 'success');
+          load_users_management();
+        } else {
+          show_notification('Gagal menghapus pengguna: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        if (confirm_btn) {
+          confirm_btn.disabled = false;
+          confirm_btn.textContent = 'Hapus Akun';
+        }
+        close_delete_user_modal();
+        show_notification('Error menghapus pengguna: ' + err.message, 'error');
+      })
+      .delete_existing_user(user_id);
+  } else {
+    // Mode simulasi lokal
+    set_loading_state(false);
+    if (confirm_btn) {
+      confirm_btn.disabled = false;
+      confirm_btn.textContent = 'Hapus Akun';
+    }
+    close_delete_user_modal();
+    app_state.users_list = app_state.users_list.filter(u => u.id !== user_id);
+    render_users_table(app_state.users_list);
+    show_notification('Pengguna simulasi berhasil dihapus.', 'success');
+  }
 }
 </script>

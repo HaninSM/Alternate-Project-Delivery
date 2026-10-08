@@ -83,6 +83,17 @@
         </svg>
         <span>Konfigurasi Proyek</span>
       </button>
+
+      <button 
+        type="button" 
+        id="nav-btn-users" 
+        onclick="switch_view('users')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span>Manajemen Pengguna</span>
+      </button>
     </nav>
 
     <!-- User Profile Footer -->
@@ -526,6 +537,63 @@
         </div>
       </section>
 
+      <!-- VIEW 5: USER MANAGEMENT (RBAC) -->
+      <section id="view-users" class="spa-view hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-slate-200 gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Manajemen Pengguna & Hak Akses</h2>
+            <p class="text-xs text-slate-500">Kelola akun pengguna, penugasan role, dan konfigurasi izin modular sistem (RBAC Opsi 2).</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button 
+              type="button" 
+              onclick="load_users_management()" 
+              class="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Segarkan</span>
+            </button>
+            <button 
+              type="button" 
+              onclick="open_user_modal('create')" 
+              class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              <span>+ Tambah Pengguna</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th class="py-3 px-4">Pengguna</th>
+                  <th class="py-3 px-4">Email Google</th>
+                  <th class="py-3 px-4">Role Preset</th>
+                  <th class="py-3 px-4">Izin Akses Granular</th>
+                  <th class="py-3 px-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="5" class="py-8 text-center text-slate-400">
+                    <div class="flex items-center justify-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Memuat data pengguna...</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
@@ -808,5 +876,167 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Tambah / Edit Pengguna (RBAC Opsi 2) -->
+<div id="modal-user-form" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div>
+        <h3 id="modal-user-form-title" class="text-base font-bold text-slate-800">Tambah Pengguna Baru</h3>
+        <p class="text-[11px] text-slate-500">Konfigurasi akun dan hak akses modular.</p>
+      </div>
+      <button onclick="close_user_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-user-management" onsubmit="handle_submit_user(event)" class="space-y-4">
+      <input type="hidden" id="input-user-mode" value="create" />
+      <input type="hidden" id="input-user-id" value="" />
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap *</label>
+          <input 
+            type="text" 
+            id="input-user-name" 
+            required 
+            placeholder="Contoh: Siti Developer" 
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Email Akun Google *</label>
+          <input 
+            type="email" 
+            id="input-user-email" 
+            required 
+            placeholder="nama@example.com" 
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Role Preset Utama *</label>
+        <select 
+          id="input-user-role" 
+          onchange="handle_role_preset_change(this.value)"
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+          <option value="MEMBER">MEMBER (Developer / QA - Eksekusi Task)</option>
+          <option value="PM">PM (Project Manager - Kelola Sprint & Proyek)</option>
+          <option value="ADMIN">ADMIN (Full Control & Manajemen Pengguna)</option>
+          <option value="CLIENT">CLIENT (Eksternal - Read-only View)</option>
+        </select>
+        <p class="text-[10px] text-slate-400 mt-1">
+          💡 Memilih Role akan otomatis mengisi centang hak akses bawaan di bawah ini.
+        </p>
+      </div>
+
+      <!-- Granular Permissions Matrix Checkboxes -->
+      <div class="pt-2 border-t border-slate-100">
+        <label class="block text-xs font-semibold text-slate-700 mb-2">Izin Granular (Modular Permissions):</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-create-project" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Buat Project</strong>
+              <span class="text-[10px] text-slate-500">Inisiasi project baru</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-manage-sprint" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Kelola Sprint</strong>
+              <span class="text-[10px] text-slate-500">Buat bucket & mulai sprint</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-create-task" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Buat Task</strong>
+              <span class="text-[10px] text-slate-500">Tambah task di Backlog/Board</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-move-task" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Geser Task</strong>
+              <span class="text-[10px] text-slate-500">Ubah status & alokasi bucket</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-view-insights" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Akses Insights</strong>
+              <span class="text-[10px] text-slate-500">Lihat grafik Burndown & metrik</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-manage-users" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Kelola Pengguna</strong>
+              <span class="text-[10px] text-slate-500">Akses menu CRUD RBAC</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_user_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-submit-user" 
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span id="btn-submit-user-label">Simpan Pengguna</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Konfirmasi Hapus Pengguna -->
+<div id="modal-delete-user" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center space-x-3 mb-4">
+      <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-sm font-bold text-slate-900">Hapus Pengguna</h3>
+        <p class="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan.</p>
+      </div>
+    </div>
+
+    <p class="text-xs text-slate-600 mb-4">
+      Apakah Anda yakin ingin menghapus akun <strong id="delete-user-name-display" class="text-slate-800"></strong> (<span id="delete-user-email-display" class="font-mono text-[11px] text-slate-500"></span>)?
+    </p>
+    <input type="hidden" id="delete-user-id" value="" />
+
+    <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+      <button 
+        type="button" 
+        onclick="close_delete_user_modal()" 
+        class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+        Batal
+      </button>
+      <button 
+        type="button" 
+        id="btn-confirm-delete-user"
+        onclick="confirm_delete_user()" 
+        class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer">
+        Hapus Akun
+      </button>
+    </div>
   </div>
 </div>

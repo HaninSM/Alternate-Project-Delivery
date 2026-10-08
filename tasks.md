@@ -88,3 +88,32 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba pengisian task ke Backlog.
   - Uji coba drag task dari Backlog ke Sprint bucket.
   - Uji coba Start Sprint yang mengaktifkan sprint dan memunculkan task di Active Board. (Diverifikasi lulus 100% via `tests/test_stage6_scrum.js`).
+
+---
+
+## Tahap 7 - User Management & Modular RBAC Permissions (Opsi 2)
+- [x] Modifikasi skema sheet `Users` dengan menambahkan kolom ke-5: `permissions` (JSON format).
+- [x] Implementasikan sistem izin modular di `Code.gs`:
+  - `DEFAULT_PERMISSIONS` dictionary (`ADMIN`, `PM`, `MEMBER`, `CLIENT`).
+  - Helper `resolve_user_permissions(role, permissions_input)`.
+- [x] Bangun API backend CRUD User Management di `API.gs`:
+  - `get_users_management_list()`: Membaca daftar seluruh pengguna beserta resolusi permissions.
+  - `create_new_user(user_input)`: Menambah akun baru dengan validasi anti-duplikasi email.
+  - `update_existing_user(user_input)`: Mengubah profil/role/permissions dengan proteksi anti-lockout diri sendiri.
+  - `delete_existing_user(user_id)`: Menghapus user dengan proteksi anti-self-deletion.
+- [x] Perbarui penjaga otorisasi granular di seluruh endpoint mutasi:
+  - `can_create_project`: `create_new_project`
+  - `can_manage_sprint`: `create_new_sprint_bucket`, `start_sprint`
+  - `can_create_task`: `create_new_task`
+  - `can_move_task`: `update_task_status`, `move_task_to_sprint`
+  - `can_manage_users`: Seluruh fungsi CRUD pengguna.
+- [x] Bangun antarmuka UI di `UI.html` & controller di `js_main.html`:
+  - Navigasi sidebar: Menu `Manajemen Pengguna` (hanya tampil jika `can_manage_users: true`).
+  - View `view-users`: Tabel pengguna dengan badge role, tag pill izin modular, dan aksi Edit/Hapus.
+  - Modal `#modal-user-form`: Form Tambah/Edit dengan dropdown Role preset autofill & 6 checkbox izin granular.
+  - Modal `#modal-delete-user`: Dialog konfirmasi penghapusan pengguna yang aman.
+- [x] **Quality Gate / Uji Coba Tahap 7:**
+  - Uji coba resolusi izin default dan custom override.
+  - Uji coba otorisasi admin vs non-admin.
+  - Uji coba proteksi anti-lockout dan anti-self-deletion.
+  - Uji coba penegakan izin granular pada proyek dan task. (Diverifikasi lulus 100% via `tests/test_stage7_rbac.js`).

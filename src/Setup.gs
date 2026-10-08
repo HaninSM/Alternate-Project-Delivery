@@ -4,7 +4,7 @@
  */
 
 const SPREADSHEET_SCHEMA = {
-  Users: ['id', 'name', 'email', 'role'],
+  Users: ['id', 'name', 'email', 'role', 'permissions'],
   Projects: ['id', 'name', 'pm_id'],
   Sprints: ['id', 'project_id', 'name', 'start_date', 'end_date'],
   Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at'],
@@ -24,6 +24,18 @@ function setup_database_schema(target_spreadsheet_id) {
       const header_range = sheet.getRange(1, 1, 1, headers.length);
       header_range.setFontWeight('bold');
       header_range.setBackground('#E2E8F0');
+    } else {
+      // Pastikan kolom baru (seperti permissions di Users) ditambahkan jika sheet sudah ada sebelumnya
+      const existing_headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0].map(h => String(h).trim().toLowerCase());
+      headers.forEach((h_name, idx) => {
+        if (!existing_headers.includes(h_name.toLowerCase())) {
+          const col_idx = idx + 1;
+          const cell = sheet.getRange(1, col_idx);
+          cell.setValue(h_name);
+          cell.setFontWeight('bold');
+          cell.setBackground('#E2E8F0');
+        }
+      });
     }
   }
 

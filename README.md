@@ -34,6 +34,17 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
 - **Lead Time & Cycle Time:** Mengukur kecepatan aktual delivery tim.
 - **Deteksi Blocker Otomatis:** Menyorot task yang macet di status `IN_PROGRESS` atau `REVIEW` lebih dari 48 jam.
 
+### 4. Manajemen Pengguna & Granular RBAC Permissions (Opsi 2)
+- **Role Presets:** `ADMIN`, `PM`, `MEMBER`, `CLIENT` dengan konfigurasi izin bawaan otomatis.
+- **Modular Checkbox Permissions:** Administrator dapat menyesuaikan izin per pengguna secara independen:
+  - `can_create_project`: Inisiasi / buat project baru.
+  - `can_manage_sprint`: Buat bucket sprint & mulai sprint (Planning).
+  - `can_create_task`: Buat task baru di Backlog & Active Board.
+  - `can_move_task`: Geser status task di Kanban & alokasi bucket.
+  - `can_view_insights`: Akses analitik metrik & burndown.
+  - `can_manage_users`: Akses menu CRUD User Management (Admin only).
+- **Proteksi Anti-Lockout:** Admin tidak dapat mencabut hak akses manajemen akun miliknya sendiri maupun menghapus akun aktifnya sendiri.
+
 ---
 
 ## 📁 Struktur Proyek (Modular)

@@ -13,6 +13,7 @@ Menyimpan data identitas dan role otorisasi pengguna.
 | `name` | String | Nama lengkap pengguna | `Budi Setiawan` |
 | `email` | String | Alamat email Google pengguna (Kunci Autentikasi) | `budi@example.com` |
 | `role` | String | Peran pengguna: `ADMIN`, `PM`, `MEMBER`, `CLIENT` | `PM` |
+| `permissions` | String (JSON) | Izin granular modular (Opsi 2: `{can_create_project, can_manage_sprint, can_create_task, can_move_task, can_view_insights, can_manage_users}`) | `{"can_create_project":true,"can_manage_sprint":true,...}` |
 
 ---
 

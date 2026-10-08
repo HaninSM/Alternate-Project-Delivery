@@ -120,11 +120,13 @@ function get_projects_list() {
 function create_new_project(project_input) {
   try {
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
     const current_user_id = user_profile.data ? user_profile.data.id : 'USR-001';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
 
-    if (current_user_role !== 'ADMIN' && current_user_role !== 'PM') {
-      return { success: false, message: 'Akses Ditolak: Hanya PM/Admin yang dapat membuat project baru.' };
+    if (!permissions.can_create_project) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk membuat project baru.' };
     }
 
     if (!project_input || !project_input.name || project_input.name.trim() === '') {
@@ -246,11 +248,13 @@ function get_sprint_tasks(sprint_id) {
 function create_new_task(task_input) {
   try {
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
     const current_user_email = user_profile.data ? user_profile.data.email : 'unknown';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
 
-    if (current_user_role !== 'ADMIN' && current_user_role !== 'PM') {
-      return { success: false, message: 'Akses Ditolak: Hanya PM/Admin yang dapat membuat task.' };
+    if (!permissions.can_create_task) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk membuat task baru.' };
     }
 
     if (!task_input || !task_input.title) return { success: false, message: 'Judul task wajib diisi.' };
@@ -292,11 +296,13 @@ function update_task_status(task_id, new_status) {
     }
 
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
     const current_user_email = user_profile.data ? user_profile.data.email : 'unknown';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
 
-    if (current_user_role === 'CLIENT') {
-      return { success: false, message: 'Akses Ditolak: Klien Eksternal memiliki hak akses Read-only.' };
+    if (!permissions.can_move_task) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk menggeser status task.' };
     }
 
     const spreadsheet = get_db_spreadsheet();
@@ -497,9 +503,12 @@ function get_project_backlog_and_sprints(project_id) {
 function create_new_sprint_bucket(project_id, sprint_name) {
   try {
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
-    if (current_user_role !== 'ADMIN' && current_user_role !== 'PM') {
-      return { success: false, message: 'Akses Ditolak: Hanya PM/Admin yang dapat membuat sprint baru.' };
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_sprint) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk membuat sprint baru.' };
     }
 
     let prj_id = String(project_id || '').trim();
@@ -560,9 +569,12 @@ function create_new_sprint_bucket(project_id, sprint_name) {
 function move_task_to_sprint(task_id, target_sprint_id) {
   try {
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
-    if (current_user_role === 'CLIENT') {
-      return { success: false, message: 'Akses Ditolak: Client memiliki akses Read-only.' };
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_move_task) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk memindahkan task.' };
     }
 
     const spreadsheet = get_db_spreadsheet();
@@ -612,9 +624,12 @@ function move_task_to_sprint(task_id, target_sprint_id) {
 function start_sprint(input) {
   try {
     const user_profile = get_user_role();
-    const current_user_role = user_profile.data ? user_profile.data.role : 'CLIENT';
-    if (current_user_role !== 'ADMIN' && current_user_role !== 'PM') {
-      return { success: false, message: 'Akses Ditolak: Hanya PM/Admin yang dapat memulai sprint.' };
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_sprint) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk memulai sprint.' };
     }
 
     if (!input || !input.sprint_id) return { success: false, message: 'Sprint ID tidak valid.' };
@@ -665,5 +680,324 @@ function start_sprint(input) {
     };
   } catch (e) {
     return { success: false, message: 'Gagal memulai sprint: ' + e.message };
+  }
+}
+
+/**
+ * =========================================================================
+ * USER MANAGEMENT CONTROLLER (RBAC OPSI 2: HYBRID + MODULAR PERMISSIONS)
+ * =========================================================================
+ */
+
+/**
+ * Mengambil daftar seluruh pengguna beserta role dan granular permissions
+ * Khusus untuk Administrator / Pengguna dengan hak can_manage_users.
+ *
+ * @return {Object} Status respon dan data daftar pengguna
+ */
+function get_users_management_list() {
+  try {
+    const user_profile = get_user_role();
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_users) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk mengelola pengguna.' };
+    }
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_users = spreadsheet.getSheetByName('Users');
+    if (!sheet_users || sheet_users.getLastRow() <= 1) {
+      return { success: true, data: [] };
+    }
+
+    const values = sheet_users.getDataRange().getValues();
+    const header = values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = header.indexOf('id');
+    const name_idx = header.indexOf('name');
+    const email_idx = header.indexOf('email');
+    const role_idx = header.indexOf('role');
+    const perm_idx = header.indexOf('permissions');
+
+    const users = [];
+    for (let r = 1; r < values.length; r++) {
+      const row = values[r];
+      const role = String(row[role_idx] || 'CLIENT').toUpperCase().trim();
+      const raw_perm = perm_idx !== -1 ? row[perm_idx] : null;
+      users.push({
+        id: row[id_idx],
+        name: row[name_idx],
+        email: row[email_idx],
+        role: role,
+        permissions: resolve_user_permissions(role, raw_perm)
+      });
+    }
+
+    return { success: true, data: users };
+  } catch (error) {
+    return { success: false, message: 'Gagal memuat daftar pengguna: ' + error.message };
+  }
+}
+
+/**
+ * Membuat data pengguna baru dengan role & hak akses granular
+ *
+ * @param {Object} user_input - { name, email, role, permissions }
+ * @return {Object} Status respon dan data pengguna baru
+ */
+function create_new_user(user_input) {
+  try {
+    const user_profile = get_user_role();
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_users) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk membuat pengguna baru.' };
+    }
+
+    if (!user_input || !user_input.name || !user_input.name.trim()) {
+      return { success: false, message: 'Nama pengguna wajib diisi.' };
+    }
+    if (!user_input.email || !user_input.email.trim()) {
+      return { success: false, message: 'Email pengguna wajib diisi.' };
+    }
+
+    const name = user_input.name.trim();
+    const email = user_input.email.toLowerCase().trim();
+    const role = String(user_input.role || 'MEMBER').toUpperCase().trim();
+    const user_perms = resolve_user_permissions(role, user_input.permissions);
+
+    const spreadsheet = get_db_spreadsheet();
+    let sheet_users = spreadsheet.getSheetByName('Users');
+    if (!sheet_users) {
+      sheet_users = spreadsheet.insertSheet('Users');
+      sheet_users.appendRow(['id', 'name', 'email', 'role', 'permissions']);
+    }
+
+    const values = sheet_users.getDataRange().getValues();
+    const header = values[0].map(h => String(h).trim().toLowerCase());
+    const email_idx = header.indexOf('email');
+
+    // Validasi duplikasi email
+    if (email_idx !== -1) {
+      for (let r = 1; r < values.length; r++) {
+        if (String(values[r][email_idx]).toLowerCase().trim() === email) {
+          return { success: false, message: 'Email "' + email + '" sudah terdaftar.' };
+        }
+      }
+    }
+
+    // Generate User ID otomatis USR-001, USR-002, dst.
+    const next_id_num = values.length;
+    const user_id = 'USR-' + ('000' + next_id_num).slice(-3);
+
+    sheet_users.appendRow([
+      user_id,
+      name,
+      email,
+      role,
+      JSON.stringify(user_perms)
+    ]);
+
+    return {
+      success: true,
+      message: 'Pengguna baru berhasil ditambahkan.',
+      data: {
+        id: user_id,
+        name: name,
+        email: email,
+        role: role,
+        permissions: user_perms
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal membuat pengguna: ' + error.message };
+  }
+}
+
+/**
+ * Memperbarui data pengguna yang ada (nama, email, role, dan izin granular)
+ * Proteksi anti-lockout: Admin aktif tidak bisa mencabut can_manage_users dari dirinya sendiri.
+ *
+ * @param {Object} user_input - { id, name, email, role, permissions }
+ * @return {Object} Status respon
+ */
+function update_existing_user(user_input) {
+  try {
+    const user_profile = get_user_role();
+    const active_email = (user_profile.data ? user_profile.data.email : '').toLowerCase().trim();
+    const active_id = user_profile.data ? user_profile.data.id : '';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_users) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk mengubah data pengguna.' };
+    }
+
+    if (!user_input || !user_input.id) {
+      return { success: false, message: 'ID pengguna tidak valid.' };
+    }
+    if (!user_input.name || !user_input.name.trim()) {
+      return { success: false, message: 'Nama pengguna wajib diisi.' };
+    }
+    if (!user_input.email || !user_input.email.trim()) {
+      return { success: false, message: 'Email pengguna wajib diisi.' };
+    }
+
+    const target_id = String(user_input.id).trim();
+    const new_name = user_input.name.trim();
+    const new_email = user_input.email.toLowerCase().trim();
+    const new_role = String(user_input.role || 'MEMBER').toUpperCase().trim();
+    const resolved_perms = resolve_user_permissions(new_role, user_input.permissions);
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_users = spreadsheet.getSheetByName('Users');
+    if (!sheet_users || sheet_users.getLastRow() <= 1) {
+      return { success: false, message: 'Data pengguna tidak ditemukan.' };
+    }
+
+    const values = sheet_users.getDataRange().getValues();
+    const header = values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = header.indexOf('id');
+    const name_idx = header.indexOf('name');
+    const email_idx = header.indexOf('email');
+    const role_idx = header.indexOf('role');
+    const perm_idx = header.indexOf('permissions');
+
+    let target_row_index = -1;
+    let old_email = '';
+
+    for (let r = 1; r < values.length; r++) {
+      if (String(values[r][id_idx]).trim() === target_id) {
+        target_row_index = r + 1;
+        old_email = String(values[r][email_idx]).toLowerCase().trim();
+        break;
+      }
+    }
+
+    if (target_row_index === -1) {
+      return { success: false, message: 'Pengguna dengan ID ' + target_id + ' tidak ditemukan.' };
+    }
+
+    // Proteksi Anti-Lockout: Jangan izinkan user aktif mencabut can_manage_users dari dirinya sendiri
+    const is_self = (active_email && old_email === active_email) || (active_id && target_id === active_id);
+    if (is_self && resolved_perms.can_manage_users !== true) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Anda tidak dapat mencabut hak akses manajemen pengguna dari akun Anda sendiri demi mencegah lockout sistem.'
+      };
+    }
+
+    // Validasi jika email diubah agar tidak bentrok dengan user lain
+    if (new_email !== old_email) {
+      for (let r = 1; r < values.length; r++) {
+        if (r + 1 !== target_row_index && String(values[r][email_idx]).toLowerCase().trim() === new_email) {
+          return { success: false, message: 'Email "' + new_email + '" sudah digunakan oleh akun lain.' };
+        }
+      }
+    }
+
+    // Update baris
+    sheet_users.getRange(target_row_index, name_idx + 1).setValue(new_name);
+    sheet_users.getRange(target_row_index, email_idx + 1).setValue(new_email);
+    sheet_users.getRange(target_row_index, role_idx + 1).setValue(new_role);
+    if (perm_idx !== -1) {
+      sheet_users.getRange(target_row_index, perm_idx + 1).setValue(JSON.stringify(resolved_perms));
+    } else {
+      // Jika kolom permissions belum ada, tambahkan kolom di akhir
+      sheet_users.getRange(1, 5).setValue('permissions').setFontWeight('bold').setBackground('#E2E8F0');
+      sheet_users.getRange(target_row_index, 5).setValue(JSON.stringify(resolved_perms));
+    }
+
+    return {
+      success: true,
+      message: 'Data pengguna ' + new_name + ' berhasil diperbarui.',
+      data: {
+        id: target_id,
+        name: new_name,
+        email: new_email,
+        role: new_role,
+        permissions: resolved_perms
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal memperbarui pengguna: ' + error.message };
+  }
+}
+
+/**
+ * Menghapus akun pengguna dari sheet Users
+ * Proteksi anti-lockout: Admin tidak bisa menghapus akun dirinya sendiri yang sedang aktif.
+ *
+ * @param {string} user_id - ID unik pengguna yang akan dihapus
+ * @return {Object} Status respon
+ */
+function delete_existing_user(user_id) {
+  try {
+    const user_profile = get_user_role();
+    const active_email = (user_profile.data ? user_profile.data.email : '').toLowerCase().trim();
+    const active_id = user_profile.data ? user_profile.data.id : '';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_users) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk menghapus pengguna.' };
+    }
+
+    if (!user_id || !String(user_id).trim()) {
+      return { success: false, message: 'ID pengguna tidak valid.' };
+    }
+
+    const target_id = String(user_id).trim();
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_users = spreadsheet.getSheetByName('Users');
+    if (!sheet_users || sheet_users.getLastRow() <= 1) {
+      return { success: false, message: 'Data pengguna tidak ditemukan.' };
+    }
+
+    const values = sheet_users.getDataRange().getValues();
+    const header = values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = header.indexOf('id');
+    const email_idx = header.indexOf('email');
+    const name_idx = header.indexOf('name');
+
+    let target_row_index = -1;
+    let target_email = '';
+    let target_name = '';
+
+    for (let r = 1; r < values.length; r++) {
+      if (String(values[r][id_idx]).trim() === target_id) {
+        target_row_index = r + 1;
+        target_email = String(values[r][email_idx]).toLowerCase().trim();
+        target_name = String(values[r][name_idx]).trim();
+        break;
+      }
+    }
+
+    if (target_row_index === -1) {
+      return { success: false, message: 'Pengguna dengan ID ' + target_id + ' tidak ditemukan.' };
+    }
+
+    // Proteksi Anti-Lockout: Dilarang menghapus akun sendiri yang sedang aktif
+    const is_self = (active_email && target_email === active_email) || (active_id && target_id === active_id);
+    if (is_self) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Anda tidak dapat menghapus akun Anda sendiri yang sedang aktif.'
+      };
+    }
+
+    sheet_users.deleteRow(target_row_index);
+
+    return {
+      success: true,
+      message: 'Pengguna ' + target_name + ' berhasil dihapus.'
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal menghapus pengguna: ' + error.message };
   }
 }
