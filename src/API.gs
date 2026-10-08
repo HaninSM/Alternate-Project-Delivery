@@ -354,9 +354,23 @@ function update_task_status(task_id, new_status) {
 }
 
 /**
+ * Helper format tanggal aman untuk serialisasi GAS ke client
+ */
+function format_gas_date(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = ('0' + (val.getMonth() + 1)).slice(-2);
+    const d = ('0' + val.getDate()).slice(-2);
+    return y + '-' + m + '-' + d;
+  }
+  return String(val).trim();
+}
+
+/**
  * Mengambil seluruh task Backlog dan daftar Sprint Buckets untuk suatu Project
  *
- * @param {string} project_id - ID unik proyek (contoh: 'PRJ-001').
+ * @param {string} project_id - ID unik proyek atau nama proyek
  * @return {Object} Payload { success: boolean, data: { backlog_tasks: [], sprints: [] } }
  */
 function get_project_backlog_and_sprints(project_id) {
@@ -367,8 +381,20 @@ function get_project_backlog_and_sprints(project_id) {
     const sheet_tasks = spreadsheet.getSheetByName('Tasks');
     const sheet_users = spreadsheet.getSheetByName('Users');
 
-    const prj_id = String(project_id || '').trim();
+    let prj_id = String(project_id || '').trim();
     if (!prj_id) return { success: false, message: 'Project ID tidak valid.' };
+
+    // Resolusi otomatis jika input berupa nama project atau ID
+    if (sheet_projects && sheet_projects.getLastRow() > 1) {
+      const p_values = sheet_projects.getDataRange().getValues();
+      for (let r = 1; r < p_values.length; r++) {
+        if (String(p_values[r][0]).trim().toLowerCase() === prj_id.toLowerCase() ||
+            String(p_values[r][1]).trim().toLowerCase() === prj_id.toLowerCase()) {
+          prj_id = String(p_values[r][0]).trim();
+          break;
+        }
+      }
+    }
 
     // Lookup User Name
     const user_name_map = {};
@@ -385,15 +411,15 @@ function get_project_backlog_and_sprints(project_id) {
     if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
       const sp_values = sheet_sprints.getDataRange().getValues();
       for (let r = 1; r < sp_values.length; r++) {
-        if (String(sp_values[r][1]).trim() === prj_id) {
+        if (String(sp_values[r][1]).trim().toLowerCase() === prj_id.toLowerCase()) {
           const sp_id = String(sp_values[r][0]).trim();
           sprint_ids.push(sp_id);
           sprints.push({
             id: sp_id,
             project_id: prj_id,
-            name: sp_values[r][2],
-            start_date: sp_values[r][3],
-            end_date: sp_values[r][4],
+            name: String(sp_values[r][2] || ''),
+            start_date: format_gas_date(sp_values[r][3]),
+            end_date: format_gas_date(sp_values[r][4]),
             tasks: [],
             total_hours: 0
           });
@@ -429,8 +455,8 @@ function get_project_backlog_and_sprints(project_id) {
           assignee_id: assignee_id,
           assignee_name: user_name_map[assignee_id] || assignee_id || 'Belum Ditugaskan',
           estimate_hours: Number(row[est_idx]) || 0,
-          created_at: row[crt_idx],
-          updated_at: row[upd_idx]
+          created_at: format_gas_date(row[crt_idx]),
+          updated_at: format_gas_date(row[upd_idx])
         };
 
         // Cek apakah masuk bucket Backlog
@@ -476,12 +502,25 @@ function create_new_sprint_bucket(project_id, sprint_name) {
       return { success: false, message: 'Akses Ditolak: Hanya PM/Admin yang dapat membuat sprint baru.' };
     }
 
-    const prj_id = String(project_id || '').trim();
+    let prj_id = String(project_id || '').trim();
     if (!prj_id) return { success: false, message: 'Project ID tidak valid.' };
 
     const spreadsheet = get_db_spreadsheet();
+    const sheet_projects = spreadsheet.getSheetByName('Projects');
     const sheet_sprints = spreadsheet.getSheetByName('Sprints');
     if (!sheet_sprints) return { success: false, message: 'Sheet Sprints tidak ditemukan.' };
+
+    // Resolusi otomatis jika input berupa nama project
+    if (sheet_projects && sheet_projects.getLastRow() > 1) {
+      const p_values = sheet_projects.getDataRange().getValues();
+      for (let r = 1; r < p_values.length; r++) {
+        if (String(p_values[r][0]).trim().toLowerCase() === prj_id.toLowerCase() ||
+            String(p_values[r][1]).trim().toLowerCase() === prj_id.toLowerCase()) {
+          prj_id = String(p_values[r][0]).trim();
+          break;
+        }
+      }
+    }
 
     const next_sp_num = sheet_sprints.getLastRow();
     const sprint_id = 'SPR-' + ('000' + next_sp_num).slice(-3);

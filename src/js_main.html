@@ -1052,6 +1052,9 @@ function escape_html(str) {
  * Memuat data Product Backlog dan daftar Sprint Buckets untuk proyek aktif
  */
 function load_scrum_planning_data() {
+  const prj_id = app_state.active_project_id || (app_state.projects && app_state.projects.length > 0 ? app_state.projects[0].id : 'PRJ-001');
+  app_state.active_project_id = prj_id;
+
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     set_loading_state(true);
     google.script.run
@@ -1063,19 +1066,21 @@ function load_scrum_planning_data() {
           render_scrum_planning_view();
         } else {
           show_notification('Gagal memuat Scrum Backlog: ' + (response ? response.message : ''), 'error');
+          render_scrum_planning_view();
         }
       })
       .withFailureHandler(err => {
         set_loading_state(false);
         show_notification('Error memuat Scrum Backlog: ' + err.message, 'error');
+        render_scrum_planning_view();
       })
-      .get_project_backlog_and_sprints(app_state.active_project_id);
+      .get_project_backlog_and_sprints(prj_id);
   } else {
     // Mode simulasi lokal
     app_state.backlog_tasks = [
       {
         id: 'TSK-B01',
-        sprint_id: 'BACKLOG-' + app_state.active_project_id,
+        sprint_id: 'BACKLOG-' + prj_id,
         title: 'Desain Wireframe Product Backlog & Sprints',
         status: 'TODO',
         assignee_id: 'USR-003',
@@ -1084,7 +1089,7 @@ function load_scrum_planning_data() {
       },
       {
         id: 'TSK-B02',
-        sprint_id: 'BACKLOG-' + app_state.active_project_id,
+        sprint_id: 'BACKLOG-' + prj_id,
         title: 'Implementasi API webhook payment testing',
         status: 'TODO',
         assignee_id: 'USR-004',
@@ -1095,7 +1100,7 @@ function load_scrum_planning_data() {
     app_state.sprints = [
       {
         id: 'SPR-001',
-        project_id: app_state.active_project_id,
+        project_id: prj_id,
         name: 'Sprint 1 - Foundations',
         start_date: new Date().toISOString().split('T')[0],
         end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
@@ -1129,8 +1134,15 @@ function render_scrum_planning_view() {
     backlog_container.innerHTML = '';
     if (backlog_tasks.length === 0) {
       backlog_container.innerHTML = `
-        <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
-          Belum ada task di Backlog.<br/>Klik <strong>+ Tambah Task ke Backlog</strong> di atas untuk mulai mengisi.
+        <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400 flex flex-col items-center">
+          <span class="mb-1 text-slate-600 font-medium">Belum ada task di Backlog.</span>
+          <span class="text-slate-400 mb-3">Isi task perencanaan terlebih dahulu sebelum dimasukkan ke sprint.</span>
+          <button 
+            type="button" 
+            onclick="open_backlog_task_modal()" 
+            class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
+            <span>+ Tambah Task ke Backlog</span>
+          </button>
         </div>
       `;
     } else {
@@ -1150,8 +1162,15 @@ function render_scrum_planning_view() {
 
   if (sprints.length === 0) {
     sprints_container.innerHTML = `
-      <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400">
-        Belum ada bucket sprint. Klik <strong>+ Buat Sprint Baru</strong> untuk memulai siklus.
+      <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 flex flex-col items-center">
+        <span class="mb-1 text-slate-600 font-medium">Belum ada bucket sprint untuk proyek ini.</span>
+        <span class="text-slate-400 mb-3">Buat bucket sprint baru untuk mulai mendistribusikan task dari Backlog.</span>
+        <button 
+          type="button" 
+          onclick="open_new_sprint_modal()" 
+          class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span>+ Buat Sprint Baru</span>
+        </button>
       </div>
     `;
     return;
@@ -1381,18 +1400,53 @@ function handle_bucket_drop(e, target_bucket_id) {
 }
 
 /**
- * Handler membuat bucket Sprint baru (Sprint 2, 3, dst.)
+ * Membuka Modal Buat Sprint Bucket Baru (Bebas dari hambatan browser prompt())
  */
-function handle_create_new_sprint_bucket() {
+function open_new_sprint_modal() {
+  const modal = document.getElementById('modal-new-sprint');
+  if (!modal) return;
   const next_num = (app_state.sprints ? app_state.sprints.length : 0) + 1;
-  const sprint_name = prompt('Masukkan nama bucket Sprint baru:', 'Sprint ' + next_num + ' (Planning)');
-  if (!sprint_name || !sprint_name.trim()) return;
+  const input_name = document.getElementById('input-new-sprint-name');
+  if (input_name) input_name.value = 'Sprint ' + next_num + ' (Planning)';
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Buat Sprint Bucket Baru
+ */
+function close_new_sprint_modal() {
+  const modal = document.getElementById('modal-new-sprint');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  const form = document.getElementById('form-new-sprint');
+  if (form) form.reset();
+}
+
+/**
+ * Submit form pembuatan bucket Sprint baru
+ */
+function handle_submit_new_sprint_bucket(e) {
+  e.preventDefault();
+  const input_name = document.getElementById('input-new-sprint-name');
+  if (!input_name || !input_name.value.trim()) return;
+
+  const sprint_name = input_name.value.trim();
+  const submit_btn = document.getElementById('btn-submit-new-sprint');
+  if (submit_btn) {
+    submit_btn.disabled = true;
+    submit_btn.textContent = 'Membuat...';
+  }
 
   set_loading_state(true);
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(response => {
         set_loading_state(false);
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Buat Sprint';
+        }
+        close_new_sprint_modal();
         if (response && response.success) {
           show_notification(response.message || 'Bucket sprint baru berhasil dibuat!', 'success');
           load_scrum_planning_data();
@@ -1402,16 +1456,26 @@ function handle_create_new_sprint_bucket() {
       })
       .withFailureHandler(err => {
         set_loading_state(false);
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Buat Sprint';
+        }
+        close_new_sprint_modal();
         show_notification('Error membuat sprint: ' + err.message, 'error');
       })
-      .create_new_sprint_bucket(app_state.active_project_id, sprint_name.trim());
+      .create_new_sprint_bucket(app_state.active_project_id, sprint_name);
   } else {
     // Mode simulasi lokal
     set_loading_state(false);
+    if (submit_btn) {
+      submit_btn.disabled = false;
+      submit_btn.textContent = 'Buat Sprint';
+    }
+    close_new_sprint_modal();
     const new_sp = {
       id: 'SPR-00' + (app_state.sprints.length + 1),
       project_id: app_state.active_project_id,
-      name: sprint_name.trim(),
+      name: sprint_name,
       start_date: new Date().toISOString().split('T')[0],
       end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
       tasks: [],
@@ -1421,6 +1485,13 @@ function handle_create_new_sprint_bucket() {
     render_scrum_planning_view();
     show_notification('Bucket sprint ' + sprint_name + ' berhasil dibuat!', 'success');
   }
+}
+
+/**
+ * Kompatibilitas alias tombol Buat Sprint
+ */
+function handle_create_new_sprint_bucket() {
+  open_new_sprint_modal();
 }
 
 /**
