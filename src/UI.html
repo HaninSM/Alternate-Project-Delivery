@@ -1,0 +1,745 @@
+<!-- UI.html: Komponen Layout Modular (Navbar, Sidebar, Header Proyek, dan Container View) -->
+
+<!-- Layout Container -->
+<div class="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
+  
+  <!-- Sidebar -->
+  <aside id="app-sidebar" class="w-64 bg-slate-900 text-slate-200 flex flex-col flex-shrink-0 transition-all duration-300">
+    <!-- Brand / Logo -->
+    <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/40">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+          A
+        </div>
+        <div>
+          <span class="font-bold text-white text-base tracking-tight block">Alternate PD</span>
+          <span class="text-[10px] text-indigo-400 font-medium tracking-wider uppercase">LITE Edition</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav Items -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <div class="px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+        Manajemen Proyek
+      </div>
+      
+      <button 
+        type="button" 
+        id="nav-btn-dashboard" 
+        onclick="switch_view('dashboard')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-white bg-indigo-600/90 shadow-sm transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        <span>Dashboard Utama</span>
+      </button>
+
+      <button 
+        type="button" 
+        id="nav-btn-board" 
+        onclick="switch_view('board')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        </svg>
+        <span>Kanban Board</span>
+      </button>
+
+      <button 
+        type="button" 
+        id="nav-btn-scrum-planning" 
+        onclick="switch_view('scrum-planning')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+        <span>Scrum Planning</span>
+      </button>
+
+      <button 
+        type="button" 
+        id="nav-btn-insights" 
+        onclick="switch_view('insights')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+        <span>Actionable Insights</span>
+      </button>
+
+      <div class="pt-6 px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+        Pengaturan
+      </div>
+
+      <button 
+        type="button" 
+        id="nav-btn-settings" 
+        onclick="switch_view('settings')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Konfigurasi Proyek</span>
+      </button>
+    </nav>
+
+    <!-- User Profile Footer -->
+    <div class="p-4 border-t border-slate-800 bg-slate-950/40">
+      <div class="flex items-center space-x-3">
+        <div id="user-avatar" class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-sm">
+          ?
+        </div>
+        <div class="flex-1 min-w-0">
+          <p id="nav-user-name" class="text-sm font-medium text-white truncate">Memuat...</p>
+          <div class="flex items-center space-x-1.5">
+            <span id="nav-user-role-badge" class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
+              ROLE
+            </span>
+            <span id="nav-user-email" class="text-[11px] text-slate-400 truncate"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    
+    <!-- Top Navbar -->
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10">
+      <!-- Project & Sprint Context Selector -->
+      <div class="flex items-center space-x-4">
+        <div>
+          <span class="text-xs text-slate-400 block font-medium">Proyek Aktif</span>
+          <span id="header-project-name" class="text-sm font-semibold text-slate-800">Website Redesign MVP</span>
+        </div>
+        <div class="h-6 w-px bg-slate-200"></div>
+        <div>
+          <span class="text-xs text-slate-400 block font-medium">Sprint Aktif</span>
+          <span id="header-sprint-name" class="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+            Sprint 1 - Foundations
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Action Items -->
+      <div class="flex items-center space-x-3">
+        <span id="rbac-permission-tag" class="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+          Mode: Read-only
+        </span>
+        <button 
+          id="btn-refresh-data" 
+          onclick="handle_refresh_data()" 
+          title="Segarkan Data" 
+          class="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- SPA Views Container -->
+    <main class="flex-1 overflow-y-auto p-6 bg-slate-50">
+      
+      <!-- VIEW 0: WELCOME DASHBOARD -->
+      <section id="view-dashboard" class="spa-view block">
+        <!-- Welcome Banner -->
+        <div class="mb-8 p-6 bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 rounded-2xl text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+          <div>
+            <div class="inline-flex items-center space-x-2 bg-indigo-500/30 px-3 py-1 rounded-full text-xs font-semibold mb-2 text-indigo-100">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Login Berhasil</span>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight">Selamat Datang, <span id="dash-welcome-name">Pengguna</span>!</h2>
+            <p class="text-xs text-indigo-100 mt-1 max-w-xl">
+              Platform Alternate Project Delivery siap membantu Anda memantau alur proyek, time-in-status, serta eskalasi hambatan secara akurat.
+            </p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button 
+              id="dash-btn-create-prj"
+              onclick="open_project_modal()" 
+              class="px-4 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl text-xs font-bold shadow-md transition-all flex items-center space-x-2 cursor-pointer">
+              <span>+ Buat Project Baru</span>
+            </button>
+            <button 
+              onclick="switch_view('board')" 
+              class="px-4 py-2.5 bg-indigo-500/40 hover:bg-indigo-500/60 border border-indigo-300/40 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer">
+              Buka Board &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- System Prompt / Offering Banner -->
+        <div id="dash-create-offer-box" class="mb-8 p-5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            💡
+          </div>
+          <div class="flex-1">
+            <h3 class="text-sm font-bold text-amber-900">Mulai Inisiatif Baru atau Buka Kanban Board yang Sedang Berjalan?</h3>
+            <p class="text-xs text-amber-700 mt-1">
+              Sistem mendeteksi Anda siap memulai siklus sprint baru. Anda dapat membuat Project baru dengan target tanggal sprint, atau langsung menuju ke <strong>Kanban Board</strong> untuk mengelola task aktif.
+            </p>
+            <div class="mt-3 flex items-center space-x-3">
+              <button 
+                onclick="open_project_modal()" 
+                class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer">
+                Buat Project Sekarang
+              </button>
+              <button 
+                onclick="switch_view('board')" 
+                class="px-3.5 py-1.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100/60 rounded-lg text-xs font-semibold transition-colors cursor-pointer">
+                Lanjut ke Kanban Board
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Project Overview List -->
+        <div class="mb-6 flex justify-between items-center">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Daftar Project Terdaftar</h3>
+            <p class="text-xs text-slate-400">Pilih proyek untuk membuka ruang kerja dan papan tugas.</p>
+          </div>
+        </div>
+
+        <div id="dashboard-project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Item Card Project Default -->
+          <div class="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">PRJ-001</span>
+                <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Sprint 1 Aktif</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-800">Website Redesign MVP</h4>
+              <p class="text-xs text-slate-500 mt-1">Pengembangan portal delivery dan pondasi alur task.</p>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-xs text-slate-400">PIC: Budi PM</span>
+              <button onclick="switch_view('board')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer">
+                Buka Board &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 1: KANBAN BOARD -->
+      <section id="view-board" class="spa-view hidden">
+        <div class="mb-6 flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Papan Alur Tugas (Kanban)</h2>
+            <p class="text-xs text-slate-500">Pantau progres pengerjaan task dan transisi status secara visual.</p>
+          </div>
+          <div id="board-actions">
+            <!-- Tombol Tambah Task (hanya untuk Admin & PM) -->
+            <button 
+              id="btn-add-task" 
+              onclick="open_task_modal()" 
+              class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <span>+ Tambah Task Baru</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid 4 Kolom Kanban Drag & Drop -->
+        <div id="kanban-columns-container" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- TODO -->
+          <div class="bg-slate-100 rounded-xl p-3 border border-slate-200/80 flex flex-col min-h-[420px] transition-colors">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-600">TODO</span>
+              <span id="count-todo" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">0</span>
+            </div>
+            <div 
+              id="column-todo" 
+              data-status="TODO"
+              ondragover="handle_drag_over(event)" 
+              ondragleave="handle_drag_leave(event)" 
+              ondrop="handle_drop(event, 'TODO')" 
+              class="task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+              <div class="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-400 italic text-center">
+                Belum ada task di TODO
+              </div>
+            </div>
+          </div>
+
+          <!-- IN PROGRESS -->
+          <div class="bg-blue-50/50 rounded-xl p-3 border border-blue-200/80 flex flex-col min-h-[420px] transition-colors">
+            <div class="flex items-center justify-between pb-3 border-b border-blue-200">
+              <span class="text-xs font-bold uppercase tracking-wider text-blue-700">IN PROGRESS</span>
+              <span id="count-in_progress" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">0</span>
+            </div>
+            <div 
+              id="column-in_progress" 
+              data-status="IN_PROGRESS"
+              ondragover="handle_drag_over(event)" 
+              ondragleave="handle_drag_leave(event)" 
+              ondrop="handle_drop(event, 'IN_PROGRESS')" 
+              class="task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+              <div class="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-400 italic text-center">
+                Belum ada task yang berjalan
+              </div>
+            </div>
+          </div>
+
+          <!-- REVIEW -->
+          <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-200/80 flex flex-col min-h-[420px] transition-colors">
+            <div class="flex items-center justify-between pb-3 border-b border-amber-200">
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-700">REVIEW</span>
+              <span id="count-review" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">0</span>
+            </div>
+            <div 
+              id="column-review" 
+              data-status="REVIEW"
+              ondragover="handle_drag_over(event)" 
+              ondragleave="handle_drag_leave(event)" 
+              ondrop="handle_drop(event, 'REVIEW')" 
+              class="task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+              <div class="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-400 italic text-center">
+                Belum ada task dalam review
+              </div>
+            </div>
+          </div>
+
+          <!-- DONE -->
+          <div class="bg-emerald-50/50 rounded-xl p-3 border border-emerald-200/80 flex flex-col min-h-[420px] transition-colors">
+            <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-700">DONE</span>
+              <span id="count-done" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">0</span>
+            </div>
+            <div 
+              id="column-done" 
+              data-status="DONE"
+              ondragover="handle_drag_over(event)" 
+              ondragleave="handle_drag_leave(event)" 
+              ondrop="handle_drop(event, 'DONE')" 
+              class="task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+              <div class="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-400 italic text-center">
+                Belum ada task yang selesai
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 1.5: SCRUM BACKLOG & SPRINT PLANNING -->
+      <section id="view-scrum-planning" class="spa-view hidden">
+        <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-xl font-bold text-slate-900 tracking-tight">Scrum Backlog & Sprint Planning</h2>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">Mode Scrum</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+              Kelola Product Backlog, geser (drag & drop) task ke wadah Sprint, lalu aktifkan dengan tombol <strong>Start Sprint</strong>.
+            </p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button 
+              type="button" 
+              id="btn-add-backlog-task" 
+              onclick="open_backlog_task_modal()" 
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>+ Tambah Task ke Backlog</span>
+            </button>
+            <button 
+              type="button" 
+              id="btn-create-sprint-bucket" 
+              onclick="handle_create_new_sprint_bucket()" 
+              class="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              <span>+ Buat Sprint Baru</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2 Grid Columns: Backlog Bucket vs Sprint Buckets -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- LEFT: PRODUCT BACKLOG BUCKET (col-span-5) -->
+          <div class="lg:col-span-5 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden min-h-[500px]">
+            <div class="p-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <h3 class="text-sm font-bold text-slate-800">Product Backlog</h3>
+                <span id="scrum-backlog-count" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">0</span>
+              </div>
+              <span id="scrum-backlog-hours" class="text-xs font-semibold text-slate-500">0 Jam Scope</span>
+            </div>
+            
+            <div 
+              id="bucket-product-backlog" 
+              data-bucket-id="BACKLOG"
+              ondragover="handle_bucket_drag_over(event)" 
+              ondragleave="handle_bucket_drag_leave(event)" 
+              ondrop="handle_bucket_drop(event, 'BACKLOG')"
+              class="bucket-droppable-area flex-1 p-4 space-y-3 overflow-y-auto bg-slate-50/30 transition-colors">
+              <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
+                Belum ada task di Backlog.<br/>Klik <strong>+ Tambah Task ke Backlog</strong> untuk mulai mengisi.
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: SPRINT BUCKETS (col-span-7) -->
+          <div class="lg:col-span-7 flex flex-col space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800">Daftar Bucket Sprint</h3>
+                <p class="text-xs text-slate-400">Tarik (Drag) task dari Backlog ke dalam wadah Sprint di bawah ini</p>
+              </div>
+            </div>
+
+            <div id="scrum-sprint-buckets-container" class="space-y-4">
+              <!-- Rendered dynamically -->
+              <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400">
+                Memuat daftar sprint...
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: ACTIONABLE INSIGHTS -->
+      <section id="view-insights" class="spa-view hidden">
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-slate-900 tracking-tight">Dasbor Actionable Insights</h2>
+          <p class="text-xs text-slate-500">Metrik durasi dan deteksi hambatan untuk eskalasi cepat oleh Project Manager & Klien.</p>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <!-- Card Lead Time -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Lead Time</span>
+            <div class="flex items-baseline space-x-2">
+              <span id="metric-lead-time" class="text-3xl font-extrabold text-slate-800">0.0</span>
+              <span class="text-sm font-medium text-slate-500">Jam</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2">Waktu total dari pembuatan task hingga selesai (DONE).</p>
+          </div>
+
+          <!-- Card Cycle Time -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Cycle Time</span>
+            <div class="flex items-baseline space-x-2">
+              <span id="metric-cycle-time" class="text-3xl font-extrabold text-indigo-600">0.0</span>
+              <span class="text-sm font-medium text-slate-500">Jam</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2">Waktu aktif pengerjaan (IN PROGRESS ke DONE).</p>
+          </div>
+
+          <!-- Card Active Blockers -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Hambatan / Blocker Aktif</span>
+            <div class="flex items-baseline space-x-2">
+              <span id="metric-blocker-count" class="text-3xl font-extrabold text-rose-600">0</span>
+              <span class="text-sm font-medium text-slate-500">Task Macet</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2">Task tidak bergerak melebihi ambang batas wajar.</p>
+          </div>
+        </div>
+
+        <!-- Insights Visualisation Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Burndown Chart Container (Siap untuk Tahap 4) -->
+          <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-sm font-bold text-slate-800 mb-1">Burndown Chart (Ideal vs Aktual)</h3>
+            <p class="text-xs text-slate-400 mb-4">Tren sisa estimasi jam kerja sprint harian.</p>
+            <div class="h-64 relative flex items-center justify-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              <canvas id="burndownChart" class="w-full h-full"></canvas>
+              <div id="burndown-placeholder" class="absolute text-xs text-slate-400 font-medium">
+                Grafik Burndown akan diinisialisasi pada Tahap 4
+              </div>
+            </div>
+          </div>
+
+          <!-- Blocker List Highlights -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+            <h3 class="text-sm font-bold text-slate-800 mb-1">Blocker Highlights</h3>
+            <p class="text-xs text-slate-400 mb-4">Task yang memerlukan eskalasi segera.</p>
+            <div id="blocker-list-container" class="flex-1 space-y-2 overflow-y-auto max-h-64">
+              <div class="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs text-center">
+                ✓ Tidak ada blocker terdeteksi saat ini.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: SETTINGS -->
+      <section id="view-settings" class="spa-view hidden">
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-slate-900 tracking-tight">Konfigurasi Proyek & Sistem</h2>
+          <p class="text-xs text-slate-500">Informasi database relasional Google Sheets dan status hak akses.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-2xl">
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Status Lingkungan Eksekusi</h3>
+          <div class="space-y-3 text-xs">
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">Mode Aplikasi</span>
+              <span class="font-medium text-slate-800">Google Apps Script Web App (SPA)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">CSS Framework</span>
+              <span class="font-medium text-slate-800">Tailwind CSS (CDN)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-slate-100">
+              <span class="text-slate-500">Visualisasi Metrik</span>
+              <span class="font-medium text-slate-800">Chart.js (CDN)</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span class="text-slate-500">Versi Arsitektur</span>
+              <span class="font-medium text-indigo-600">Alternate Project Delivery LITE v1.0</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal Dialog Tambah Task Baru -->
+<div id="modal-task" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <h3 id="modal-task-title" class="text-base font-bold text-slate-800">Buat Task Baru</h3>
+      <button onclick="close_task_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-new-task" onsubmit="handle_submit_new_task(event)" class="space-y-4">
+      <input type="hidden" id="input-task-target-bucket" value="" />
+      <div id="modal-task-destination-badge" class="hidden text-xs font-medium px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+        Target: <strong id="modal-task-target-label">Backlog</strong>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Judul Task *</label>
+        <input 
+          type="text" 
+          id="input-task-title" 
+          required 
+          placeholder="Contoh: Implementasi Payment Gateway" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Estimasi (Jam) *</label>
+          <input 
+            type="number" 
+            id="input-task-estimate" 
+            required 
+            min="1" 
+            max="200" 
+            value="8" 
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Ditugaskan Kepada</label>
+          <select 
+            id="input-task-assignee" 
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer">
+            <option value="">Pilih Anggota Tim...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_task_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-submit-task" 
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors cursor-pointer flex items-center">
+          <span>Simpan Task</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Buat Project Baru -->
+<div id="modal-project" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <h3 class="text-base font-bold text-slate-800">Inisialisasi Project Baru</h3>
+      <button onclick="close_project_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-new-project" onsubmit="handle_submit_new_project(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Project *</label>
+        <input 
+          type="text" 
+          id="input-project-name" 
+          required 
+          placeholder="Contoh: Mobile Banking App Revamp" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1.5">Pilih Metodologi Kerja *</label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="cursor-pointer border-2 border-indigo-600 rounded-xl p-3 flex flex-col justify-between bg-indigo-50/50 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold text-slate-800">Kanban</span>
+              <input type="radio" name="project_mode" value="KANBAN" checked onchange="handle_project_mode_change(this.value)" class="text-indigo-600 focus:ring-indigo-500" />
+            </div>
+            <p class="text-[10px] text-slate-500 leading-tight">Alur kontinu tanpa batas sprint, fokus Cycle Time.</p>
+          </label>
+
+          <label class="cursor-pointer border-2 border-slate-200 rounded-xl p-3 flex flex-col justify-between bg-white hover:border-slate-300 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50/60 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold text-slate-800">Scrum</span>
+              <input type="radio" name="project_mode" value="SCRUM" onchange="handle_project_mode_change(this.value)" class="text-indigo-600 focus:ring-indigo-500" />
+            </div>
+            <p class="text-[10px] text-slate-500 leading-tight">Sprint terikat waktu, Burndown, target rilis & Velocity.</p>
+          </label>
+        </div>
+      </div>
+
+      <!-- Input Khusus Scrum (Muncul jika Scrum dipilih) -->
+      <div id="scrum-options-container" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Durasi Sprint *</label>
+            <select id="input-sprint-duration" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+              <option value="1">1 Minggu (Fast Iteration)</option>
+              <option value="2" selected>2 Minggu (Rekomendasi)</option>
+              <option value="3">3 Minggu</option>
+              <option value="4">4 Minggu (1 Bulan)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nama Sprint Pertama</label>
+            <input 
+              type="text" 
+              id="input-project-sprint" 
+              placeholder="Sprint 1 - Foundations" 
+              value="Sprint 1 - Foundations"
+              class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-600 mb-1">Sprint Goal / Target Rilis</label>
+          <input 
+            type="text" 
+            id="input-sprint-goal" 
+            placeholder="Contoh: MVP User Auth & Payment Gateway Release" 
+            class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <p id="methodology-note" class="text-[11px] text-slate-400">
+        Mode Kanban dipilih: Papan alur kerja siap digunakan secara langsung.
+      </p>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_project_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-submit-project" 
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors cursor-pointer flex items-center">
+          <span>Buat & Buka Board</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Start Sprint -->
+<div id="modal-start-sprint" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+          🚀
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-800">Mulai Sprint (Start Sprint)</h3>
+          <p class="text-[11px] text-slate-400">Aktifkan sprint untuk memulai eksekusi di Kanban Board</p>
+        </div>
+      </div>
+      <button onclick="close_start_sprint_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-start-sprint" onsubmit="handle_submit_start_sprint(event)" class="space-y-4">
+      <input type="hidden" id="start-sprint-id" value="" />
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Sprint *</label>
+        <input 
+          type="text" 
+          id="start-sprint-name" 
+          required 
+          placeholder="Contoh: Sprint 1 - Foundations" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Durasi Sprint *</label>
+          <select 
+            id="start-sprint-duration" 
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+            <option value="1">1 Minggu (7 hari)</option>
+            <option value="2" selected>2 Minggu (14 hari)</option>
+            <option value="3">3 Minggu (21 hari)</option>
+            <option value="4">4 Minggu (28 hari)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Scope Tugas Terdaftar</label>
+          <div id="start-sprint-task-summary" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span id="start-sprint-count-label">0 Task</span>
+            <span id="start-sprint-hours-label" class="text-emerald-700">0 Jam</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Sprint Goal / Target Rilis *</label>
+        <textarea 
+          id="start-sprint-goal" 
+          rows="3" 
+          required
+          placeholder="Contoh: Rilis fitur registrasi member, payment flow, dan integrasi webhook." 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+      </div>
+
+      <div class="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-[11px] text-emerald-800">
+        💡 Begitu sprint dimulai, task di dalamnya langsung muncul di <strong>Kanban Board</strong> dan dapat digeser statusnya oleh tim.
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_start_sprint_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-confirm-start-sprint" 
+          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span>🚀 Mulai Sprint Sekarang</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+

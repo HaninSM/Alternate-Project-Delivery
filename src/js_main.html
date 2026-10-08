@@ -1,0 +1,1550 @@
+<!-- js_main.html: Client-side JavaScript Controller, Kanban & Chart.js Engine -->
+<script>
+/**
+ * State Management Global Aplikasi Sisi Klien
+ */
+const app_state = {
+  current_user: null,
+  active_project_id: 'PRJ-001',
+  active_sprint_id: 'SPR-001',
+  current_view: 'dashboard',
+  projects: [],
+  tasks: [],
+  backlog_tasks: [],
+  sprints: [],
+  insights: null,
+  is_loading: false,
+  burndown_chart_instance: null
+};
+
+/**
+ * Event Listener saat DOM siap dimuat
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  init_application();
+});
+
+/**
+ * Inisialisasi awal aplikasi SPA
+ */
+function init_application() {
+  fetch_user_session();
+}
+
+/**
+ * Mengambil profil & role pengguna aktif dari backend GAS
+ */
+function fetch_user_session() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.current_user = response.data;
+          render_user_profile(response.data);
+          apply_rbac_permissions(response.data.role);
+          load_projects_list();
+          load_sprint_tasks();
+          load_sprint_insights();
+        } else {
+          show_notification('Gagal memuat profil pengguna.', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        show_notification('Error koneksi backend: ' + err.message, 'error');
+      })
+      .get_user_role();
+  } else {
+    // Mode simulasi lokal untuk pengujian browser
+    const mock_user = {
+      id: 'USR-002',
+      name: 'Budi PM',
+      email: 'pm@example.com',
+      role: 'PM'
+    };
+    app_state.current_user = mock_user;
+    render_user_profile(mock_user);
+    apply_rbac_permissions(mock_user.role);
+    init_mock_projects();
+    init_mock_tasks();
+    init_mock_insights();
+  }
+}
+
+/**
+ * Merender profil pengguna di sidebar
+ */
+function render_user_profile(user) {
+  const avatar_el = document.getElementById('user-avatar');
+  const name_el = document.getElementById('nav-user-name');
+  const email_el = document.getElementById('nav-user-email');
+  const role_badge_el = document.getElementById('nav-user-role-badge');
+  const welcome_name_el = document.getElementById('dash-welcome-name');
+
+  if (welcome_name_el) welcome_name_el.textContent = user.name || user.email || 'Pengguna';
+  if (avatar_el && user.name) avatar_el.textContent = user.name.charAt(0).toUpperCase();
+  if (name_el) name_el.textContent = user.name || user.email || 'Pengguna';
+  if (email_el) email_el.textContent = user.email || '';
+  if (role_badge_el) {
+    role_badge_el.textContent = user.role;
+    if (user.role === 'ADMIN' || user.role === 'PM') {
+      role_badge_el.className = 'inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+    } else if (user.role === 'MEMBER') {
+      role_badge_el.className = 'inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30';
+    } else {
+      role_badge_el.className = 'inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+    }
+  }
+}
+
+/**
+ * Menyesuaikan kontrol UI berdasarkan RBAC
+ */
+function apply_rbac_permissions(role) {
+  const rbac_tag = document.getElementById('rbac-permission-tag');
+  const btn_add_task = document.getElementById('btn-add-task');
+
+  if (rbac_tag) {
+    if (role === 'ADMIN' || role === 'PM') {
+      rbac_tag.textContent = 'Mode: ' + role + ' (Akses Penuh)';
+      rbac_tag.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full';
+      if (btn_add_task) btn_add_task.classList.remove('hidden');
+    } else if (role === 'MEMBER') {
+      rbac_tag.textContent = 'Mode: Team Member';
+      rbac_tag.className = 'text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full';
+      if (btn_add_task) btn_add_task.classList.add('hidden');
+    } else {
+      rbac_tag.textContent = 'Mode: External Client (Read-only)';
+      rbac_tag.className = 'text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full';
+      if (btn_add_task) btn_add_task.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Memuat task sprint dari backend
+ */
+function load_sprint_tasks() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    set_loading_state(true);
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          app_state.tasks = response.data || [];
+          render_kanban_board();
+        } else {
+          show_notification('Gagal mengambil daftar task: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error koneksi task: ' + err.message, 'error');
+      })
+      .get_sprint_tasks(app_state.active_sprint_id);
+  }
+}
+
+/**
+ * Memuat ringkasan insight & metrik dari backend
+ */
+function load_sprint_insights() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.insights = response.data;
+          render_insights_dashboard(response.data);
+        } else {
+          show_notification('Gagal memuat insight sprint: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        show_notification('Error koneksi insight: ' + err.message, 'error');
+      })
+      .get_sprint_insights(app_state.active_sprint_id);
+  }
+}
+
+/**
+ * Render Dasbor Insight: KPI Cards, Blocker List, dan Burndown Chart
+ * @param {Object} data - Payload metrik
+ */
+function render_insights_dashboard(data) {
+  if (!data) return;
+
+  // 1. KPI Cards
+  const el_lead = document.getElementById('metric-lead-time');
+  const el_cycle = document.getElementById('metric-cycle-time');
+  const el_blocker = document.getElementById('metric-blocker-count');
+
+  if (el_lead && data.summary) el_lead.textContent = data.summary.avg_lead_time_hours;
+  if (el_cycle && data.summary) el_cycle.textContent = data.summary.avg_cycle_time_hours;
+  if (el_blocker && data.summary) el_blocker.textContent = data.summary.blocker_count;
+
+  // 2. Blocker Highlights List
+  const blocker_container = document.getElementById('blocker-list-container');
+  if (blocker_container) {
+    blocker_container.innerHTML = '';
+    if (!data.blockers || data.blockers.length === 0) {
+      blocker_container.innerHTML = `
+        <div class="p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs text-center font-medium">
+          ✓ Tidak ada blocker terdeteksi saat ini.
+        </div>
+      `;
+    } else {
+      data.blockers.forEach(b => {
+        const item = document.createElement('div');
+        item.className = 'p-3 bg-rose-50/70 border border-rose-200 rounded-lg text-xs flex flex-col space-y-1.5';
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-rose-800">${b.task_id}</span>
+            <span class="px-1.5 py-0.5 rounded bg-rose-200 text-rose-900 font-semibold text-[10px]">
+              Macet ${b.stuck_hours} Jam
+            </span>
+          </div>
+          <p class="font-medium text-slate-800">${b.title}</p>
+          <div class="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-rose-100">
+            <span>Status: <strong class="text-rose-700">${b.status}</strong></span>
+            <span>PIC: <strong>${b.assignee}</strong></span>
+          </div>
+        `;
+        blocker_container.appendChild(item);
+      });
+    }
+  }
+
+  // 3. Render Burndown Chart via Chart.js
+  render_burndown_chart(data.burndown);
+}
+
+/**
+ * Merender grafik garis Burndown Chart dengan Chart.js
+ * @param {Object} burndown - { labels, ideal_hours, actual_hours }
+ */
+function render_burndown_chart(burndown) {
+  if (!burndown) return;
+
+  const canvas = document.getElementById('burndownChart');
+  const placeholder = document.getElementById('burndown-placeholder');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  if (placeholder) placeholder.classList.add('hidden');
+
+  // Hancurkan instance chart lama jika sudah ada
+  if (app_state.burndown_chart_instance) {
+    app_state.burndown_chart_instance.destroy();
+  }
+
+  const ctx = canvas.getContext('2d');
+  app_state.burndown_chart_instance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: burndown.labels,
+      datasets: [
+        {
+          label: 'Ideal Burndown (Jam)',
+          data: burndown.ideal_hours,
+          borderColor: '#94a3b8',
+          borderDash: [5, 5],
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0.1
+        },
+        {
+          label: 'Aktual Tersisa (Jam)',
+          data: burndown.actual_hours,
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79, 70, 229, 0.08)',
+          fill: true,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: '#4f46e5',
+          tension: 0.2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            boxWidth: 12,
+            font: { size: 11 }
+          }
+        },
+        tooltip: {
+          padding: 8
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Estimasi Jam Tersisa',
+            font: { size: 11 }
+          },
+          grid: {
+            color: '#f1f5f9'
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Menginisialisasi data dummy untuk simulasi lokal jika dibuka di browser biasa
+ */
+function init_mock_tasks() {
+  app_state.tasks = [
+    {
+      id: 'TSK-001',
+      sprint_id: 'SPR-001',
+      title: 'Desain Arsitektur & Skema Database Sheets',
+      status: 'DONE',
+      assignee_name: 'Budi PM',
+      estimate_hours: 6,
+      created_at: '2026-10-01T08:00:00Z',
+      updated_at: '2026-10-02T16:00:00Z'
+    },
+    {
+      id: 'TSK-002',
+      sprint_id: 'SPR-001',
+      title: 'Setup UI Shell Tailwind CSS & Single Page App',
+      status: 'DONE',
+      assignee_name: 'Siti Developer',
+      estimate_hours: 8,
+      created_at: '2026-10-02T09:00:00Z',
+      updated_at: '2026-10-03T17:00:00Z'
+    },
+    {
+      id: 'TSK-003',
+      sprint_id: 'SPR-001',
+      title: 'Time-in-Status Engine & Kanban Drag Drop',
+      status: 'IN_PROGRESS',
+      assignee_name: 'Siti Developer',
+      estimate_hours: 12,
+      created_at: '2026-10-03T10:00:00Z',
+      updated_at: '2026-10-04T11:00:00Z'
+    },
+    {
+      id: 'TSK-004',
+      sprint_id: 'SPR-001',
+      title: 'Kalkulasi Burndown & Algoritma Insight Blocker',
+      status: 'TODO',
+      assignee_name: 'Budi PM',
+      estimate_hours: 16,
+      created_at: '2026-10-04T09:00:00Z',
+      updated_at: '2026-10-04T09:00:00Z'
+    }
+  ];
+  render_kanban_board();
+}
+
+/**
+ * Mock data insight untuk preview browser
+ */
+function init_mock_insights() {
+  const mock_data = {
+    summary: {
+      total_tasks: 4,
+      avg_lead_time_hours: 32.0,
+      avg_cycle_time_hours: 16.5,
+      blocker_count: 1
+    },
+    burndown: {
+      labels: ['Hari 1', 'Hari 2', 'Hari 3', 'Hari 4', 'Hari 5', 'Hari 6', 'Hari 7'],
+      ideal_hours: [42, 35, 28, 21, 14, 7, 0],
+      actual_hours: [42, 36, 28, 28, null, null, null]
+    },
+    blockers: [
+      {
+        task_id: 'TSK-003',
+        title: 'Time-in-Status Engine & Kanban Drag Drop',
+        status: 'IN_PROGRESS',
+        assignee: 'Siti Developer',
+        stuck_hours: 58.5
+      }
+    ]
+  };
+  app_state.insights = mock_data;
+  render_insights_dashboard(mock_data);
+}
+
+/**
+ * Merender kartu-kartu task ke dalam 4 kolom Kanban Board
+ */
+function render_kanban_board() {
+  const columns = {
+    TODO: document.getElementById('column-todo'),
+    IN_PROGRESS: document.getElementById('column-in_progress'),
+    REVIEW: document.getElementById('column-review'),
+    DONE: document.getElementById('column-done')
+  };
+
+  const counters = {
+    TODO: document.getElementById('count-todo'),
+    IN_PROGRESS: document.getElementById('count-in_progress'),
+    REVIEW: document.getElementById('count-review'),
+    DONE: document.getElementById('count-done')
+  };
+
+  Object.keys(columns).forEach(status => {
+    if (columns[status]) columns[status].innerHTML = '';
+    if (counters[status]) counters[status].textContent = '0';
+  });
+
+  const column_counts = { TODO: 0, IN_PROGRESS: 0, REVIEW: 0, DONE: 0 };
+  const can_edit = app_state.current_user && app_state.current_user.role !== 'CLIENT';
+
+  app_state.tasks.forEach(task => {
+    const status = task.status;
+    if (columns[status]) {
+      column_counts[status]++;
+      const card = create_task_card_element(task, can_edit);
+      columns[status].appendChild(card);
+    }
+  });
+
+  Object.keys(column_counts).forEach(status => {
+    if (counters[status]) counters[status].textContent = column_counts[status];
+    if (columns[status] && column_counts[status] === 0) {
+      columns[status].innerHTML = `
+        <div class="p-4 bg-white/60 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400 italic text-center">
+          Tidak ada task
+        </div>
+      `;
+    }
+  });
+}
+
+/**
+ * Membuat elemen kartu task dengan dukungan HTML5 Drag and Drop
+ */
+function create_task_card_element(task, can_edit) {
+  const card = document.createElement('div');
+  card.id = 'task-card-' + task.id;
+
+  if (can_edit) {
+    card.draggable = true;
+    card.ondragstart = (e) => handle_drag_start(e, task.id);
+    card.ondragend = (e) => handle_drag_end(e);
+    card.className = 'p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-grab active:cursor-grabbing flex flex-col justify-between space-y-2.5';
+  } else {
+    card.className = 'p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-2.5';
+  }
+
+  // Badge status kecil di kartu tanpa dropdown/combobox
+  const status_color_map = {
+    TODO: 'bg-slate-100 text-slate-600',
+    IN_PROGRESS: 'bg-blue-100 text-blue-700',
+    REVIEW: 'bg-amber-100 text-amber-700',
+    DONE: 'bg-emerald-100 text-emerald-700'
+  };
+  const status_badge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded ${status_color_map[task.status] || 'bg-slate-100 text-slate-600'}">${task.status}</span>`;
+
+  card.innerHTML = `
+    <div>
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-[10px] font-bold tracking-wider text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+          ${task.id}
+        </span>
+        <span class="text-[11px] font-medium text-slate-500 flex items-center">
+          <svg class="w-3.5 h-3.5 mr-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          ${task.estimate_hours}h
+        </span>
+      </div>
+      <h4 class="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
+        ${task.title}
+      </h4>
+    </div>
+
+    <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+      <div class="flex items-center space-x-1.5">
+        <div class="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
+          ${(task.assignee_name || 'U').charAt(0).toUpperCase()}
+        </div>
+        <span class="text-[11px] text-slate-600 truncate max-w-[90px]" title="${task.assignee_name}">
+          ${task.assignee_name || 'Unassigned'}
+        </span>
+      </div>
+      <div>
+        ${status_badge}
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+/**
+ * Event Handlers HTML5 Drag and Drop
+ */
+let dragged_task_id = null;
+
+function handle_drag_start(e, task_id) {
+  dragged_task_id = task_id;
+  e.dataTransfer.setData('text/plain', task_id);
+  e.dataTransfer.effectAllowed = 'move';
+  const target = e.target;
+  setTimeout(() => {
+    target.classList.add('opacity-40', 'scale-95');
+  }, 0);
+}
+
+function handle_drag_end(e) {
+  const target = e.target;
+  target.classList.remove('opacity-40', 'scale-95');
+  dragged_task_id = null;
+  // Bersihkan highlight dari semua kolom
+  ['column-todo', 'column-in_progress', 'column-review', 'column-done'].forEach(col_id => {
+    const el = document.getElementById(col_id);
+    if (el) el.classList.remove('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
+  });
+}
+
+function handle_drag_over(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const current_col = e.currentTarget;
+  current_col.classList.add('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
+}
+
+function handle_drag_leave(e) {
+  const current_col = e.currentTarget;
+  current_col.classList.remove('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
+}
+
+function handle_drop(e, target_status) {
+  e.preventDefault();
+  const current_col = e.currentTarget;
+  current_col.classList.remove('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
+
+  const task_id = e.dataTransfer.getData('text/plain') || dragged_task_id;
+  if (!task_id || !target_status) return;
+
+  handle_task_status_change(task_id, target_status);
+}
+
+/**
+ * Menangani pergeseran status task dan me-refresh insight secara otomatis
+ */
+function handle_task_status_change(task_id, new_status) {
+  const target_task = app_state.tasks.find(t => t.id === task_id);
+  if (!target_task) return;
+
+  const old_status = target_task.status;
+  if (old_status === new_status) return;
+
+  // Optimistic UI update
+  target_task.status = new_status;
+  target_task.updated_at = new Date().toISOString();
+  render_kanban_board();
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          show_notification('Status task ' + task_id + ' berhasil diubah ke ' + new_status, 'success');
+          // Refresh insight data pasca pergeseran status
+          load_sprint_insights();
+        } else {
+          target_task.status = old_status;
+          render_kanban_board();
+          show_notification('Gagal mengubah status: ' + (response ? response.message : 'Ditolak backend'), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        target_task.status = old_status;
+        render_kanban_board();
+        show_notification('Error pergeseran status: ' + err.message, 'error');
+      })
+      .update_task_status(task_id, new_status);
+  } else {
+    show_notification('[Simulasi] Status task ' + task_id + ' berpindah: ' + old_status + ' -> ' + new_status, 'info');
+  }
+}
+
+/**
+ * Logika SPA Navigasi antar tampilan tanpa reload browser
+ */
+function switch_view(target_view) {
+  const views = ['dashboard', 'board', 'scrum-planning', 'insights', 'settings'];
+  
+  views.forEach(view_name => {
+    const section_el = document.getElementById('view-' + view_name);
+    const nav_btn_el = document.getElementById('nav-btn-' + view_name);
+
+    if (section_el) {
+      if (view_name === target_view) {
+        section_el.classList.remove('hidden');
+        section_el.classList.add('block');
+        // Render ulang chart jika beralih ke view insights agar responsive
+        if (view_name === 'insights' && app_state.insights) {
+          render_insights_dashboard(app_state.insights);
+        }
+        if (view_name === 'dashboard') {
+          load_projects_list();
+        }
+        if (view_name === 'scrum-planning') {
+          load_scrum_planning_data();
+        }
+        if (view_name === 'board') {
+          load_sprint_tasks();
+        }
+      } else {
+        section_el.classList.remove('block');
+        section_el.classList.add('hidden');
+      }
+    }
+
+    if (nav_btn_el) {
+      if (view_name === target_view) {
+        nav_btn_el.className = 'nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-white bg-indigo-600/90 shadow-sm transition-colors group';
+      } else {
+        nav_btn_el.className = 'nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group';
+      }
+    }
+  });
+
+  app_state.current_view = target_view;
+}
+
+/**
+ * Handler tombol refresh data
+ */
+function handle_refresh_data() {
+  fetch_user_session();
+}
+
+/**
+ * Set status loading indicator
+ */
+function set_loading_state(loading) {
+  app_state.is_loading = loading;
+  const refresh_btn = document.getElementById('btn-refresh-data');
+  if (refresh_btn) {
+    if (loading) {
+      refresh_btn.classList.add('animate-spin', 'text-indigo-600');
+    } else {
+      refresh_btn.classList.remove('animate-spin', 'text-indigo-600');
+    }
+  }
+}
+
+/**
+ * Helper notifikasi toast sederhana
+ */
+function show_notification(message, type = 'info') {
+  console.log('[' + type.toUpperCase() + '] ' + message);
+}
+
+/**
+ * Membuka Modal Tambah Task Baru untuk Sprint Aktif (Board)
+ */
+function open_task_modal() {
+  const modal = document.getElementById('modal-task');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const title_el = document.getElementById('modal-task-title');
+  if (title_el) title_el.textContent = 'Buat Task Baru';
+
+  const badge_el = document.getElementById('modal-task-destination-badge');
+  const label_el = document.getElementById('modal-task-target-label');
+  if (badge_el) badge_el.classList.remove('hidden');
+  if (label_el) label_el.textContent = 'Sprint Aktif (' + app_state.active_sprint_id + ')';
+
+  const target_input = document.getElementById('input-task-target-bucket');
+  if (target_input) target_input.value = app_state.active_sprint_id;
+
+  load_assignee_options();
+}
+
+/**
+ * Membuka Modal Tambah Task langsung ke Product Backlog (Scrum Planning)
+ */
+function open_backlog_task_modal() {
+  const modal = document.getElementById('modal-task');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const title_el = document.getElementById('modal-task-title');
+  if (title_el) title_el.textContent = 'Tambah Task ke Product Backlog';
+
+  const badge_el = document.getElementById('modal-task-destination-badge');
+  const label_el = document.getElementById('modal-task-target-label');
+  if (badge_el) badge_el.classList.remove('hidden');
+  if (label_el) label_el.textContent = 'Product Backlog (' + app_state.active_project_id + ')';
+
+  const target_input = document.getElementById('input-task-target-bucket');
+  if (target_input) target_input.value = 'BACKLOG-' + app_state.active_project_id;
+
+  load_assignee_options();
+}
+
+/**
+ * Menutup Modal Tambah Task Baru
+ */
+function close_task_modal() {
+  const modal = document.getElementById('modal-task');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  const form = document.getElementById('form-new-task');
+  if (form) form.reset();
+  const target_input = document.getElementById('input-task-target-bucket');
+  if (target_input) target_input.value = '';
+}
+
+/**
+ * Mengambil daftar user dari backend untuk opsi dropdown assignee
+ */
+function load_assignee_options() {
+  const select_el = document.getElementById('input-task-assignee');
+  if (!select_el) return;
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success && response.data) {
+          select_el.innerHTML = '<option value="">Pilih Anggota Tim...</option>';
+          response.data.forEach(user => {
+            select_el.innerHTML += `<option value="${user.id}">${user.name} (${user.role})</option>`;
+          });
+        }
+      })
+      .get_assignee_options();
+  }
+}
+
+/**
+ * Submit form pembuatan task baru ke Backend
+ */
+function handle_submit_new_task(e) {
+  e.preventDefault();
+  const title_el = document.getElementById('input-task-title');
+  const est_el = document.getElementById('input-task-estimate');
+  const assignee_el = document.getElementById('input-task-assignee');
+  const submit_btn = document.getElementById('btn-submit-task');
+  const target_input = document.getElementById('input-task-target-bucket');
+
+  if (!title_el || !title_el.value.trim()) return;
+
+  const target_sprint = (target_input && target_input.value) ? target_input.value : app_state.active_sprint_id;
+
+  const task_payload = {
+    sprint_id: target_sprint,
+    title: title_el.value.trim(),
+    estimate_hours: Number(est_el ? est_el.value : 8) || 8,
+    assignee_id: assignee_el ? assignee_el.value : ''
+  };
+
+  if (submit_btn) {
+    submit_btn.disabled = true;
+    submit_btn.textContent = 'Menyimpan...';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Simpan Task';
+        }
+        if (response && response.success) {
+          show_notification('Task berhasil dibuat!', 'success');
+          close_task_modal();
+          if (app_state.current_view === 'scrum-planning') {
+            load_scrum_planning_data();
+          } else {
+            load_sprint_tasks();
+            load_sprint_insights();
+          }
+        } else {
+          show_notification('Gagal membuat task: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Simpan Task';
+        }
+        show_notification('Error membuat task: ' + err.message, 'error');
+      })
+      .create_new_task(task_payload);
+  } else {
+    // Mode simulasi lokal
+    if (submit_btn) {
+      submit_btn.disabled = false;
+      submit_btn.textContent = 'Simpan Task';
+    }
+    const new_mock_task = {
+      id: 'TSK-' + ('000' + (app_state.tasks.length + 1)).slice(-3),
+      sprint_id: target_sprint,
+      title: task_payload.title,
+      status: 'TODO',
+      assignee_name: 'Simulasi User',
+      estimate_hours: task_payload.estimate_hours,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    if (target_sprint.startsWith('BACKLOG')) {
+      app_state.backlog_tasks.push(new_mock_task);
+      render_scrum_planning_view();
+    } else {
+      app_state.tasks.push(new_mock_task);
+      render_kanban_board();
+    }
+    close_task_modal();
+    show_notification('Task simulasi berhasil ditambahkan!', 'success');
+  }
+}
+
+/**
+ * Membuka Modal Buat Project Baru
+ */
+function open_project_modal() {
+  const modal = document.getElementById('modal-project');
+  if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Buat Project Baru
+ */
+function close_project_modal() {
+  const modal = document.getElementById('modal-project');
+  if (modal) modal.classList.add('hidden');
+  const form = document.getElementById('form-new-project');
+  if (form) form.reset();
+}
+
+/**
+ * Mengambil daftar project dari backend
+ */
+function load_projects_list() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.projects = response.data || [];
+          render_projects_dashboard(response.data);
+        }
+      })
+      .get_projects_list();
+  }
+}
+
+/**
+ * Merender kartu-kartu project di Dashboard Utama
+ */
+function render_projects_dashboard(projects) {
+  const container = document.getElementById('dashboard-project-list');
+  if (!container) return;
+
+  if (!projects || projects.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center">
+        <p class="text-sm text-slate-500 mb-2">Belum ada project terdaftar.</p>
+        <button onclick="open_project_modal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 cursor-pointer">
+          + Buat Project Pertama
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  projects.forEach(prj => {
+    const card = document.createElement('div');
+    card.className = 'p-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4';
+    card.innerHTML = `
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">${prj.id}</span>
+          <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Aktif</span>
+        </div>
+        <h4 class="text-sm font-bold text-slate-800">${escape_html(prj.name)}</h4>
+        <p class="text-xs text-slate-500 mt-1">PIC: <strong>${escape_html(prj.pm_name)}</strong></p>
+      </div>
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-xs text-slate-500">Selesai: <strong>${prj.done_tasks || 0}/${prj.total_tasks || 0}</strong> Task</span>
+        <div class="flex items-center space-x-1.5">
+          <button onclick="select_project_and_open_planning('${prj.id}', '${prj.name.replace(/'/g, "\\'")}', '${prj.active_sprint_id || ''}', '${(prj.active_sprint_name || '').replace(/'/g, "\\'")}')" class="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer">
+            Planning
+          </button>
+          <button onclick="select_project_and_open_board('${prj.id}', '${prj.name.replace(/'/g, "\\'")}', '${prj.active_sprint_id || ''}', '${(prj.active_sprint_name || '').replace(/'/g, "\\'")}')" class="text-xs font-bold text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1">
+            <span>Board</span>
+            <span>&rarr;</span>
+          </button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+/**
+ * Memilih project dan langsung beralih ke Kanban Board
+ */
+function select_project_and_open_board(project_id, project_name, sprint_id, sprint_name) {
+  app_state.active_project_id = project_id;
+  app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
+  
+  const header_prj = document.getElementById('header-project-name');
+  if (header_prj) header_prj.textContent = project_name;
+
+  const header_sp = document.getElementById('header-sprint-name');
+  if (header_sp) header_sp.textContent = sprint_name || 'Sprint 1 - Foundations';
+
+  switch_view('board');
+  load_sprint_tasks();
+  load_sprint_insights();
+}
+
+/**
+ * Memilih project dan beralih ke Scrum Planning (Backlog & Sprints)
+ */
+function select_project_and_open_planning(project_id, project_name, sprint_id, sprint_name) {
+  app_state.active_project_id = project_id;
+  app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
+  
+  const header_prj = document.getElementById('header-project-name');
+  if (header_prj) header_prj.textContent = project_name;
+
+  const header_sp = document.getElementById('header-sprint-name');
+  if (header_sp) header_sp.textContent = sprint_name || 'Sprint 1 (Planning)';
+
+  switch_view('scrum-planning');
+}
+
+/**
+ * Handler pergantian radio mode metodologi (Kanban vs Scrum)
+ */
+function handle_project_mode_change(selected_mode) {
+  const scrum_container = document.getElementById('scrum-options-container');
+  const note_el = document.getElementById('methodology-note');
+
+  if (selected_mode === 'SCRUM') {
+    if (scrum_container) scrum_container.classList.remove('hidden');
+    if (note_el) note_el.textContent = 'Mode Scrum dipilih: Sprint timeboxed aktif dengan Burndown Chart & target rilis.';
+  } else {
+    if (scrum_container) scrum_container.classList.add('hidden');
+    if (note_el) note_el.textContent = 'Mode Kanban dipilih: Papan alur kerja siap digunakan secara kontinu.';
+  }
+}
+
+/**
+ * Submit form inisialisasi project baru
+ */
+function handle_submit_new_project(e) {
+  e.preventDefault();
+  const name_el = document.getElementById('input-project-name');
+  const sprint_el = document.getElementById('input-project-sprint');
+  const duration_el = document.getElementById('input-sprint-duration');
+  const goal_el = document.getElementById('input-sprint-goal');
+  const mode_radio = document.querySelector('input[name="project_mode"]:checked');
+  const submit_btn = document.getElementById('btn-submit-project');
+
+  if (!name_el || !name_el.value.trim()) return;
+
+  const mode = mode_radio ? mode_radio.value : 'KANBAN';
+  const duration_weeks = duration_el ? Number(duration_el.value) : 2;
+
+  const project_payload = {
+    name: name_el.value.trim(),
+    mode: mode,
+    sprint_name: sprint_el && sprint_el.value.trim() ? sprint_el.value.trim() : 'Sprint 1 - Foundations',
+    sprint_duration_weeks: duration_weeks,
+    sprint_goal: goal_el ? goal_el.value.trim() : ''
+  };
+
+  if (submit_btn) {
+    submit_btn.disabled = true;
+    submit_btn.textContent = 'Membuat Project...';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Buat & Buka Board';
+        }
+        if (response && response.success) {
+          show_notification('Project ' + project_payload.name + ' (' + mode + ') berhasil dibuat!', 'success');
+          close_project_modal();
+          if (mode === 'SCRUM') {
+            select_project_and_open_planning(response.data.id, response.data.name, response.data.sprint_id, response.data.sprint_name);
+          } else {
+            select_project_and_open_board(response.data.id, response.data.name, response.data.sprint_id, response.data.sprint_name);
+          }
+        } else {
+          show_notification('Gagal membuat project: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.textContent = 'Buat & Buka Board';
+        }
+        show_notification('Error membuat project: ' + err.message, 'error');
+      })
+      .create_new_project(project_payload);
+  } else {
+    // Mode simulasi lokal
+    if (submit_btn) {
+      submit_btn.disabled = false;
+      submit_btn.textContent = 'Buat & Buka Board';
+    }
+    const new_mock_prj = {
+      id: 'PRJ-00' + (app_state.projects.length + 1),
+      name: project_payload.name + (mode === 'SCRUM' ? ' (Scrum)' : ' (Kanban)'),
+      pm_name: app_state.current_user ? app_state.current_user.name : 'PM',
+      total_tasks: 0,
+      done_tasks: 0
+    };
+    app_state.projects.push(new_mock_prj);
+    close_project_modal();
+    if (mode === 'SCRUM') {
+      select_project_and_open_planning(new_mock_prj.id, new_mock_prj.name);
+    } else {
+      select_project_and_open_board(new_mock_prj.id, new_mock_prj.name);
+    }
+    show_notification('Project ' + mode + ' simulasi berhasil dibuat!', 'success');
+  }
+}
+
+/**
+ * ============================================================================
+ * SCRUM PLANNING CONTROLLER (BACKLOG, SPRINT BUCKETS, DRAG & DROP, START SPRINT)
+ * ============================================================================
+ */
+
+/**
+ * Helper Sanitasi HTML String
+ */
+function escape_html(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Memuat data Product Backlog dan daftar Sprint Buckets untuk proyek aktif
+ */
+function load_scrum_planning_data() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    set_loading_state(true);
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          app_state.backlog_tasks = response.data.backlog_tasks || [];
+          app_state.sprints = response.data.sprints || [];
+          render_scrum_planning_view();
+        } else {
+          show_notification('Gagal memuat Scrum Backlog: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error memuat Scrum Backlog: ' + err.message, 'error');
+      })
+      .get_project_backlog_and_sprints(app_state.active_project_id);
+  } else {
+    // Mode simulasi lokal
+    app_state.backlog_tasks = [
+      {
+        id: 'TSK-B01',
+        sprint_id: 'BACKLOG-' + app_state.active_project_id,
+        title: 'Desain Wireframe Product Backlog & Sprints',
+        status: 'TODO',
+        assignee_id: 'USR-003',
+        assignee_name: 'Siti Developer',
+        estimate_hours: 6
+      },
+      {
+        id: 'TSK-B02',
+        sprint_id: 'BACKLOG-' + app_state.active_project_id,
+        title: 'Implementasi API webhook payment testing',
+        status: 'TODO',
+        assignee_id: 'USR-004',
+        assignee_name: 'Rian QA Engineer',
+        estimate_hours: 12
+      }
+    ];
+    app_state.sprints = [
+      {
+        id: 'SPR-001',
+        project_id: app_state.active_project_id,
+        name: 'Sprint 1 - Foundations',
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+        tasks: [],
+        total_hours: 0
+      }
+    ];
+    render_scrum_planning_view();
+  }
+}
+
+/**
+ * Merender seluruh tampilan Scrum Planning (Wadah Backlog dan Sprints)
+ */
+function render_scrum_planning_view() {
+  const can_edit = app_state.current_user && app_state.current_user.role !== 'CLIENT';
+
+  // 1. Render Product Backlog Bucket
+  const backlog_container = document.getElementById('bucket-product-backlog');
+  const backlog_count_el = document.getElementById('scrum-backlog-count');
+  const backlog_hours_el = document.getElementById('scrum-backlog-hours');
+
+  const backlog_tasks = app_state.backlog_tasks || [];
+  let total_backlog_hours = 0;
+  backlog_tasks.forEach(t => total_backlog_hours += (Number(t.estimate_hours) || 0));
+
+  if (backlog_count_el) backlog_count_el.textContent = backlog_tasks.length + ' task';
+  if (backlog_hours_el) backlog_hours_el.textContent = total_backlog_hours + ' Jam Scope';
+
+  if (backlog_container) {
+    backlog_container.innerHTML = '';
+    if (backlog_tasks.length === 0) {
+      backlog_container.innerHTML = `
+        <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
+          Belum ada task di Backlog.<br/>Klik <strong>+ Tambah Task ke Backlog</strong> di atas untuk mulai mengisi.
+        </div>
+      `;
+    } else {
+      backlog_tasks.forEach(task => {
+        const card = create_bucket_task_card_element(task, 'BACKLOG', can_edit);
+        backlog_container.appendChild(card);
+      });
+    }
+  }
+
+  // 2. Render Sprint Buckets
+  const sprints_container = document.getElementById('scrum-sprint-buckets-container');
+  if (!sprints_container) return;
+
+  sprints_container.innerHTML = '';
+  const sprints = app_state.sprints || [];
+
+  if (sprints.length === 0) {
+    sprints_container.innerHTML = `
+      <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400">
+        Belum ada bucket sprint. Klik <strong>+ Buat Sprint Baru</strong> untuk memulai siklus.
+      </div>
+    `;
+    return;
+  }
+
+  sprints.forEach(sp => {
+    const sp_card = document.createElement('div');
+    sp_card.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden';
+    
+    let total_sp_hours = 0;
+    (sp.tasks || []).forEach(t => total_sp_hours += (Number(t.estimate_hours) || 0));
+
+    sp_card.innerHTML = `
+      <div class="p-4 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center space-x-3">
+          <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h4 class="text-sm font-bold text-slate-800">${escape_html(sp.name)}</h4>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">${sp.id}</span>
+            </div>
+            <p class="text-[11px] text-slate-400">${sp.start_date || '-'} s/d ${sp.end_date || '-'}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <span class="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+            ${(sp.tasks || []).length} Task • ${total_sp_hours} Jam
+          </span>
+          ${can_edit ? `
+            <button 
+              type="button" 
+              onclick="open_start_sprint_modal('${sp.id}')" 
+              class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
+              <span>🚀 Start Sprint</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div 
+        id="bucket-sprint-${sp.id}" 
+        data-bucket-id="${sp.id}"
+        ondragover="handle_bucket_drag_over(event)" 
+        ondragleave="handle_bucket_drag_leave(event)" 
+        ondrop="handle_bucket_drop(event, '${sp.id}')"
+        class="bucket-droppable-area p-4 space-y-2.5 min-h-[120px] bg-slate-50/30 transition-colors">
+      </div>
+    `;
+
+    sprints_container.appendChild(sp_card);
+
+    const task_list_container = sp_card.querySelector('#bucket-sprint-' + sp.id);
+    if (task_list_container) {
+      if (!sp.tasks || sp.tasks.length === 0) {
+        task_list_container.innerHTML = `
+          <div class="p-5 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
+            Tarik (Drag) task dari Product Backlog ke sini untuk mengalokasikannya ke sprint ini.
+          </div>
+        `;
+      } else {
+        sp.tasks.forEach(task => {
+          const card = create_bucket_task_card_element(task, sp.id, can_edit);
+          task_list_container.appendChild(card);
+        });
+      }
+    }
+  });
+}
+
+/**
+ * Membuat elemen kartu task pada Bucket Scrum
+ */
+function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
+  const card = document.createElement('div');
+  card.id = 'bucket-task-' + task.id;
+  card.className = 'p-3 bg-white rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all flex items-center justify-between space-x-3' + (can_edit ? ' cursor-grab active:cursor-grabbing' : '');
+  
+  if (can_edit) {
+    card.draggable = true;
+    card.ondragstart = (e) => handle_bucket_drag_start(e, task.id, source_bucket_id);
+    card.ondragend = (e) => handle_bucket_drag_end(e);
+  }
+
+  card.innerHTML = `
+    <div class="flex items-center space-x-3 min-w-0">
+      <div class="text-slate-400 flex-shrink-0 cursor-grab">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">${task.id}</span>
+          <h5 class="text-xs font-bold text-slate-800 truncate">${escape_html(task.title)}</h5>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-0.5">PIC: <span class="font-medium text-slate-600">${escape_html(task.assignee_name || 'Belum Ditugaskan')}</span></p>
+      </div>
+    </div>
+    <div class="flex-shrink-0 flex items-center space-x-2">
+      <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+        ${task.estimate_hours || 0} Jam
+      </span>
+    </div>
+  `;
+
+  return card;
+}
+
+/**
+ * Logika HTML5 Drag & Drop Antar Bucket
+ */
+let current_bucket_drag_data = null;
+
+function handle_bucket_drag_start(e, task_id, source_bucket_id) {
+  current_bucket_drag_data = { task_id: task_id, source_bucket_id: source_bucket_id };
+  e.dataTransfer.setData('text/plain', JSON.stringify(current_bucket_drag_data));
+  e.dataTransfer.effectAllowed = 'move';
+  const target_card = document.getElementById('bucket-task-' + task_id);
+  if (target_card) target_card.classList.add('opacity-40');
+}
+
+function handle_bucket_drag_end(e) {
+  if (current_bucket_drag_data && current_bucket_drag_data.task_id) {
+    const target_card = document.getElementById('bucket-task-' + current_bucket_drag_data.task_id);
+    if (target_card) target_card.classList.remove('opacity-40');
+  }
+  document.querySelectorAll('.bucket-droppable-area').forEach(el => {
+    el.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-300');
+  });
+  current_bucket_drag_data = null;
+}
+
+function handle_bucket_drag_over(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const drop_zone = e.currentTarget;
+  if (drop_zone) {
+    drop_zone.classList.add('bg-indigo-50', 'ring-2', 'ring-indigo-300');
+  }
+}
+
+function handle_bucket_drag_leave(e) {
+  const drop_zone = e.currentTarget;
+  if (drop_zone) {
+    drop_zone.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-300');
+  }
+}
+
+function handle_bucket_drop(e, target_bucket_id) {
+  e.preventDefault();
+  const drop_zone = e.currentTarget;
+  if (drop_zone) {
+    drop_zone.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-300');
+  }
+
+  let drag_data = current_bucket_drag_data;
+  if (!drag_data) {
+    try {
+      drag_data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    } catch (err) {
+      return;
+    }
+  }
+
+  if (!drag_data || !drag_data.task_id) return;
+  const task_id = drag_data.task_id;
+  const source_bucket_id = drag_data.source_bucket_id;
+
+  if (source_bucket_id === target_bucket_id) return;
+
+  // Tentukan sprint_id di database sheet Tasks
+  const target_sprint_id = (target_bucket_id === 'BACKLOG')
+    ? ('BACKLOG-' + app_state.active_project_id)
+    : target_bucket_id;
+
+  // Cari objek task di source bucket
+  let moved_task = null;
+  if (source_bucket_id === 'BACKLOG') {
+    const idx = app_state.backlog_tasks.findIndex(t => t.id === task_id);
+    if (idx !== -1) {
+      moved_task = app_state.backlog_tasks.splice(idx, 1)[0];
+    }
+  } else {
+    const sp = app_state.sprints.find(s => s.id === source_bucket_id);
+    if (sp && sp.tasks) {
+      const idx = sp.tasks.findIndex(t => t.id === task_id);
+      if (idx !== -1) {
+        moved_task = sp.tasks.splice(idx, 1)[0];
+        sp.total_hours -= (moved_task.estimate_hours || 0);
+      }
+    }
+  }
+
+  if (!moved_task) return;
+
+  // Masukkan ke target bucket
+  moved_task.sprint_id = target_sprint_id;
+  if (target_bucket_id === 'BACKLOG') {
+    app_state.backlog_tasks.push(moved_task);
+  } else {
+    const sp = app_state.sprints.find(s => s.id === target_bucket_id);
+    if (sp) {
+      if (!sp.tasks) sp.tasks = [];
+      sp.tasks.push(moved_task);
+      sp.total_hours = (sp.total_hours || 0) + (moved_task.estimate_hours || 0);
+    }
+  }
+
+  // Render perubahan segera (optimistic update)
+  render_scrum_planning_view();
+  show_notification(`Task ${task_id} dialokasikan ke ${target_bucket_id}`, 'success');
+
+  // Sync ke Backend GAS
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (!response || !response.success) {
+          show_notification('Gagal sinkron alokasi task: ' + (response ? response.message : ''), 'error');
+          load_scrum_planning_data();
+        }
+      })
+      .withFailureHandler(err => {
+        show_notification('Error sinkron alokasi task: ' + err.message, 'error');
+        load_scrum_planning_data();
+      })
+      .move_task_to_sprint(task_id, target_sprint_id);
+  }
+}
+
+/**
+ * Handler membuat bucket Sprint baru (Sprint 2, 3, dst.)
+ */
+function handle_create_new_sprint_bucket() {
+  const next_num = (app_state.sprints ? app_state.sprints.length : 0) + 1;
+  const sprint_name = prompt('Masukkan nama bucket Sprint baru:', 'Sprint ' + next_num + ' (Planning)');
+  if (!sprint_name || !sprint_name.trim()) return;
+
+  set_loading_state(true);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          show_notification(response.message || 'Bucket sprint baru berhasil dibuat!', 'success');
+          load_scrum_planning_data();
+        } else {
+          show_notification('Gagal membuat sprint: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error membuat sprint: ' + err.message, 'error');
+      })
+      .create_new_sprint_bucket(app_state.active_project_id, sprint_name.trim());
+  } else {
+    // Mode simulasi lokal
+    set_loading_state(false);
+    const new_sp = {
+      id: 'SPR-00' + (app_state.sprints.length + 1),
+      project_id: app_state.active_project_id,
+      name: sprint_name.trim(),
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      tasks: [],
+      total_hours: 0
+    };
+    app_state.sprints.push(new_sp);
+    render_scrum_planning_view();
+    show_notification('Bucket sprint ' + sprint_name + ' berhasil dibuat!', 'success');
+  }
+}
+
+/**
+ * Membuka Modal Konfirmasi Start Sprint
+ */
+function open_start_sprint_modal(sprint_id) {
+  const modal = document.getElementById('modal-start-sprint');
+  if (!modal) return;
+
+  const target_sp = (app_state.sprints || []).find(s => s.id === sprint_id);
+  if (!target_sp) {
+    show_notification('Data sprint tidak ditemukan.', 'error');
+    return;
+  }
+
+  document.getElementById('start-sprint-id').value = sprint_id;
+  document.getElementById('start-sprint-name').value = target_sp.name || ('Sprint ' + sprint_id);
+  document.getElementById('start-sprint-duration').value = '2';
+  
+  const count_el = document.getElementById('start-sprint-count-label');
+  const hours_el = document.getElementById('start-sprint-hours-label');
+  if (count_el) count_el.textContent = (target_sp.tasks ? target_sp.tasks.length : 0) + ' Task';
+  if (hours_el) hours_el.textContent = (target_sp.total_hours || 0) + ' Jam';
+
+  const goal_el = document.getElementById('start-sprint-goal');
+  if (goal_el) goal_el.value = '';
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Start Sprint
+ */
+function close_start_sprint_modal() {
+  const modal = document.getElementById('modal-start-sprint');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  const form = document.getElementById('form-start-sprint');
+  if (form) form.reset();
+}
+
+/**
+ * Submit form Start Sprint dan mengaktifkannya ke Kanban Board
+ */
+function handle_submit_start_sprint(e) {
+  e.preventDefault();
+  const sprint_id = document.getElementById('start-sprint-id').value;
+  const sprint_name = document.getElementById('start-sprint-name').value;
+  const duration_weeks = document.getElementById('start-sprint-duration').value;
+  const sprint_goal = document.getElementById('start-sprint-goal').value;
+  const confirm_btn = document.getElementById('btn-confirm-start-sprint');
+
+  if (!sprint_id || !sprint_name.trim()) return;
+
+  const payload = {
+    sprint_id: sprint_id,
+    sprint_name: sprint_name.trim(),
+    duration_weeks: Number(duration_weeks) || 2,
+    sprint_goal: sprint_goal.trim()
+  };
+
+  if (confirm_btn) {
+    confirm_btn.disabled = true;
+    confirm_btn.textContent = 'Memulai Sprint...';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (confirm_btn) {
+          confirm_btn.disabled = false;
+          confirm_btn.textContent = '🚀 Mulai Sprint Sekarang';
+        }
+        if (response && response.success) {
+          show_notification('Sprint ' + sprint_name + ' berhasil dimulai!', 'success');
+          close_start_sprint_modal();
+          // Update active sprint
+          app_state.active_sprint_id = sprint_id;
+          const header_sp = document.getElementById('header-sprint-name');
+          if (header_sp) header_sp.textContent = response.data.sprint_name || sprint_name;
+          // Alihkan ke Kanban board aktif
+          switch_view('board');
+          load_sprint_tasks();
+          load_sprint_insights();
+        } else {
+          show_notification('Gagal memulai sprint: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        if (confirm_btn) {
+          confirm_btn.disabled = false;
+          confirm_btn.textContent = '🚀 Mulai Sprint Sekarang';
+        }
+        show_notification('Error memulai sprint: ' + err.message, 'error');
+      })
+      .start_sprint(payload);
+  } else {
+    // Mode simulasi lokal
+    if (confirm_btn) {
+      confirm_btn.disabled = false;
+      confirm_btn.textContent = '🚀 Mulai Sprint Sekarang';
+    }
+    show_notification('Sprint ' + sprint_name + ' simulasi aktif!', 'success');
+    close_start_sprint_modal();
+    app_state.active_sprint_id = sprint_id;
+    const header_sp = document.getElementById('header-sprint-name');
+    if (header_sp) header_sp.textContent = sprint_name;
+    switch_view('board');
+  }
+}
+
+/**
+ * Mock data project untuk preview browser
+ */
+function init_mock_projects() {
+  app_state.projects = [
+    {
+      id: 'PRJ-001',
+      name: 'Website Redesign MVP',
+      pm_name: 'Budi PM',
+      total_tasks: 4,
+      done_tasks: 2
+    }
+  ];
+  render_projects_dashboard(app_state.projects);
+}
+</script>
