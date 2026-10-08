@@ -9,7 +9,7 @@
  * biarkan string kosong ('') agar otomatis memanggil SpreadsheetApp.getActiveSpreadsheet().
  * Jika Standalone Script, masukkan ID Spreadsheet di sini.
  */
-const SPREADSHEET_ID = '';
+const SPREADSHEET_ID = '1l0oQ6MmHUt8F6Gq8lWQ0jwPjTwR_Cak71DWvCIsG2AI';
 
 /**
  * Helper untuk mengambil instance spreadsheet aktif atau berdasarkan SPREADSHEET_ID.
