@@ -37,6 +37,26 @@ function setup_database_schema(target_spreadsheet_id) {
         }
       });
     }
+
+    // Khusus sheet Users: jika ada baris data yang kolom permissions-nya kosong, backfill otomatis
+    if (sheet_name === 'Users' && sheet.getLastRow() > 1) {
+      const u_values = sheet.getDataRange().getValues();
+      const u_header = u_values[0].map(h => String(h).trim().toLowerCase());
+      const role_idx = u_header.indexOf('role');
+      const perm_idx = u_header.indexOf('permissions');
+      if (role_idx !== -1 && perm_idx !== -1) {
+        for (let r = 1; r < u_values.length; r++) {
+          const current_perm_val = u_values[r][perm_idx];
+          if (!current_perm_val || String(current_perm_val).trim() === '') {
+            const row_role = String(u_values[r][role_idx] || 'MEMBER').toUpperCase().trim();
+            const perm_obj = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS[row_role]) 
+              ? DEFAULT_PERMISSIONS[row_role] 
+              : { can_create_project: false, can_manage_sprint: false, can_create_task: false, can_move_task: true, can_view_insights: true, can_manage_users: false };
+            sheet.getRange(r + 1, perm_idx + 1).setValue(JSON.stringify(perm_obj));
+          }
+        }
+      }
+    }
   }
 
   // Hapus sheet default jika ada (baik 'Sheet1' maupun 'Sheet 1')
@@ -58,14 +78,49 @@ function seed_dummy_data(target_spreadsheet_id) {
   // 1. Buat tab dan header terlebih dahulu
   setup_database_schema(target_spreadsheet_id);
 
-  // 2. Data Dummy Users
+  // Ambil email akun Google aktif yang mengeksekusi seed data
+  let active_email = '';
+  try {
+    if (typeof get_active_user_email === 'function') {
+      active_email = get_active_user_email();
+    } else {
+      active_email = Session.getActiveUser().getEmail().toLowerCase().trim();
+    }
+  } catch (e) {}
+
+  const default_admin_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.ADMIN) 
+    ? JSON.stringify(DEFAULT_PERMISSIONS.ADMIN) 
+    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_manage_users":true}';
+  const default_pm_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.PM) 
+    ? JSON.stringify(DEFAULT_PERMISSIONS.PM) 
+    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_manage_users":false}';
+  const default_member_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.MEMBER) 
+    ? JSON.stringify(DEFAULT_PERMISSIONS.MEMBER) 
+    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":true,"can_view_insights":true,"can_manage_users":false}';
+  const default_client_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.CLIENT) 
+    ? JSON.stringify(DEFAULT_PERMISSIONS.CLIENT) 
+    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":false,"can_view_insights":true,"can_manage_users":false}';
+
+  // 2. Data Dummy Users (5 Kolom Lengkap)
   const users_data = [
-    ['USR-001', 'Admin Utama', 'admin@example.com', 'ADMIN'],
-    ['USR-002', 'Budi PM', 'pm@example.com', 'PM'],
-    ['USR-003', 'Siti Developer', 'dev@example.com', 'MEMBER'],
-    ['USR-004', 'Rian QA Engineer', 'qa@example.com', 'MEMBER'],
-    ['USR-005', 'Klien Eksternal PT ABC', 'client@example.com', 'CLIENT']
+    ['USR-001', 'Admin Utama', 'admin@example.com', 'ADMIN', default_admin_perm],
+    ['USR-002', 'Budi PM', 'pm@example.com', 'PM', default_pm_perm],
+    ['USR-003', 'Siti Developer', 'dev@example.com', 'MEMBER', default_member_perm],
+    ['USR-004', 'Rian QA Engineer', 'qa@example.com', 'MEMBER', default_member_perm],
+    ['USR-005', 'Klien Eksternal PT ABC', 'client@example.com', 'CLIENT', default_client_perm]
   ];
+
+  // Jika akun Google aktif terdeteksi dan belum ada di daftar, daftarkan sebagai ADMIN utama!
+  if (active_email && !users_data.some(u => u[2] === active_email)) {
+    const admin_display_name = 'Admin (' + (active_email.split('@')[0] || 'User') + ')';
+    users_data.unshift([
+      'USR-000',
+      admin_display_name,
+      active_email,
+      'ADMIN',
+      default_admin_perm
+    ]);
+  }
 
   // 3. Data Dummy Projects
   const projects_data = [

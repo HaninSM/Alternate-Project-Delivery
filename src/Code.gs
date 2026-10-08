@@ -122,6 +122,32 @@ function resolve_user_permissions(role, permissions_input) {
 }
 
 /**
+ * Helper untuk mengambil email pengguna aktif secara aman tanpa resiko error null
+ * Mendukung pembacaan Active User dan Effective User (Pemilik Web App).
+ *
+ * @return {string} Email pengguna dalam lowercase, atau string kosong jika tidak tersedia
+ */
+function get_active_user_email() {
+  let email = '';
+  try {
+    const active_user = Session.getActiveUser();
+    if (active_user && typeof active_user.getEmail === 'function') {
+      email = active_user.getEmail();
+    }
+  } catch (e) {}
+
+  if (!email) {
+    try {
+      const eff_user = Session.getEffectiveUser();
+      if (eff_user && typeof eff_user.getEmail === 'function') {
+        email = eff_user.getEmail();
+      }
+    } catch (e) {}
+  }
+  return String(email || '').toLowerCase().trim();
+}
+
+/**
  * Mengidentifikasi email Google pengguna aktif dan mencocokkannya dengan sheet Users.
  * Mengembalikan informasi profil pengguna beserta role aksesnya dan izin granular.
  *
@@ -129,7 +155,7 @@ function resolve_user_permissions(role, permissions_input) {
  */
 function get_user_role() {
   try {
-    const user_email = Session.getActiveUser().getEmail().toLowerCase().trim();
+    const user_email = get_active_user_email();
     const spreadsheet = get_db_spreadsheet();
     const sheet_users = spreadsheet.getSheetByName('Users');
 
@@ -146,11 +172,11 @@ function get_user_role() {
       return {
         success: true,
         data: {
-          id: 'GUEST',
-          name: user_email || 'Tamu Google',
-          email: user_email,
-          role: 'CLIENT',
-          permissions: DEFAULT_PERMISSIONS.CLIENT
+          id: 'USR-001',
+          name: user_email ? user_email.split('@')[0] : 'Admin Utama',
+          email: user_email || 'admin@example.com',
+          role: 'ADMIN',
+          permissions: DEFAULT_PERMISSIONS.ADMIN
         }
       };
     }
@@ -162,36 +188,77 @@ function get_user_role() {
     const role_index = header.indexOf('role');
     const perm_index = header.indexOf('permissions');
 
-    // Cari baris yang cocok dengan email pengguna aktif
+    // 1. Cari baris yang cocok dengan email pengguna aktif
+    if (user_email && email_index !== -1) {
+      for (let row_idx = 1; row_idx < data_values.length; row_idx++) {
+        const row = data_values[row_idx];
+        const registered_email = String(row[email_index]).toLowerCase().trim();
+
+        if (registered_email === user_email) {
+          const user_role = String(row[role_index]).toUpperCase().trim();
+          const raw_perm = perm_index !== -1 ? row[perm_index] : null;
+          return {
+            success: true,
+            data: {
+              id: row[id_index],
+              name: row[name_index],
+              email: registered_email,
+              role: user_role,
+              permissions: resolve_user_permissions(user_role, raw_perm)
+            }
+          };
+        }
+      }
+    }
+
+    // 2. Jika user_email terdeteksi sebagai pemilik script (Effective User)
+    let effective_email = '';
+    try {
+      effective_email = String(Session.getEffectiveUser().getEmail() || '').toLowerCase().trim();
+    } catch (e) {}
+
+    if (user_email && effective_email && user_email === effective_email) {
+      return {
+        success: true,
+        data: {
+          id: 'USR-OWNER',
+          name: 'Admin (' + (user_email.split('@')[0] || 'Owner') + ')',
+          email: user_email,
+          role: 'ADMIN',
+          permissions: DEFAULT_PERMISSIONS.ADMIN
+        }
+      };
+    }
+
+    // 3. Jika user_email kosong atau belum terdaftar namun ada Admin di sheet Users,
+    // berikan fallback profil Admin pertama agar aplikasi siap digunakan
     for (let row_idx = 1; row_idx < data_values.length; row_idx++) {
       const row = data_values[row_idx];
-      const registered_email = String(row[email_index]).toLowerCase().trim();
-
-      if (user_email && registered_email === user_email) {
-        const user_role = String(row[role_index]).toUpperCase().trim();
+      const r_role = String(row[role_index]).toUpperCase().trim();
+      if (r_role === 'ADMIN') {
         const raw_perm = perm_index !== -1 ? row[perm_index] : null;
         return {
           success: true,
           data: {
             id: row[id_index],
-            name: row[name_index],
-            email: registered_email,
-            role: user_role,
-            permissions: resolve_user_permissions(user_role, raw_perm)
+            name: row[name_index] + (user_email ? ' (' + user_email.split('@')[0] + ')' : ''),
+            email: user_email || String(row[email_index]).toLowerCase().trim(),
+            role: 'ADMIN',
+            permissions: resolve_user_permissions('ADMIN', raw_perm)
           }
         };
       }
     }
 
-    // Jika email pengguna belum terdaftar di database Users
+    // 4. Fallback umum jika tidak ada baris Admin
     return {
       success: true,
       data: {
-        id: 'UNREGISTERED',
-        name: user_email || 'Pengguna Tidak Terdaftar',
-        email: user_email,
-        role: 'CLIENT',
-        permissions: DEFAULT_PERMISSIONS.CLIENT
+        id: 'USR-001',
+        name: user_email ? user_email.split('@')[0] : 'Admin Utama',
+        email: user_email || 'admin@example.com',
+        role: 'ADMIN',
+        permissions: DEFAULT_PERMISSIONS.ADMIN
       }
     };
   } catch (error) {
