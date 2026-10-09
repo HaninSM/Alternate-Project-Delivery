@@ -1166,6 +1166,11 @@ function load_scrum_planning_data() {
   const prj_id = app_state.active_project_id || (app_state.projects && app_state.projects.length > 0 ? app_state.projects[0].id : 'PRJ-001');
   app_state.active_project_id = prj_id;
 
+  // Jika sudah ada data sprint di memori, render langsung agar tidak blank saat menunggu respon backend
+  if (app_state.sprints && app_state.sprints.length > 0) {
+    render_scrum_planning_view();
+  }
+
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     set_loading_state(true);
     google.script.run

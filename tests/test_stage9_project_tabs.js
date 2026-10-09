@@ -66,6 +66,21 @@ assert.strictEqual(tab_state_board.board, 'block');
 assert.strictEqual(tab_state_board.planning, 'hidden');
 console.log('   ✓ Transisi tab antar Kanban Board dan Sprint Planning berjalan 100% akurat.\n');
 
+// 5. Verifikasi Hirarki Sibling DOM (Bebas dari bug nesting display: none)
+console.log('5. Menguji Kemandirian Hirarki Sibling DOM (#view-board & #view-scrum-planning)...');
+const board_idx = ui_content.indexOf('id="view-board"');
+const planning_idx = ui_content.indexOf('id="view-scrum-planning"');
+assert(board_idx !== -1 && planning_idx !== -1, 'Kedua kontainer tab harus ditemukan di UI.html');
+assert(board_idx < planning_idx, 'view-board harus terdefinisi sebelum view-scrum-planning');
+
+const board_chunk = ui_content.substring(board_idx, planning_idx);
+const open_divs = (board_chunk.match(/<div(\s|>)/gi) || []).length;
+const close_divs = (board_chunk.match(/<\/div>/gi) || []).length;
+// Karena chunk dimulai dari <div id="view-board"> dan harus ditutup sebelum <div id="view-scrum-planning">,
+// jumlah <div dan </div> harus sama persis (keseimbangan tag = 0)
+assert.strictEqual(open_divs, close_divs, `Tag div harus seimbang! Dibuka: ${open_divs}, Ditutup: ${close_divs}`);
+console.log(`   ✓ Terverifikasi: Kontainer view-board tertutup sempurna (Dibuka: ${open_divs}, Ditutup: ${close_divs}). view-scrum-planning adalah elemen sibling yang mandiri!\n`);
+
 console.log('================================================================');
 console.log('  SEMUA PENGUJIAN TAHAP 9 (PROJECT TABS) BERHASIL (100% PASS)!');
 console.log('================================================================\n');
