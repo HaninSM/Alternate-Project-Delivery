@@ -633,17 +633,77 @@ function handle_task_status_change(task_id, new_status) {
 }
 
 /**
+ * Berpindah tab antara Kanban Board dan Sprint Planning di dalam menu Project
+ * @param {'board'|'planning'} tab_name
+ */
+function switch_project_tab(tab_name) {
+  const tab_board_btn = document.getElementById('tab-btn-board');
+  const tab_planning_btn = document.getElementById('tab-btn-planning');
+  const board_content = document.getElementById('view-board');
+  const planning_content = document.getElementById('view-scrum-planning');
+
+  if (tab_name === 'planning') {
+    if (board_content) {
+      board_content.classList.remove('block');
+      board_content.classList.add('hidden');
+    }
+    if (planning_content) {
+      planning_content.classList.remove('hidden');
+      planning_content.classList.add('block');
+    }
+    if (tab_planning_btn) {
+      tab_planning_btn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm bg-white text-indigo-700 cursor-pointer flex items-center space-x-1.5';
+    }
+    if (tab_board_btn) {
+      tab_board_btn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900 cursor-pointer flex items-center space-x-1.5';
+    }
+    app_state.current_project_tab = 'planning';
+    load_scrum_planning_data();
+  } else {
+    // Default: 'board'
+    if (planning_content) {
+      planning_content.classList.remove('block');
+      planning_content.classList.add('hidden');
+    }
+    if (board_content) {
+      board_content.classList.remove('hidden');
+      board_content.classList.add('block');
+    }
+    if (tab_board_btn) {
+      tab_board_btn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm bg-white text-indigo-700 cursor-pointer flex items-center space-x-1.5';
+    }
+    if (tab_planning_btn) {
+      tab_planning_btn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-600 hover:text-slate-900 cursor-pointer flex items-center space-x-1.5';
+    }
+    app_state.current_project_tab = 'board';
+    load_sprint_tasks();
+  }
+}
+
+/**
  * Logika SPA Navigasi antar tampilan tanpa reload browser
  */
 function switch_view(target_view) {
-  const views = ['dashboard', 'board', 'scrum-planning', 'insights', 'settings', 'users'];
+  // Normalisasi target view: jika memanggil 'board' atau 'scrum-planning', arahkan ke 'project'
+  let normalized_view = target_view;
+  if (target_view === 'board') {
+    normalized_view = 'project';
+    switch_project_tab('board');
+  } else if (target_view === 'scrum-planning') {
+    normalized_view = 'project';
+    switch_project_tab('planning');
+  } else if (target_view === 'project') {
+    switch_project_tab(app_state.current_project_tab || 'board');
+  }
+
+  const views = ['dashboard', 'project', 'insights', 'settings', 'users'];
   
   views.forEach(view_name => {
     const section_el = document.getElementById('view-' + view_name);
     const nav_btn_el = document.getElementById('nav-btn-' + view_name);
 
     if (section_el) {
-      if (view_name === target_view) {
+      if (view_name === normalized_view) {
         section_el.classList.remove('hidden');
         section_el.classList.add('block');
         // Render ulang chart jika beralih ke view insights agar responsive
@@ -652,12 +712,6 @@ function switch_view(target_view) {
         }
         if (view_name === 'dashboard') {
           load_projects_list();
-        }
-        if (view_name === 'scrum-planning') {
-          load_scrum_planning_data();
-        }
-        if (view_name === 'board') {
-          load_sprint_tasks();
         }
         if (view_name === 'users') {
           load_users_management();
@@ -669,7 +723,7 @@ function switch_view(target_view) {
     }
 
     if (nav_btn_el) {
-      if (view_name === target_view) {
+      if (view_name === normalized_view) {
         nav_btn_el.className = 'nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-white bg-indigo-600/90 shadow-sm transition-colors group';
       } else {
         nav_btn_el.className = 'nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group';
@@ -824,7 +878,7 @@ function handle_submit_new_task(e) {
         if (response && response.success) {
           show_notification('Task berhasil dibuat!', 'success');
           close_task_modal();
-          if (app_state.current_view === 'scrum-planning') {
+          if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
             load_scrum_planning_data();
           } else {
             load_sprint_tasks();

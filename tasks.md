@@ -142,3 +142,18 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba retensi task DONE di sprint asal dan pemindahan task belum tuntas ke sprint baru.
   - Uji coba pencatatan audit trail rollover di `Task_History`.
   - Uji coba rollover task ke Product Backlog. (Diverifikasi lulus 100% via `tests/test_stage8_complete_sprint.js`).
+
+---
+
+## Tahap 9 - Unified Project Menu with Tab Navigation
+- [x] Unifikasi menu navigasi sidebar: Menggabungkan `Kanban Board` dan `Scrum Planning` menjadi 1 menu utama bernama **Project** (`#nav-btn-project`).
+- [x] Rancang wadah tampilan kerja `#view-project` di `UI.html` yang memuat Sub-Navbar Tabs:
+  - Tab 1: **Kanban Board** (`#tab-btn-board` -> `#view-board`)
+  - Tab 2: **Sprint Planning** (`#tab-btn-planning` -> `#view-scrum-planning`)
+- [x] Implementasikan fungsi `switch_project_tab(tab_name)` di `js_main.html` untuk transisi instan antar tab tanpa reload.
+- [x] Normalisasi fungsi SPA `switch_view`: panggilan `board` dan `scrum-planning` secara cerdas membuka view `project` pada tab yang sesuai (backward-compatibility terjaga).
+- [x] **Quality Gate / Uji Coba Tahap 9:**
+  - Uji coba unifikasi tombol navigasi sidebar.
+  - Uji coba struktur sub-tab pada ruang kerja proyek.
+  - Uji coba fungsionalitas pergantian tab aktif. (Diverifikasi lulus 100% via `tests/test_stage9_project_tabs.js`).
+
