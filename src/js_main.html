@@ -108,12 +108,14 @@ function apply_rbac_permissions(role) {
     can_create_task: role === 'ADMIN' || role === 'PM',
     can_move_task: role !== 'CLIENT',
     can_view_insights: true,
+    can_view_cycle_time: true,
     can_manage_users: role === 'ADMIN'
   };
 
   const rbac_tag = document.getElementById('rbac-permission-tag');
   const btn_add_task = document.getElementById('btn-add-task');
   const nav_btn_users = document.getElementById('nav-btn-users');
+  const nav_btn_cycle_time = document.getElementById('nav-btn-cycle-time');
   const btn_add_project = document.getElementById('btn-add-project');
   const btn_header_add_task = document.getElementById('btn-header-add-task');
   const btn_backlog_add_task = document.getElementById('btn-backlog-add-task');
@@ -160,6 +162,15 @@ function apply_rbac_permissions(role) {
   if (btn_add_project) {
     if (perms.can_create_project) btn_add_project.classList.remove('hidden');
     else btn_add_project.classList.add('hidden');
+  }
+
+  // Menu Cycle Time
+  if (nav_btn_cycle_time) {
+    if (perms.can_view_cycle_time !== false) {
+      nav_btn_cycle_time.classList.remove('hidden');
+    } else {
+      nav_btn_cycle_time.classList.add('hidden');
+    }
   }
 
   // Menu Manajemen Pengguna hanya muncul jika can_manage_users = true
@@ -696,7 +707,7 @@ function switch_view(target_view) {
     switch_project_tab(app_state.current_project_tab || 'board');
   }
 
-  const views = ['dashboard', 'project', 'insights', 'settings', 'users'];
+  const views = ['dashboard', 'project', 'insights', 'cycle-time', 'settings', 'users'];
   
   views.forEach(view_name => {
     const section_el = document.getElementById('view-' + view_name);
@@ -709,6 +720,9 @@ function switch_view(target_view) {
         // Render ulang chart jika beralih ke view insights agar responsive
         if (view_name === 'insights' && app_state.insights) {
           render_insights_dashboard(app_state.insights);
+        }
+        if (view_name === 'cycle-time') {
+          load_cycle_time_report();
         }
         if (view_name === 'dashboard') {
           load_projects_list();
@@ -2032,6 +2046,7 @@ const DEFAULT_ROLE_PERMS = {
     can_create_task: true,
     can_move_task: true,
     can_view_insights: true,
+    can_view_cycle_time: true,
     can_manage_users: true
   },
   PM: {
@@ -2040,6 +2055,7 @@ const DEFAULT_ROLE_PERMS = {
     can_create_task: true,
     can_move_task: true,
     can_view_insights: true,
+    can_view_cycle_time: true,
     can_manage_users: false
   },
   MEMBER: {
@@ -2048,6 +2064,7 @@ const DEFAULT_ROLE_PERMS = {
     can_create_task: false,
     can_move_task: true,
     can_view_insights: true,
+    can_view_cycle_time: true,
     can_manage_users: false
   },
   CLIENT: {
@@ -2056,6 +2073,7 @@ const DEFAULT_ROLE_PERMS = {
     can_create_task: false,
     can_move_task: false,
     can_view_insights: true,
+    can_view_cycle_time: true,
     can_manage_users: false
   }
 };
@@ -2072,6 +2090,7 @@ function handle_role_preset_change(role) {
   const cb_create_task = document.getElementById('perm-can-create-task');
   const cb_move_task = document.getElementById('perm-can-move-task');
   const cb_view_insights = document.getElementById('perm-can-view-insights');
+  const cb_view_cycle_time = document.getElementById('perm-can-view-cycle-time');
   const cb_manage_users = document.getElementById('perm-can-manage-users');
 
   if (cb_create_proj) cb_create_proj.checked = perms.can_create_project;
@@ -2079,6 +2098,7 @@ function handle_role_preset_change(role) {
   if (cb_create_task) cb_create_task.checked = perms.can_create_task;
   if (cb_move_task) cb_move_task.checked = perms.can_move_task;
   if (cb_view_insights) cb_view_insights.checked = perms.can_view_insights;
+  if (cb_view_cycle_time) cb_view_cycle_time.checked = perms.can_view_cycle_time !== false;
   if (cb_manage_users) cb_manage_users.checked = perms.can_manage_users;
 }
 
@@ -2209,6 +2229,7 @@ function render_users_table(users) {
     if (perms.can_create_task) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 font-medium">Buat Task</span>');
     if (perms.can_move_task) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 font-medium">Geser Task</span>');
     if (perms.can_view_insights) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-teal-50 text-teal-700 font-medium">Insights</span>');
+    if (perms.can_view_cycle_time !== false) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-cyan-50 text-cyan-700 font-medium">Cycle Time</span>');
     if (perms.can_manage_users) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 font-semibold border border-purple-200">Kelola User</span>');
 
     const tr = document.createElement('tr');
@@ -2318,6 +2339,7 @@ function open_user_modal(mode, user_id) {
     const cb_create_task = document.getElementById('perm-can-create-task');
     const cb_move_task = document.getElementById('perm-can-move-task');
     const cb_view_insights = document.getElementById('perm-can-view-insights');
+    const cb_view_cycle_time = document.getElementById('perm-can-view-cycle-time');
     const cb_manage_users = document.getElementById('perm-can-manage-users');
 
     if (cb_create_proj) cb_create_proj.checked = !!perms.can_create_project;
@@ -2325,6 +2347,7 @@ function open_user_modal(mode, user_id) {
     if (cb_create_task) cb_create_task.checked = !!perms.can_create_task;
     if (cb_move_task) cb_move_task.checked = !!perms.can_move_task;
     if (cb_view_insights) cb_view_insights.checked = !!perms.can_view_insights;
+    if (cb_view_cycle_time) cb_view_cycle_time.checked = perms.can_view_cycle_time !== false;
     if (cb_manage_users) cb_manage_users.checked = !!perms.can_manage_users;
   }
 
@@ -2359,6 +2382,7 @@ function handle_submit_user(e) {
     can_create_task: document.getElementById('perm-can-create-task').checked,
     can_move_task: document.getElementById('perm-can-move-task').checked,
     can_view_insights: document.getElementById('perm-can-view-insights').checked,
+    can_view_cycle_time: document.getElementById('perm-can-view-cycle-time') ? document.getElementById('perm-can-view-cycle-time').checked : true,
     can_manage_users: document.getElementById('perm-can-manage-users').checked
   };
 
@@ -2534,5 +2558,482 @@ function confirm_delete_user() {
     render_users_table(app_state.users_list);
     show_notification('Pengguna simulasi berhasil dihapus.', 'success');
   }
+}
+
+/**
+ * ============================================================================
+ * CYCLE TIME & TIME-IN-STATUS CONTROLLER (Jira-style Search & Reporting)
+ * ============================================================================
+ */
+
+app_state.cycle_time_metadata = null;
+app_state.cycle_time_data = [];
+
+/**
+ * Mengambil parameter filter saat ini dari form Cycle Time
+ * @return {Object}
+ */
+function get_cycle_time_filter_params() {
+  return {
+    project_id: (document.getElementById('ct-filter-project') ? document.getElementById('ct-filter-project').value : '').trim(),
+    sprint_id: (document.getElementById('ct-filter-sprint') ? document.getElementById('ct-filter-sprint').value : '').trim(),
+    status: (document.getElementById('ct-filter-status') ? document.getElementById('ct-filter-status').value : '').trim(),
+    assignee_id: (document.getElementById('ct-filter-assignee') ? document.getElementById('ct-filter-assignee').value : '').trim(),
+    search: (document.getElementById('ct-filter-search') ? document.getElementById('ct-filter-search').value : '').trim()
+  };
+}
+
+/**
+ * Memuat data laporan Cycle Time dari backend GAS
+ */
+function load_cycle_time_report() {
+  const tbody = document.getElementById('ct-table-body');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="11" class="py-10 text-center text-slate-400">
+          <div class="flex items-center justify-center space-x-2">
+            <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Menghitung metrik Time-in-Status & Cycle Time...</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  const filters = get_cycle_time_filter_params();
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    set_loading_state(true);
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          app_state.cycle_time_data = response.data || [];
+          app_state.cycle_time_metadata = response.metadata || null;
+          populate_cycle_time_comboboxes(response.metadata);
+          render_cycle_time_report(app_state.cycle_time_data);
+        } else {
+          show_notification('Gagal memuat laporan Cycle Time: ' + (response ? response.message : ''), 'error');
+          if (tbody) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="11" class="py-6 text-center text-rose-500 font-medium">
+                  ${escape_html(response ? response.message : 'Gagal memuat data')}
+                </td>
+              </tr>
+            `;
+          }
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error memuat data Cycle Time: ' + err.message, 'error');
+      })
+      .get_cycle_time_report_data(filters);
+  } else {
+    // Mode simulasi lokal untuk pengujian browser & NodeJS
+    simulate_mock_cycle_time_report(filters);
+  }
+}
+
+/**
+ * Mengisi opsi combobox filter secara dinamis dari metadata project/sprint/user
+ * @param {Object} metadata
+ */
+function populate_cycle_time_comboboxes(metadata) {
+  if (!metadata) return;
+
+  const sel_project = document.getElementById('ct-filter-project');
+  const sel_sprint = document.getElementById('ct-filter-sprint');
+  const sel_assignee = document.getElementById('ct-filter-assignee');
+
+  // 1. Projects Combobox
+  if (sel_project && metadata.projects) {
+    const cur_val = sel_project.value;
+    sel_project.innerHTML = '<option value="">Semua Proyek</option>';
+    metadata.projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name ? `${p.name} (${p.id})` : p.id;
+      if (p.id === cur_val) opt.selected = true;
+      sel_project.appendChild(opt);
+    });
+  }
+
+  // 2. Sprints Combobox
+  update_cycle_time_sprints_dropdown(sel_project ? sel_project.value : '');
+
+  // 3. Assignee Combobox
+  if (sel_assignee && metadata.users) {
+    const cur_val = sel_assignee.value;
+    sel_assignee.innerHTML = '<option value="">Semua Assignee</option>';
+    metadata.users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = `${u.name} (${u.role})`;
+      if (u.id === cur_val) opt.selected = true;
+      sel_assignee.appendChild(opt);
+    });
+  }
+}
+
+/**
+ * Filter dropdown sprint berdasarkan project yang dipilih
+ * @param {string} project_id
+ */
+function update_cycle_time_sprints_dropdown(project_id) {
+  const sel_sprint = document.getElementById('ct-filter-sprint');
+  if (!sel_sprint || !app_state.cycle_time_metadata || !app_state.cycle_time_metadata.sprints) return;
+
+  const cur_val = sel_sprint.value;
+  sel_sprint.innerHTML = '<option value="">Semua Sprint</option>';
+
+  const sprints = app_state.cycle_time_metadata.sprints.filter(s => {
+    if (!project_id) return true;
+    return String(s.project_id).trim() === project_id;
+  });
+
+  sprints.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name ? `${s.name} [${s.status}]` : s.id;
+    if (s.id === cur_val) opt.selected = true;
+    sel_sprint.appendChild(opt);
+  });
+}
+
+/**
+ * Event handler saat combobox project berubah
+ * @param {string} project_id
+ */
+function handle_ct_project_change(project_id) {
+  update_cycle_time_sprints_dropdown(project_id);
+}
+
+/**
+ * Event handler form search ditekan
+ * @param {Event} e
+ */
+function handle_cycle_time_search(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  load_cycle_time_report();
+}
+
+/**
+ * Reset seluruh filter Cycle Time ke kondisi awal
+ */
+function reset_cycle_time_filters() {
+  const form = document.getElementById('form-cycle-time-filter');
+  if (form) form.reset();
+  if (document.getElementById('ct-filter-project')) {
+    update_cycle_time_sprints_dropdown('');
+  }
+  load_cycle_time_report();
+}
+
+/**
+ * Merender tabel dan ringkasan metrik Cycle Time
+ * @param {Array<Object>} rows
+ */
+function render_cycle_time_report(rows) {
+  const tbody = document.getElementById('ct-table-body');
+  const count_badge = document.getElementById('ct-table-count-badge');
+  const stat_total = document.getElementById('ct-stat-total');
+  const stat_todo = document.getElementById('ct-stat-avg-todo');
+  const stat_cycle = document.getElementById('ct-stat-avg-cycle');
+  const stat_lead = document.getElementById('ct-stat-avg-lead');
+
+  if (!rows || rows.length === 0) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="11" class="py-12 text-center text-slate-400 italic">
+            Tidak ada task yang cocok dengan kriteria filter yang dipilih.
+          </td>
+        </tr>
+      `;
+    }
+    if (count_badge) count_badge.textContent = '0 tasks';
+    if (stat_total) stat_total.textContent = '0';
+    if (stat_todo) stat_todo.textContent = '-';
+    if (stat_cycle) stat_cycle.textContent = '-';
+    if (stat_lead) stat_lead.textContent = '-';
+    return;
+  }
+
+  if (count_badge) count_badge.textContent = `${rows.length} tasks`;
+  if (stat_total) stat_total.textContent = rows.length;
+
+  // Hitung rata-rata agregat
+  let total_todo_ms = 0;
+  let total_cycle_ms = 0;
+  let total_lead_ms = 0;
+
+  rows.forEach(r => {
+    total_todo_ms += (r.durations ? r.durations.todo_ms : 0);
+    total_cycle_ms += (r.durations ? r.durations.cycle_time_ms : 0);
+    total_lead_ms += (r.durations ? r.durations.lead_time_ms : 0);
+  });
+
+  const avg_todo_ms = Math.round(total_todo_ms / rows.length);
+  const avg_cycle_ms = Math.round(total_cycle_ms / rows.length);
+  const avg_lead_ms = Math.round(total_lead_ms / rows.length);
+
+  if (stat_todo) stat_todo.textContent = format_duration_human_client(avg_todo_ms);
+  if (stat_cycle) stat_cycle.textContent = format_duration_human_client(avg_cycle_ms);
+  if (stat_lead) stat_lead.textContent = format_duration_human_client(avg_lead_ms);
+
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  rows.forEach(task => {
+    const dur = task.durations || {};
+    
+    // Status Badge Styling
+    let status_cls = 'bg-slate-100 text-slate-700 border-slate-200';
+    if (task.status === 'DONE') status_cls = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    else if (task.status === 'IN_PROGRESS') status_cls = 'bg-blue-100 text-blue-800 border-blue-200';
+    else if (task.status === 'REVIEW') status_cls = 'bg-purple-100 text-purple-800 border-purple-200';
+    else if (task.status === 'TODO') status_cls = 'bg-amber-100 text-amber-800 border-amber-200';
+
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-indigo-50/30 transition-colors border-b border-slate-100';
+    tr.innerHTML = `
+      <!-- Key -->
+      <td class="py-3 px-3.5 font-bold font-mono text-indigo-600 whitespace-nowrap">
+        ${escape_html(task.key || task.id)}
+      </td>
+      
+      <!-- Type Icon (T) -->
+      <td class="py-3 px-2 text-center whitespace-nowrap">
+        <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500 text-white text-[10px] font-bold" title="Task">
+          ✓
+        </span>
+      </td>
+
+      <!-- Summary -->
+      <td class="py-3 px-4 min-w-[200px]">
+        <span class="font-semibold text-slate-800 block">${escape_html(task.summary)}</span>
+        <span class="text-[10px] text-slate-400 block">${escape_html(task.project_name)} &bull; ${escape_html(task.sprint_name)}</span>
+      </td>
+
+      <!-- Status -->
+      <td class="py-3 px-3 whitespace-nowrap">
+        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${status_cls}">
+          ${escape_html(task.status)}
+        </span>
+      </td>
+
+      <!-- Assignee -->
+      <td class="py-3 px-3 whitespace-nowrap text-slate-600">
+        <div class="flex items-center space-x-1.5">
+          <div class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px]">
+            ${escape_html((task.assignee_name || 'U').charAt(0).toUpperCase())}
+          </div>
+          <span class="text-[11px] font-medium">${escape_html(task.assignee_name || '-')}</span>
+        </div>
+      </td>
+
+      <!-- Created -->
+      <td class="py-3 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+        ${escape_html(task.created_at || '-')}
+      </td>
+
+      <!-- To Do Duration -->
+      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-amber-50/30 text-amber-900 border-l border-amber-100">
+        ${escape_html(dur.todo_str || '-')}
+      </td>
+
+      <!-- In Progress Duration -->
+      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-blue-50/30 text-blue-900 font-semibold border-l border-blue-100">
+        ${escape_html(dur.in_progress_str || '-')}
+      </td>
+
+      <!-- Review Duration -->
+      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-purple-50/30 text-purple-900 border-l border-purple-100">
+        ${escape_html(dur.review_str || '-')}
+      </td>
+
+      <!-- Cycle Time (Total Active: In Progress + Review) -->
+      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-emerald-50/40 text-emerald-950 font-bold border-l border-emerald-100">
+        ${escape_html(dur.cycle_time_str || '-')}
+      </td>
+
+      <!-- Lead Time -->
+      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-slate-100/50 text-slate-800 font-medium border-l border-slate-200">
+        ${escape_html(dur.lead_time_str || '-')}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Format durasi ms ke human-readable string di browser
+ * @param {number} ms
+ * @return {string}
+ */
+function format_duration_human_client(ms) {
+  if (!ms || ms <= 0 || isNaN(ms)) return '-';
+  const total_minutes = Math.round(ms / (1000 * 60));
+  if (total_minutes <= 0) return '< 1m';
+
+  const days = Math.floor(total_minutes / (24 * 60));
+  const hours = Math.floor((total_minutes % (24 * 60)) / 60);
+  const minutes = total_minutes % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(days + 'd');
+  if (hours > 0) parts.push(hours + 'h');
+  if (minutes > 0 || parts.length === 0) parts.push(minutes + 'm');
+
+  return parts.join(' ');
+}
+
+/**
+ * Simulasi data laporan Cycle Time saat diuji di browser tanpa koneksi backend GAS
+ * @param {Object} filters
+ */
+function simulate_mock_cycle_time_report(filters) {
+  const mock_metadata = {
+    projects: [
+      { id: 'PRJ-001', name: 'Website Redesign & Portal Delivery' }
+    ],
+    sprints: [
+      { id: 'SPR-001', project_id: 'PRJ-001', name: 'Sprint 1 - Foundations & Core Flow', status: 'ACTIVE' }
+    ],
+    users: [
+      { id: 'USR-001', name: 'Admin Utama', role: 'ADMIN' },
+      { id: 'USR-002', name: 'Budi PM', role: 'PM' },
+      { id: 'USR-003', name: 'Siti Developer', role: 'MEMBER' },
+      { id: 'USR-004', name: 'Rian QA Engineer', role: 'MEMBER' }
+    ]
+  };
+
+  app_state.cycle_time_metadata = mock_metadata;
+  populate_cycle_time_comboboxes(mock_metadata);
+
+  const mock_rows = [
+    {
+      id: 'TSK-001',
+      key: 'TSK-001',
+      summary: 'Setup Database Schema & Google Sheets Tabs',
+      status: 'DONE',
+      project_id: 'PRJ-001',
+      project_name: 'Website Redesign & Portal Delivery',
+      sprint_id: 'SPR-001',
+      sprint_name: 'Sprint 1 - Foundations & Core Flow',
+      assignee_id: 'USR-003',
+      assignee_name: 'Siti Developer',
+      created_at: '2026-10-01',
+      durations: {
+        todo_ms: 2 * 3600 * 1000,
+        todo_str: '2h',
+        in_progress_ms: 30 * 3600 * 1000,
+        in_progress_str: '1d 6h',
+        review_ms: 0,
+        review_str: '-',
+        done_ms: 0,
+        done_str: '-',
+        cycle_time_ms: 30 * 3600 * 1000,
+        cycle_time_str: '1d 6h',
+        lead_time_ms: 32 * 3600 * 1000,
+        lead_time_str: '1d 8h'
+      }
+    },
+    {
+      id: 'TSK-002',
+      key: 'TSK-002',
+      summary: 'Implementasi Shell UI Tailwind CSS & SPA',
+      status: 'DONE',
+      project_id: 'PRJ-001',
+      project_name: 'Website Redesign & Portal Delivery',
+      sprint_id: 'SPR-001',
+      sprint_name: 'Sprint 1 - Foundations & Core Flow',
+      assignee_id: 'USR-003',
+      assignee_name: 'Siti Developer',
+      created_at: '2026-10-01',
+      durations: {
+        todo_ms: 23 * 3600 * 1000,
+        todo_str: '23h',
+        in_progress_ms: 34 * 3600 * 1000,
+        in_progress_str: '1d 10h',
+        review_ms: 0,
+        review_str: '-',
+        done_ms: 0,
+        done_str: '-',
+        cycle_time_ms: 34 * 3600 * 1000,
+        cycle_time_str: '1d 10h',
+        lead_time_ms: 57 * 3600 * 1000,
+        lead_time_str: '2d 9h'
+      }
+    },
+    {
+      id: 'TSK-003',
+      key: 'TSK-003',
+      summary: 'Time-in-Status Engine & Audit Trail',
+      status: 'REVIEW',
+      project_id: 'PRJ-001',
+      project_name: 'Website Redesign & Portal Delivery',
+      sprint_id: 'SPR-001',
+      sprint_name: 'Sprint 1 - Foundations & Core Flow',
+      assignee_id: 'USR-003',
+      assignee_name: 'Siti Developer',
+      created_at: '2026-10-02',
+      durations: {
+        todo_ms: 23 * 3600 * 1000,
+        todo_str: '23h',
+        in_progress_ms: 53 * 3600 * 1000,
+        in_progress_str: '2d 5h',
+        review_ms: 12 * 3600 * 1000,
+        review_str: '12h',
+        done_ms: 0,
+        done_str: '-',
+        cycle_time_ms: 65 * 3600 * 1000,
+        cycle_time_str: '2d 17h',
+        lead_time_ms: 88 * 3600 * 1000,
+        lead_time_str: '3d 16h'
+      }
+    },
+    {
+      id: 'TSK-004',
+      key: 'TSK-004',
+      summary: 'Integrasi API Gateway Payment Provider',
+      status: 'IN_PROGRESS',
+      project_id: 'PRJ-001',
+      project_name: 'Website Redesign & Portal Delivery',
+      sprint_id: 'SPR-001',
+      sprint_name: 'Sprint 1 - Foundations & Core Flow',
+      assignee_id: 'USR-004',
+      assignee_name: 'Rian QA Engineer',
+      created_at: '2026-10-02',
+      durations: {
+        todo_ms: 46 * 3600 * 1000,
+        todo_str: '1d 22h',
+        in_progress_ms: 18 * 3600 * 1000,
+        in_progress_str: '18h',
+        review_ms: 0,
+        review_str: '-',
+        done_ms: 0,
+        done_str: '-',
+        cycle_time_ms: 18 * 3600 * 1000,
+        cycle_time_str: '18h',
+        lead_time_ms: 64 * 3600 * 1000,
+        lead_time_str: '2d 16h'
+      }
+    }
+  ];
+
+  // Terapkan filter jika ada
+  let filtered = mock_rows;
+  if (filters.project_id) filtered = filtered.filter(r => r.project_id === filters.project_id);
+  if (filters.sprint_id) filtered = filtered.filter(r => r.sprint_id === filters.sprint_id);
+  if (filters.status) filtered = filtered.filter(r => r.status === filters.status);
+  if (filters.assignee_id) filtered = filtered.filter(r => r.assignee_id === filters.assignee_id);
+  if (filters.search) filtered = filtered.filter(r => r.key.toLowerCase().includes(filters.search.toLowerCase()) || r.summary.toLowerCase().includes(filters.search.toLowerCase()));
+
+  app_state.cycle_time_data = filtered;
+  render_cycle_time_report(filtered);
 }
 </script>

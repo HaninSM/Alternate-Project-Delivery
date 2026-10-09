@@ -51,7 +51,7 @@ function setup_database_schema(target_spreadsheet_id) {
             const row_role = String(u_values[r][role_idx] || 'MEMBER').toUpperCase().trim();
             const perm_obj = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS[row_role]) 
               ? DEFAULT_PERMISSIONS[row_role] 
-              : { can_create_project: false, can_manage_sprint: false, can_create_task: false, can_move_task: true, can_view_insights: true, can_manage_users: false };
+              : { can_create_project: false, can_manage_sprint: false, can_create_task: false, can_move_task: true, can_view_insights: true, can_view_cycle_time: true, can_manage_users: false };
             sheet.getRange(r + 1, perm_idx + 1).setValue(JSON.stringify(perm_obj));
           }
         }
@@ -105,16 +105,16 @@ function seed_dummy_data(target_spreadsheet_id) {
 
   const default_admin_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.ADMIN) 
     ? JSON.stringify(DEFAULT_PERMISSIONS.ADMIN) 
-    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_manage_users":true}';
+    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_view_cycle_time":true,"can_manage_users":true}';
   const default_pm_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.PM) 
     ? JSON.stringify(DEFAULT_PERMISSIONS.PM) 
-    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_manage_users":false}';
+    : '{"can_create_project":true,"can_manage_sprint":true,"can_create_task":true,"can_move_task":true,"can_view_insights":true,"can_view_cycle_time":true,"can_manage_users":false}';
   const default_member_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.MEMBER) 
     ? JSON.stringify(DEFAULT_PERMISSIONS.MEMBER) 
-    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":true,"can_view_insights":true,"can_manage_users":false}';
+    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":true,"can_view_insights":true,"can_view_cycle_time":true,"can_manage_users":false}';
   const default_client_perm = (typeof DEFAULT_PERMISSIONS !== 'undefined' && DEFAULT_PERMISSIONS.CLIENT) 
     ? JSON.stringify(DEFAULT_PERMISSIONS.CLIENT) 
-    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":false,"can_view_insights":true,"can_manage_users":false}';
+    : '{"can_create_project":false,"can_manage_sprint":false,"can_create_task":false,"can_move_task":false,"can_view_insights":true,"can_view_cycle_time":true,"can_manage_users":false}';
 
   // 2. Data Dummy Users (5 Kolom Lengkap)
   const users_data = [
