@@ -2851,9 +2851,9 @@ function render_cycle_time_report(rows) {
   if (stat_lead) stat_lead.textContent = format_duration_human_client(avg_lead_ms);
 
   if (!tbody) return;
-  tbody.innerHTML = '';
 
-  rows.forEach(task => {
+  // Revamp: Single buffer string assignment prevents browser layout thrashing & reflows
+  const rows_html = rows.map(task => {
     const dur = task.durations || {};
     
     // Status Badge Styling
@@ -2863,76 +2863,77 @@ function render_cycle_time_report(rows) {
     else if (task.status === 'REVIEW') status_cls = 'bg-purple-100 text-purple-800 border-purple-200';
     else if (task.status === 'TODO') status_cls = 'bg-amber-100 text-amber-800 border-amber-200';
 
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-indigo-50/30 transition-colors border-b border-slate-100';
-    tr.innerHTML = `
-      <!-- Key -->
-      <td class="py-3 px-3.5 font-bold font-mono text-indigo-600 whitespace-nowrap">
-        ${escape_html(task.key || task.id)}
-      </td>
-      
-      <!-- Type Icon (T) -->
-      <td class="py-3 px-2 text-center whitespace-nowrap">
-        <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500 text-white text-[10px] font-bold" title="Task">
-          ✓
-        </span>
-      </td>
+    return `
+      <tr class="hover:bg-indigo-50/30 transition-colors border-b border-slate-100">
+        <!-- Key -->
+        <td class="py-3 px-3.5 font-bold font-mono text-indigo-600 whitespace-nowrap">
+          ${escape_html(task.key || task.id)}
+        </td>
+        
+        <!-- Type Icon (T) -->
+        <td class="py-3 px-2 text-center whitespace-nowrap">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500 text-white text-[10px] font-bold" title="Task">
+            ✓
+          </span>
+        </td>
 
-      <!-- Summary -->
-      <td class="py-3 px-4 min-w-[200px]">
-        <span class="font-semibold text-slate-800 block">${escape_html(task.summary)}</span>
-        <span class="text-[10px] text-slate-400 block">${escape_html(task.project_name)} &bull; ${escape_html(task.sprint_name)}</span>
-      </td>
+        <!-- Summary -->
+        <td class="py-3 px-4 min-w-[200px]">
+          <span class="font-semibold text-slate-800 block">${escape_html(task.summary)}</span>
+          <span class="text-[10px] text-slate-400 block">${escape_html(task.project_name)} &bull; ${escape_html(task.sprint_name)}</span>
+        </td>
 
-      <!-- Status -->
-      <td class="py-3 px-3 whitespace-nowrap">
-        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${status_cls}">
-          ${escape_html(task.status)}
-        </span>
-      </td>
+        <!-- Status -->
+        <td class="py-3 px-3 whitespace-nowrap">
+          <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${status_cls}">
+            ${escape_html(task.status)}
+          </span>
+        </td>
 
-      <!-- Assignee -->
-      <td class="py-3 px-3 whitespace-nowrap text-slate-600">
-        <div class="flex items-center space-x-1.5">
-          <div class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px]">
-            ${escape_html((task.assignee_name || 'U').charAt(0).toUpperCase())}
+        <!-- Assignee -->
+        <td class="py-3 px-3 whitespace-nowrap text-slate-600">
+          <div class="flex items-center space-x-1.5">
+            <div class="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px]">
+              ${escape_html((task.assignee_name || 'U').charAt(0).toUpperCase())}
+            </div>
+            <span class="text-[11px] font-medium">${escape_html(task.assignee_name || '-')}</span>
           </div>
-          <span class="text-[11px] font-medium">${escape_html(task.assignee_name || '-')}</span>
-        </div>
-      </td>
+        </td>
 
-      <!-- Created -->
-      <td class="py-3 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-        ${escape_html(task.created_at || '-')}
-      </td>
+        <!-- Created -->
+        <td class="py-3 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+          ${escape_html(task.created_at || '-')}
+        </td>
 
-      <!-- To Do Duration -->
-      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-amber-50/30 text-amber-900 border-l border-amber-100">
-        ${escape_html(dur.todo_str || '-')}
-      </td>
+        <!-- To Do Duration -->
+        <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-amber-50/30 text-amber-900 border-l border-amber-100">
+          ${escape_html(dur.todo_str || '-')}
+        </td>
 
-      <!-- In Progress Duration -->
-      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-blue-50/30 text-blue-900 font-semibold border-l border-blue-100">
-        ${escape_html(dur.in_progress_str || '-')}
-      </td>
+        <!-- In Progress Duration -->
+        <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-blue-50/30 text-blue-900 font-semibold border-l border-blue-100">
+          ${escape_html(dur.in_progress_str || '-')}
+        </td>
 
-      <!-- Review Duration -->
-      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-purple-50/30 text-purple-900 border-l border-purple-100">
-        ${escape_html(dur.review_str || '-')}
-      </td>
+        <!-- Review Duration -->
+        <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-purple-50/30 text-purple-900 border-l border-purple-100">
+          ${escape_html(dur.review_str || '-')}
+        </td>
 
-      <!-- Cycle Time (Total Active: In Progress + Review) -->
-      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-emerald-50/40 text-emerald-950 font-bold border-l border-emerald-100">
-        ${escape_html(dur.cycle_time_str || '-')}
-      </td>
+        <!-- Cycle Time (Total Active: In Progress + Review) -->
+        <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-emerald-50/40 text-emerald-950 font-bold border-l border-emerald-100">
+          ${escape_html(dur.cycle_time_str || '-')}
+        </td>
 
-      <!-- Lead Time -->
-      <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-slate-100/50 text-slate-800 font-medium border-l border-slate-200">
-        ${escape_html(dur.lead_time_str || '-')}
-      </td>
+        <!-- Lead Time -->
+        <td class="py-3 px-3 whitespace-nowrap font-mono text-[11px] bg-slate-100/50 text-slate-800 font-medium border-l border-slate-200">
+          ${escape_html(dur.lead_time_str || '-')}
+        </td>
+      </tr>
     `;
-    tbody.appendChild(tr);
-  });
+  }).join('');
+
+  tbody.innerHTML = rows_html;
 }
 
 /**

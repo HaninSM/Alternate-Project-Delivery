@@ -5,11 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alternate Project Delivery - Actionable Insights</title>
   
+  <!-- Preconnect CDN Origins for ultra-fast network handshake -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Chart.js CDN (Disiapkan untuk Visualisasi Tahap 4) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js CDN (Loaded with defer so it never blocks UI rendering) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     /* Styling khusus scrollbar yang rapi */

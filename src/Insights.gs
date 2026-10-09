@@ -535,7 +535,7 @@ function get_cycle_time_report_data(filters) {
       }
     }
 
-    // 4. Dynamic Lookup History & Group by Task
+    // 4. Dynamic Lookup History & Group by Task (Pre-parse timestamp in O(N))
     const history_by_task = {};
     if (sheet_history && sheet_history.getLastRow() > 1) {
       const h_vals = sheet_history.getDataRange().getValues();
@@ -549,12 +549,19 @@ function get_cycle_time_report_data(filters) {
       for (let r = 1; r < h_vals.length; r++) {
         const tid = String(h_vals[r][t_id_i]).trim();
         if (!history_by_task[tid]) history_by_task[tid] = [];
+        const raw_ts = ts_i !== -1 ? h_vals[r][ts_i] : null;
         history_by_task[tid].push({
           old_status: String(h_vals[r][o_st_i]).toUpperCase().trim(),
           new_status: String(h_vals[r][n_st_i]).toUpperCase().trim(),
           changed_by: by_i !== -1 ? h_vals[r][by_i] : '',
-          timestamp: ts_i !== -1 ? h_vals[r][ts_i] : null
+          timestamp: raw_ts,
+          timestamp_ms: parse_date_safe_ms(raw_ts, 0)
         });
+      }
+
+      // Pre-sort history arrays once per task
+      for (const tid in history_by_task) {
+        history_by_task[tid].sort((a, b) => a.timestamp_ms - b.timestamp_ms);
       }
     }
 
@@ -596,7 +603,7 @@ function get_cycle_time_report_data(filters) {
 
       const project_info = projects_map[project_id] || { id: project_id, name: project_id || '-' };
 
-      // Evaluasi Filter
+      // Evaluasi Filter cepat
       if (filter_project_id && project_id !== filter_project_id) continue;
       if (filter_sprint_id && sprint_id !== filter_sprint_id) continue;
       if (filter_status && current_status !== filter_status) continue;
@@ -606,7 +613,6 @@ function get_cycle_time_report_data(filters) {
       // Safe Date Calculation
       const created_ts = parse_date_safe_ms(created_at_raw, now_ts);
       const t_histories = history_by_task[task_id] || [];
-      t_histories.sort((a, b) => parse_date_safe_ms(a.timestamp, 0) - parse_date_safe_ms(b.timestamp, 0));
 
       let duration_todo_ms = 0;
       let duration_in_progress_ms = 0;
@@ -618,7 +624,7 @@ function get_cycle_time_report_data(filters) {
 
       for (let h = 0; h < t_histories.length; h++) {
         const trans = t_histories[h];
-        const trans_ts = parse_date_safe_ms(trans.timestamp, last_ts);
+        const trans_ts = trans.timestamp_ms || last_ts;
         const delta = Math.max(0, trans_ts - last_ts);
 
         if (last_status === 'TODO') duration_todo_ms += delta;
