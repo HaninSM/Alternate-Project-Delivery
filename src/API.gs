@@ -50,16 +50,26 @@ function get_projects_list() {
       }
     }
 
-    // Lookup sprint aktif pertama per project
+    // Lookup sprint aktif per project (prioritaskan status ACTIVE)
     const project_sprint_map = {};
     if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
       const sp_values = sheet_sprints.getDataRange().getValues();
+      const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
+      const sp_status_idx = sp_header.indexOf('status');
+
       for (let r = 1; r < sp_values.length; r++) {
         const sp_id = sp_values[r][0];
         const prj_id = String(sp_values[r][1]).trim();
         const sp_name = sp_values[r][2];
+        const sp_status = sp_status_idx !== -1 && sp_values[r][sp_status_idx]
+          ? String(sp_values[r][sp_status_idx]).trim().toUpperCase()
+          : (sp_values[r][5] ? String(sp_values[r][5]).trim().toUpperCase() : 'ACTIVE');
+
         if (!project_sprint_map[prj_id]) {
-          project_sprint_map[prj_id] = { id: sp_id, name: sp_name };
+          project_sprint_map[prj_id] = { id: sp_id, name: sp_name, status: sp_status };
+        } else if (sp_status === 'ACTIVE') {
+          // Prioritaskan sprint yang sedang aktif berjalan
+          project_sprint_map[prj_id] = { id: sp_id, name: sp_name, status: sp_status };
         }
       }
     }
@@ -100,6 +110,7 @@ function get_projects_list() {
         pm_name: user_name_map[pm_id] || pm_id || 'Project Manager',
         active_sprint_id: active_sp.id,
         active_sprint_name: active_sp.name,
+        active_sprint_status: active_sp.status || 'ACTIVE',
         total_tasks: stats.total,
         done_tasks: stats.done
       });
@@ -146,11 +157,13 @@ function create_new_project(project_input) {
     // 2. Tambah sprint default ke sheet Sprints khusus untuk project ini
     let sprint_id = 'SPR-' + ('000' + (sheet_sprints ? sheet_sprints.getLastRow() : 1)).slice(-3);
     const sprint_name = project_input.sprint_name ? project_input.sprint_name.trim() : 'Sprint 1 - Foundations';
+    const is_scrum = String(project_input.mode || '').toUpperCase() === 'SCRUM';
+    const initial_sp_status = is_scrum ? 'PLANNING' : 'ACTIVE';
     if (sheet_sprints) {
       const duration_days = (Number(project_input.sprint_duration_weeks) || 2) * 7;
       const today = new Date().toISOString().split('T')[0];
       const endDate = new Date(Date.now() + duration_days * 86400000).toISOString().split('T')[0];
-      sheet_sprints.appendRow([sprint_id, project_id, sprint_name, today, endDate]);
+      sheet_sprints.appendRow([sprint_id, project_id, sprint_name, today, endDate, initial_sp_status]);
     }
 
     return {
@@ -161,6 +174,7 @@ function create_new_project(project_input) {
         name: project_name,
         sprint_id: sprint_id,
         sprint_name: sprint_name,
+        sprint_status: initial_sp_status,
         mode: project_input.mode || 'KANBAN'
       }
     };
@@ -416,9 +430,16 @@ function get_project_backlog_and_sprints(project_id) {
     const sprint_ids = [];
     if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
       const sp_values = sheet_sprints.getDataRange().getValues();
+      const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
+      const sp_status_idx = sp_header.indexOf('status');
+
       for (let r = 1; r < sp_values.length; r++) {
         if (String(sp_values[r][1]).trim().toLowerCase() === prj_id.toLowerCase()) {
           const sp_id = String(sp_values[r][0]).trim();
+          const sp_status = sp_status_idx !== -1 && sp_values[r][sp_status_idx]
+            ? String(sp_values[r][sp_status_idx]).trim().toUpperCase()
+            : (sp_values[r][5] ? String(sp_values[r][5]).trim().toUpperCase() : 'ACTIVE');
+
           sprint_ids.push(sp_id);
           sprints.push({
             id: sp_id,
@@ -426,6 +447,7 @@ function get_project_backlog_and_sprints(project_id) {
             name: String(sp_values[r][2] || ''),
             start_date: format_gas_date(sp_values[r][3]),
             end_date: format_gas_date(sp_values[r][4]),
+            status: sp_status,
             tasks: [],
             total_hours: 0
           });
@@ -541,7 +563,7 @@ function create_new_sprint_bucket(project_id, sprint_name) {
     const today = new Date().toISOString().split('T')[0];
     const default_end = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
 
-    sheet_sprints.appendRow([sprint_id, prj_id, final_name, today, default_end]);
+    sheet_sprints.appendRow([sprint_id, prj_id, final_name, today, default_end, 'PLANNING']);
 
     return {
       success: true,
@@ -551,7 +573,8 @@ function create_new_sprint_bucket(project_id, sprint_name) {
         project_id: prj_id,
         name: final_name,
         start_date: today,
-        end_date: default_end
+        end_date: default_end,
+        status: 'PLANNING'
       }
     };
   } catch (e) {
@@ -663,10 +686,18 @@ function start_sprint(input) {
     const end_date = new Date(Date.now() + duration_days * 86400000).toISOString().split('T')[0];
     const sprint_name = input.sprint_name && input.sprint_name.trim() !== '' ? input.sprint_name.trim() : sp_values[target_row_index - 1][name_idx];
 
+    const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
+    let sp_status_idx = sp_header.indexOf('status');
+    if (sp_status_idx === -1) {
+      sp_status_idx = 5;
+      sheet_sprints.getRange(1, 6).setValue('status');
+    }
+
     // Update baris sprint
     sheet_sprints.getRange(target_row_index, name_idx + 1).setValue(sprint_name);
     sheet_sprints.getRange(target_row_index, start_idx + 1).setValue(today);
     sheet_sprints.getRange(target_row_index, end_idx + 1).setValue(end_date);
+    sheet_sprints.getRange(target_row_index, sp_status_idx + 1).setValue('ACTIVE');
 
     return {
       success: true,
@@ -675,11 +706,186 @@ function start_sprint(input) {
         sprint_id: input.sprint_id,
         sprint_name: sprint_name,
         start_date: today,
-        end_date: end_date
+        end_date: end_date,
+        status: 'ACTIVE'
       }
     };
   } catch (e) {
     return { success: false, message: 'Gagal memulai sprint: ' + e.message };
+  }
+}
+
+/**
+ * Menyelesaikan Sprint (Complete / End Sprint)
+ * - Menandai status sprint menjadi 'COMPLETED'
+ * - Mempertahankan task yang berstatus 'DONE' di dalam sprint yang selesai (sebagai arsip historis dan pelaporan)
+ * - Memindahkan task yang BELUM SELESAI ('TODO', 'IN_PROGRESS', 'REVIEW') ke:
+ *     (A) Sprint Berikutnya (existing draft sprint atau buat baru otomatis)
+ *     (B) Product Backlog ('BACKLOG-[project_id]')
+ * - Mencatat audit trail ke Task_History
+ *
+ * @param {Object} input - { sprint_id, rollover_destination: 'NEXT_SPRINT'|'BACKLOG', target_sprint_id, new_sprint_name }
+ * @return {Object} Status respon dan ringkasan rollover
+ */
+function complete_sprint(input) {
+  try {
+    const user_profile = get_user_role();
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_manage_sprint) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk menyelesaikan sprint.' };
+    }
+
+    if (!input || !input.sprint_id) {
+      return { success: false, message: 'Sprint ID tidak valid.' };
+    }
+
+    const target_sprint_id = String(input.sprint_id).trim();
+    const rollover_destination = input.rollover_destination || 'NEXT_SPRINT';
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_sprints = spreadsheet.getSheetByName('Sprints');
+    const sheet_tasks = spreadsheet.getSheetByName('Tasks');
+    const sheet_history = spreadsheet.getSheetByName('Task_History');
+
+    if (!sheet_sprints || sheet_sprints.getLastRow() <= 1) {
+      return { success: false, message: 'Sheet Sprints kosong.' };
+    }
+
+    // 1. Cari Sprint yang akan diselesaikan
+    const sp_values = sheet_sprints.getDataRange().getValues();
+    const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
+    let sp_status_idx = sp_header.indexOf('status');
+    if (sp_status_idx === -1) {
+      sp_status_idx = 5;
+      sheet_sprints.getRange(1, 6).setValue('status');
+    }
+
+    let sprint_row_idx = -1;
+    let project_id = '';
+    let sprint_name = '';
+
+    for (let r = 1; r < sp_values.length; r++) {
+      if (String(sp_values[r][0]).trim() === target_sprint_id) {
+        sprint_row_idx = r + 1;
+        project_id = String(sp_values[r][1]).trim();
+        sprint_name = String(sp_values[r][2]).trim();
+        break;
+      }
+    }
+
+    if (sprint_row_idx === -1) {
+      return { success: false, message: 'Sprint dengan ID ' + target_sprint_id + ' tidak ditemukan.' };
+    }
+
+    // 2. Tentukan tujuan rollover untuk task yang belum selesai
+    let destination_sprint_id = '';
+    let destination_name = '';
+
+    if (rollover_destination === 'BACKLOG') {
+      destination_sprint_id = 'BACKLOG-' + project_id;
+      destination_name = 'Product Backlog';
+    } else {
+      // NEXT_SPRINT: cek apakah target_sprint_id diberikan dan ada
+      if (input.target_sprint_id && String(input.target_sprint_id).trim() !== '') {
+        destination_sprint_id = String(input.target_sprint_id).trim();
+        for (let r = 1; r < sp_values.length; r++) {
+          if (String(sp_values[r][0]).trim() === destination_sprint_id) {
+            destination_name = String(sp_values[r][2]).trim();
+            break;
+          }
+        }
+        if (!destination_name) destination_name = destination_sprint_id;
+      } else {
+        // Buat Sprint Baru otomatis
+        const next_sp_num = sheet_sprints.getLastRow();
+        destination_sprint_id = 'SPR-' + ('000' + next_sp_num).slice(-3);
+        destination_name = input.new_sprint_name && input.new_sprint_name.trim() !== ''
+          ? input.new_sprint_name.trim()
+          : 'Sprint ' + next_sp_num + ' (Planning)';
+
+        const today = new Date().toISOString().split('T')[0];
+        const default_end = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+        sheet_sprints.appendRow([destination_sprint_id, project_id, destination_name, today, default_end, 'PLANNING']);
+      }
+    }
+
+    // 3. Proses task dalam sheet Tasks
+    let completed_count = 0;
+    let incomplete_count = 0;
+    const rollover_task_ids = [];
+    const now_iso = new Date().toISOString();
+
+    if (sheet_tasks && sheet_tasks.getLastRow() > 1) {
+      const t_values = sheet_tasks.getDataRange().getValues();
+      const t_header = t_values[0].map(h => String(h).trim().toLowerCase());
+      const t_id_idx = t_header.indexOf('id');
+      const t_sp_idx = t_header.indexOf('sprint_id');
+      const t_status_idx = t_header.indexOf('status');
+      const t_updated_idx = t_header.indexOf('updated_at');
+
+      for (let r = 1; r < t_values.length; r++) {
+        const row_sp_id = String(t_values[r][t_sp_idx]).trim();
+        if (row_sp_id === target_sprint_id) {
+          const t_id = String(t_values[r][t_id_idx]).trim();
+          const t_status = String(t_values[r][t_status_idx]).trim().toUpperCase();
+
+          if (t_status === 'DONE') {
+            // Task selesai tetap di sprint ini sebagai arsip historis
+            completed_count++;
+          } else {
+            // Task belum selesai (TODO, IN_PROGRESS, REVIEW) dipindahkan ke destinasi
+            incomplete_count++;
+            rollover_task_ids.push(t_id);
+
+            // Update row di sheet Tasks
+            sheet_tasks.getRange(r + 1, t_sp_idx + 1).setValue(destination_sprint_id);
+            if (t_updated_idx !== -1) {
+              sheet_tasks.getRange(r + 1, t_updated_idx + 1).setValue(now_iso);
+            }
+
+            // Catat audit trail di Task_History
+            if (sheet_history) {
+              const audit_id = (typeof Utilities !== 'undefined' && Utilities.getUuid) 
+                ? Utilities.getUuid() 
+                : 'AUD-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+              sheet_history.appendRow([
+                audit_id,
+                t_id,
+                t_status,
+                t_status,
+                'Rollover: ' + target_sprint_id + ' -> ' + destination_sprint_id,
+                now_iso
+              ]);
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Ubah status sprint yang selesai menjadi 'COMPLETED'
+    sheet_sprints.getRange(sprint_row_idx, sp_status_idx + 1).setValue('COMPLETED');
+
+    return {
+      success: true,
+      message: 'Sprint "' + sprint_name + '" berhasil diselesaikan! ' + 
+               completed_count + ' task selesai diarsipkan, ' + 
+               incomplete_count + ' task belum selesai dialihkan ke ' + destination_name + '.',
+      data: {
+        sprint_id: target_sprint_id,
+        sprint_name: sprint_name,
+        completed_tasks_count: completed_count,
+        incomplete_tasks_count: incomplete_count,
+        rollover_destination: rollover_destination,
+        destination_sprint_id: destination_sprint_id,
+        destination_name: destination_name,
+        rollover_task_ids: rollover_task_ids
+      }
+    };
+  } catch (e) {
+    return { success: false, message: 'Gagal menyelesaikan sprint: ' + e.message };
   }
 }
 

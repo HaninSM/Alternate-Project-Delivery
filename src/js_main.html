@@ -118,6 +118,7 @@ function apply_rbac_permissions(role) {
   const btn_header_add_task = document.getElementById('btn-header-add-task');
   const btn_backlog_add_task = document.getElementById('btn-backlog-add-task');
   const btn_header_add_sprint = document.getElementById('btn-header-add-sprint');
+  const btn_end_sprint = document.getElementById('btn-end-sprint');
 
   if (rbac_tag) {
     if (role === 'ADMIN') {
@@ -151,6 +152,10 @@ function apply_rbac_permissions(role) {
   if (btn_header_add_sprint) {
     if (perms.can_manage_sprint) btn_header_add_sprint.classList.remove('hidden');
     else btn_header_add_sprint.classList.add('hidden');
+  }
+  if (btn_end_sprint) {
+    if (perms.can_manage_sprint) btn_end_sprint.classList.remove('hidden');
+    else btn_end_sprint.classList.add('hidden');
   }
   if (btn_add_project) {
     if (perms.can_create_project) btn_add_project.classList.remove('hidden');
@@ -954,12 +959,13 @@ function render_projects_dashboard(projects) {
 function select_project_and_open_board(project_id, project_name, sprint_id, sprint_name) {
   app_state.active_project_id = project_id;
   app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
+  app_state.active_sprint_name = sprint_name || 'Sprint 1 - Foundations';
   
   const header_prj = document.getElementById('header-project-name');
   if (header_prj) header_prj.textContent = project_name;
 
   const header_sp = document.getElementById('header-sprint-name');
-  if (header_sp) header_sp.textContent = sprint_name || 'Sprint 1 - Foundations';
+  if (header_sp) header_sp.textContent = app_state.active_sprint_name;
 
   switch_view('board');
   load_sprint_tasks();
@@ -972,12 +978,13 @@ function select_project_and_open_board(project_id, project_name, sprint_id, spri
 function select_project_and_open_planning(project_id, project_name, sprint_id, sprint_name) {
   app_state.active_project_id = project_id;
   app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
+  app_state.active_sprint_name = sprint_name || 'Sprint 1 (Planning)';
   
   const header_prj = document.getElementById('header-project-name');
   if (header_prj) header_prj.textContent = project_name;
 
   const header_sp = document.getElementById('header-sprint-name');
-  if (header_sp) header_sp.textContent = sprint_name || 'Sprint 1 (Planning)';
+  if (header_sp) header_sp.textContent = app_state.active_sprint_name;
 
   switch_view('scrum-planning');
 }
@@ -1236,14 +1243,48 @@ function render_scrum_planning_view() {
     let total_sp_hours = 0;
     (sp.tasks || []).forEach(t => total_sp_hours += (Number(t.estimate_hours) || 0));
 
+    const sp_status = String(sp.status || 'PLANNING').toUpperCase();
+    let status_badge_html = '';
+    let action_btn_html = '';
+
+    if (sp_status === 'ACTIVE') {
+      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">● Aktif Berjalan</span>`;
+      if (can_edit) {
+        action_btn_html = `
+          <button 
+            type="button" 
+            onclick="open_complete_sprint_modal('${sp.id}')" 
+            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
+            <span>🏁 Selesaikan Sprint</span>
+          </button>
+        `;
+      }
+    } else if (sp_status === 'COMPLETED') {
+      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">✓ Selesai</span>`;
+      action_btn_html = '';
+    } else {
+      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Draft Planning</span>`;
+      if (can_edit) {
+        action_btn_html = `
+          <button 
+            type="button" 
+            onclick="open_start_sprint_modal('${sp.id}')" 
+            class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
+            <span>🚀 Start Sprint</span>
+          </button>
+        `;
+      }
+    }
+
     sp_card.innerHTML = `
       <div class="p-4 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div class="flex items-center space-x-3">
-          <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+          <span class="w-3 h-3 rounded-full ${sp_status === 'ACTIVE' ? 'bg-emerald-500' : (sp_status === 'COMPLETED' ? 'bg-slate-400' : 'bg-indigo-500')}"></span>
           <div>
             <div class="flex items-center space-x-2">
               <h4 class="text-sm font-bold text-slate-800">${escape_html(sp.name)}</h4>
               <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">${sp.id}</span>
+              ${status_badge_html}
             </div>
             <p class="text-[11px] text-slate-400">${sp.start_date || '-'} s/d ${sp.end_date || '-'}</p>
           </div>
@@ -1253,23 +1294,18 @@ function render_scrum_planning_view() {
           <span class="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
             ${(sp.tasks || []).length} Task • ${total_sp_hours} Jam
           </span>
-          ${can_edit ? `
-            <button 
-              type="button" 
-              onclick="open_start_sprint_modal('${sp.id}')" 
-              class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
-              <span>🚀 Start Sprint</span>
-            </button>
-          ` : ''}
+          ${action_btn_html}
         </div>
       </div>
 
       <div 
         id="bucket-sprint-${sp.id}" 
         data-bucket-id="${sp.id}"
+        ${sp_status !== 'COMPLETED' ? `
         ondragover="handle_bucket_drag_over(event)" 
         ondragleave="handle_bucket_drag_leave(event)" 
         ondrop="handle_bucket_drop(event, '${sp.id}')"
+        ` : ''}
         class="bucket-droppable-area p-4 space-y-2.5 min-h-[120px] bg-slate-50/30 transition-colors">
       </div>
     `;
@@ -1281,12 +1317,12 @@ function render_scrum_planning_view() {
       if (!sp.tasks || sp.tasks.length === 0) {
         task_list_container.innerHTML = `
           <div class="p-5 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
-            Tarik (Drag) task dari Product Backlog ke sini, atau gunakan menu dropdown pada kartu task.
+            ${sp_status === 'COMPLETED' ? 'Tidak ada task di sprint yang telah selesai ini.' : 'Tarik (Drag) task dari Product Backlog ke sini, atau gunakan menu dropdown pada kartu task.'}
           </div>
         `;
       } else {
         sp.tasks.forEach(task => {
-          const card = create_bucket_task_card_element(task, sp.id, can_edit);
+          const card = create_bucket_task_card_element(task, sp.id, can_edit && sp_status !== 'COMPLETED');
           task_list_container.appendChild(card);
         });
       }
@@ -1318,7 +1354,7 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
       options += '<option value="BACKLOG">↩ Ke Backlog</option>';
     }
     available_sprints.forEach(sp => {
-      if (sp.id !== source_bucket_id) {
+      if (sp.id !== source_bucket_id && String(sp.status || '').toUpperCase() !== 'COMPLETED') {
         options += `<option value="${sp.id}">➔ ${escape_html(sp.name || sp.id)}</option>`;
       }
     });
@@ -1693,6 +1729,218 @@ function handle_submit_start_sprint(e) {
     const header_sp = document.getElementById('header-sprint-name');
     if (header_sp) header_sp.textContent = sprint_name;
     switch_view('board');
+  }
+}
+
+/**
+ * ============================================================================
+ * COMPLETE SPRINT (END SPRINT) CONTROLLER
+ * ============================================================================
+ */
+
+/**
+ * Membuka Modal Selesaikan Sprint
+ * @param {string} [sprint_id] - ID sprint yang akan diselesaikan
+ */
+function open_complete_sprint_modal(sprint_id) {
+  const target_id = sprint_id || app_state.active_sprint_id;
+  const modal = document.getElementById('modal-complete-sprint');
+  if (!modal) return;
+
+  const hidden_input = document.getElementById('complete-sprint-id');
+  if (hidden_input) hidden_input.value = target_id;
+
+  const subtitle = document.getElementById('complete-sprint-subtitle');
+  if (subtitle) {
+    let sp_display_name = target_id;
+    if (app_state.sprints && app_state.sprints.length > 0) {
+      const found = app_state.sprints.find(s => s.id === target_id);
+      if (found && found.name) sp_display_name = found.name;
+    } else {
+      const header_sp = document.getElementById('header-sprint-name');
+      if (header_sp) sp_display_name = header_sp.textContent;
+    }
+    subtitle.textContent = `Menyelesaikan ${sp_display_name} (${target_id}). Tinjau hasil dan alihkan task yang belum selesai.`;
+  }
+
+  // Hitung jumlah task DONE vs Belum Selesai (TODO, IN_PROGRESS, REVIEW)
+  let done_count = 0;
+  let incomplete_count = 0;
+
+  let found_sp = null;
+  if (app_state.sprints && app_state.sprints.length > 0) {
+    found_sp = app_state.sprints.find(s => s.id === target_id);
+  }
+
+  if (found_sp && found_sp.tasks) {
+    found_sp.tasks.forEach(t => {
+      if (String(t.status).toUpperCase() === 'DONE') done_count++;
+      else incomplete_count++;
+    });
+  } else if (app_state.tasks && app_state.tasks.length > 0) {
+    app_state.tasks.forEach(t => {
+      if (String(t.sprint_id).trim() === String(target_id).trim()) {
+        if (String(t.status).toUpperCase() === 'DONE') done_count++;
+        else incomplete_count++;
+      }
+    });
+  }
+
+  const done_el = document.getElementById('complete-sprint-done-count');
+  const inc_el = document.getElementById('complete-sprint-incomplete-count');
+  if (done_el) done_el.textContent = `${done_count} Task`;
+  if (inc_el) inc_el.textContent = `${incomplete_count} Task`;
+
+  // Isi pilihan dropdown Sprint Berikutnya
+  const target_select = document.getElementById('complete-sprint-target-select');
+  if (target_select) {
+    target_select.innerHTML = '<option value="__NEW__">+ Buat Sprint Baru Otomatis</option>';
+    if (app_state.sprints && app_state.sprints.length > 0) {
+      app_state.sprints.forEach(sp => {
+        if (sp.id !== target_id && String(sp.status || '').toUpperCase() !== 'COMPLETED') {
+          const opt = document.createElement('option');
+          opt.value = sp.id;
+          opt.textContent = `${sp.name || sp.id} (${sp.id}) - ${sp.status || 'Draft'}`;
+          target_select.appendChild(opt);
+        }
+      });
+    }
+  }
+
+  // Reset radio dan opsi default
+  const radio_next = document.querySelector('input[name="rollover_dest"][value="NEXT_SPRINT"]');
+  if (radio_next) radio_next.checked = true;
+  toggle_complete_sprint_dest_options();
+
+  const name_input = document.getElementById('complete-sprint-new-name');
+  if (name_input) {
+    const next_num = (app_state.sprints ? app_state.sprints.length : 1) + 1;
+    name_input.value = `Sprint ${next_num} (Planning)`;
+  }
+  toggle_complete_sprint_new_name_field();
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Selesaikan Sprint
+ */
+function close_complete_sprint_modal() {
+  const modal = document.getElementById('modal-complete-sprint');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Toggle opsi konfigurasi destinasi rollover
+ */
+function toggle_complete_sprint_dest_options() {
+  const selected_dest = document.querySelector('input[name="rollover_dest"]:checked');
+  const next_sprint_config = document.getElementById('rollover-next-sprint-config');
+  if (next_sprint_config) {
+    if (selected_dest && selected_dest.value === 'NEXT_SPRINT') {
+      next_sprint_config.classList.remove('hidden');
+    } else {
+      next_sprint_config.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Toggle field nama sprint baru jika dropdown memilih sprint yang sudah ada
+ */
+function toggle_complete_sprint_new_name_field() {
+  const target_select = document.getElementById('complete-sprint-target-select');
+  const name_container = document.getElementById('rollover-new-sprint-name-container');
+  if (name_container && target_select) {
+    if (target_select.value === '__NEW__') {
+      name_container.classList.remove('hidden');
+    } else {
+      name_container.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Handle submit selesaikan sprint
+ */
+function handle_submit_complete_sprint(e) {
+  if (e) e.preventDefault();
+
+  const sprint_id = document.getElementById('complete-sprint-id').value;
+  if (!sprint_id) return;
+
+  const selected_dest = document.querySelector('input[name="rollover_dest"]:checked');
+  const rollover_destination = selected_dest ? selected_dest.value : 'NEXT_SPRINT';
+
+  let target_sprint_id = '';
+  let new_sprint_name = '';
+
+  if (rollover_destination === 'NEXT_SPRINT') {
+    const target_select = document.getElementById('complete-sprint-target-select');
+    if (target_select && target_select.value !== '__NEW__') {
+      target_sprint_id = target_select.value;
+    } else {
+      const name_input = document.getElementById('complete-sprint-new-name');
+      new_sprint_name = name_input && name_input.value ? name_input.value.trim() : '';
+    }
+  }
+
+  const payload = {
+    sprint_id: sprint_id,
+    rollover_destination: rollover_destination,
+    target_sprint_id: target_sprint_id,
+    new_sprint_name: new_sprint_name
+  };
+
+  const submit_btn = document.getElementById('btn-confirm-complete-sprint');
+  if (submit_btn) {
+    submit_btn.disabled = true;
+    submit_btn.innerHTML = '<span>Menyelesaikan Sprint...</span>';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    set_loading_state(true);
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.innerHTML = '<span>🏁 Selesaikan Sprint Sekarang</span>';
+        }
+        if (response && response.success) {
+          show_notification(response.message, 'success');
+          close_complete_sprint_modal();
+          load_projects_list();
+          if (app_state.active_project_id) {
+            load_scrum_planning_data();
+          }
+          switch_view('scrum-planning');
+        } else {
+          show_notification('Gagal menyelesaikan sprint: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        if (submit_btn) {
+          submit_btn.disabled = false;
+          submit_btn.innerHTML = '<span>🏁 Selesaikan Sprint Sekarang</span>';
+        }
+        show_notification('Error menyelesaikan sprint: ' + err.message, 'error');
+      })
+      .complete_sprint(payload);
+  } else {
+    // Mode simulasi lokal
+    if (submit_btn) {
+      submit_btn.disabled = false;
+      submit_btn.innerHTML = '<span>🏁 Selesaikan Sprint Sekarang</span>';
+    }
+    if (app_state.sprints) {
+      const sp = app_state.sprints.find(s => s.id === sprint_id);
+      if (sp) sp.status = 'COMPLETED';
+    }
+    close_complete_sprint_modal();
+    show_notification('Sprint ' + sprint_id + ' simulasi berhasil diselesaikan!', 'success');
+    render_scrum_planning_view();
   }
 }
 

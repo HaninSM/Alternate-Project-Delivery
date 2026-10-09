@@ -6,7 +6,7 @@
 const SPREADSHEET_SCHEMA = {
   Users: ['id', 'name', 'email', 'role', 'permissions'],
   Projects: ['id', 'name', 'pm_id'],
-  Sprints: ['id', 'project_id', 'name', 'start_date', 'end_date'],
+  Sprints: ['id', 'project_id', 'name', 'start_date', 'end_date', 'status'],
   Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at'],
   Task_History: ['id', 'task_id', 'old_status', 'new_status', 'changed_by', 'timestamp']
 };
@@ -25,7 +25,7 @@ function setup_database_schema(target_spreadsheet_id) {
       header_range.setFontWeight('bold');
       header_range.setBackground('#E2E8F0');
     } else {
-      // Pastikan kolom baru (seperti permissions di Users) ditambahkan jika sheet sudah ada sebelumnya
+      // Pastikan kolom baru (seperti permissions di Users dan status di Sprints) ditambahkan jika sheet sudah ada sebelumnya
       const existing_headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0].map(h => String(h).trim().toLowerCase());
       headers.forEach((h_name, idx) => {
         if (!existing_headers.includes(h_name.toLowerCase())) {
@@ -53,6 +53,21 @@ function setup_database_schema(target_spreadsheet_id) {
               ? DEFAULT_PERMISSIONS[row_role] 
               : { can_create_project: false, can_manage_sprint: false, can_create_task: false, can_move_task: true, can_view_insights: true, can_manage_users: false };
             sheet.getRange(r + 1, perm_idx + 1).setValue(JSON.stringify(perm_obj));
+          }
+        }
+      }
+    }
+
+    // Khusus sheet Sprints: jika ada baris yang kolom status-nya kosong, beri status 'ACTIVE'
+    if (sheet_name === 'Sprints' && sheet.getLastRow() > 1) {
+      const sp_values = sheet.getDataRange().getValues();
+      const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
+      const sp_status_idx = sp_header.indexOf('status');
+      if (sp_status_idx !== -1) {
+        for (let r = 1; r < sp_values.length; r++) {
+          const current_sp_status = sp_values[r][sp_status_idx];
+          if (!current_sp_status || String(current_sp_status).trim() === '') {
+            sheet.getRange(r + 1, sp_status_idx + 1).setValue('ACTIVE');
           }
         }
       }
@@ -129,7 +144,7 @@ function seed_dummy_data(target_spreadsheet_id) {
 
   // 4. Data Dummy Sprints
   const sprints_data = [
-    ['SPR-001', 'PRJ-001', 'Sprint 1 - Foundations & Core Flow', '2026-10-01', '2026-10-10']
+    ['SPR-001', 'PRJ-001', 'Sprint 1 - Foundations & Core Flow', '2026-10-01', '2026-10-10', 'ACTIVE']
   ];
 
   // 5. Data Dummy Tasks

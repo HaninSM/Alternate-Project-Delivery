@@ -117,3 +117,28 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba otorisasi admin vs non-admin.
   - Uji coba proteksi anti-lockout dan anti-self-deletion.
   - Uji coba penegakan izin granular pada proyek dan task. (Diverifikasi lulus 100% via `tests/test_stage7_rbac.js`).
+
+---
+
+## Tahap 8 - Complete Sprint (End Sprint) & Post-Sprint Rollover Flow
+- [x] Perbarui skema sheet `Sprints` dengan menambahkan kolom ke-6: `status` (`PLANNING`, `ACTIVE`, `COMPLETED`).
+- [x] Modifikasi `Setup.gs` untuk memverifikasi kolom `status` dan backfill data sprint eksisting dengan `ACTIVE`.
+- [x] Bangun API backend `complete_sprint(input)` di `API.gs`:
+  - Penjaga otorisasi granular: hanya user dengan `can_manage_sprint` yang dapat menyelesaikan sprint.
+  - Menandai target sprint dengan status `COMPLETED`.
+  - Mempertahankan task yang berstatus `DONE` tetap di dalam sprint selesai untuk keakuratan metrik burndown, velocity, dan cycle time historis.
+  - Menangani pengalihan (*rollover*) task belum tuntas (`TODO`, `IN_PROGRESS`, `REVIEW`):
+    - Opsi A: Dipindahkan ke Sprint Berikutnya (`NEXT_SPRINT`), baik ke draft sprint yang ada atau auto-create sprint baru berstatus `PLANNING`.
+    - Opsi B: Dikembalikan ke `Product Backlog` (`BACKLOG-[project_id]`).
+  - Mencatat audit trail ke sheet `Task_History` (`Rollover: SPR-X -> SPR-Y`).
+- [x] Perbarui frontend UI & controller di `UI.html` dan `js_main.html`:
+  - Tombol `🏁 Selesaikan Sprint` di header Kanban Board (tampil jika sprint aktif dan user memiliki izin `can_manage_sprint`).
+  - Tampilan Scrum Planning membedakan badge status sprint: `● Aktif Berjalan` + tombol `🏁 Selesaikan Sprint`, `Draft Planning` + tombol `🚀 Start Sprint`, dan `✓ Selesai`.
+  - Modal dialog `#modal-complete-sprint` dengan kartu ringkasan tugas (DONE vs Belum Selesai) dan radio pilihan destinasi rollover.
+  - Nonaktifkan drag & drop ke sprint yang telah berstatus `COMPLETED` untuk melindungi integritas arsip sprint.
+- [x] **Quality Gate / Uji Coba Tahap 8:**
+  - Uji coba penolakan RBAC untuk role Client saat memanggil `complete_sprint`.
+  - Uji coba penyelesaian sprint dengan opsi rollover ke next sprint.
+  - Uji coba retensi task DONE di sprint asal dan pemindahan task belum tuntas ke sprint baru.
+  - Uji coba pencatatan audit trail rollover di `Task_History`.
+  - Uji coba rollover task ke Product Backlog. (Diverifikasi lulus 100% via `tests/test_stage8_complete_sprint.js`).

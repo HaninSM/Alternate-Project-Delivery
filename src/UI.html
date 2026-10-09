@@ -245,13 +245,20 @@
             <h2 class="text-xl font-bold text-slate-900 tracking-tight">Papan Alur Tugas (Kanban)</h2>
             <p class="text-xs text-slate-500">Pantau progres pengerjaan task dan transisi status secara visual.</p>
           </div>
-          <div id="board-actions">
+          <div id="board-actions" class="flex items-center space-x-2">
             <!-- Tombol Tambah Task (hanya untuk Admin & PM) -->
             <button 
               id="btn-add-task" 
               onclick="open_task_modal()" 
               class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
               <span>+ Tambah Task Baru</span>
+            </button>
+            <!-- Tombol Selesaikan Sprint (khusus mode Scrum & sprint sedang aktif) -->
+            <button 
+              id="btn-end-sprint" 
+              onclick="open_complete_sprint_modal()" 
+              class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <span>🏁 Selesaikan Sprint</span>
             </button>
           </div>
         </div>
@@ -1032,11 +1039,130 @@
       </button>
       <button 
         type="button" 
-        id="btn-confirm-delete-user"
+        id="btn-confirm-delete-user" 
         onclick="confirm_delete_user()" 
         class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer">
         Hapus Akun
       </button>
     </div>
+  </div>
+</div>
+
+<!-- Modal Selesaikan Sprint (Complete / End Sprint) -->
+<div id="modal-complete-sprint" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 transform transition-all">
+    <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">🏁</span>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Selesaikan Sprint</h3>
+          <p id="complete-sprint-subtitle" class="text-xs text-slate-500">Tinjau hasil sprint dan alokasi tugas yang belum selesai.</p>
+        </div>
+      </div>
+      <button onclick="close_complete_sprint_modal()" class="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Ringkasan Task Sprint -->
+    <div class="grid grid-cols-2 gap-3 mb-5">
+      <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-emerald-800">Tugas Selesai (DONE)</span>
+          <span id="complete-sprint-done-count" class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-200 text-emerald-900">0</span>
+        </div>
+        <p class="text-[11px] text-emerald-600 mt-1">Akan diarsipkan secara permanen di sprint ini.</p>
+      </div>
+
+      <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-amber-800">Belum Selesai</span>
+          <span id="complete-sprint-incomplete-count" class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">0</span>
+        </div>
+        <p class="text-[11px] text-amber-600 mt-1">TODO, In Progress, & Review perlu dialihkan.</p>
+      </div>
+    </div>
+
+    <form id="form-complete-sprint" onsubmit="handle_submit_complete_sprint(event)" class="space-y-4">
+      <input type="hidden" id="complete-sprint-id" value="" />
+
+      <!-- Pilihan Tindakan Task Belum Selesai -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+          Pindahkan Tugas Yang Belum Selesai Ke:
+        </label>
+        
+        <div class="space-y-2.5">
+          <!-- Opsi 1: Rollover ke Sprint Berikutnya -->
+          <label class="flex items-start space-x-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+            <input 
+              type="radio" 
+              name="rollover_dest" 
+              value="NEXT_SPRINT" 
+              checked 
+              onchange="toggle_complete_sprint_dest_options()" 
+              class="mt-1 text-indigo-600 focus:ring-indigo-500" 
+            />
+            <div class="flex-1">
+              <strong class="text-xs font-bold text-slate-800 block">Sprint Berikutnya (Next Sprint)</strong>
+              <span class="text-[11px] text-slate-500 block mb-2">Pindahkan tugas yang belum tuntas ke sprint berikutnya agar langsung diprioritaskan.</span>
+              
+              <!-- Dropdown / input pilihan Sprint Tujuan -->
+              <div id="rollover-next-sprint-config" class="space-y-2 pt-1 border-t border-slate-100">
+                <div>
+                  <select 
+                    id="complete-sprint-target-select" 
+                    onchange="toggle_complete_sprint_new_name_field()"
+                    class="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700">
+                    <option value="__NEW__">+ Buat Sprint Baru Otomatis</option>
+                  </select>
+                </div>
+                <div id="rollover-new-sprint-name-container">
+                  <input 
+                    type="text" 
+                    id="complete-sprint-new-name" 
+                    placeholder="Nama Sprint Baru (cth: Sprint 2 - Planning)" 
+                    class="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700"
+                  />
+                </div>
+              </div>
+            </div>
+          </label>
+
+          <!-- Opsi 2: Kembalikan ke Product Backlog -->
+          <label class="flex items-start space-x-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+            <input 
+              type="radio" 
+              name="rollover_dest" 
+              value="BACKLOG" 
+              onchange="toggle_complete_sprint_dest_options()" 
+              class="mt-1 text-indigo-600 focus:ring-indigo-500" 
+            />
+            <div>
+              <strong class="text-xs font-bold text-slate-800 block">Product Backlog</strong>
+              <span class="text-[11px] text-slate-500">Kembalikan tugas yang belum tuntas ke Product Backlog untuk di-grooming dan diprioritaskan ulang nanti.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-4 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_complete_sprint_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-confirm-complete-sprint" 
+          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span>🏁 Selesaikan Sprint Sekarang</span>
+        </button>
+      </div>
+    </form>
   </div>
 </div>

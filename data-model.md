@@ -38,6 +38,7 @@ Menyimpan siklus iterasi (Sprint) pada masing-masing proyek. Mendukung status si
 | `name` | String | Nama sprint | `Sprint 1 - Foundations` |
 | `start_date` | String (ISO) | Tanggal mulai sprint (YYYY-MM-DD) | `2026-10-01` |
 | `end_date` | String (ISO) | Tanggal berakhir sprint (YYYY-MM-DD) | `2026-10-14` |
+| `status` | String | Status siklus sprint: `PLANNING`, `ACTIVE`, `COMPLETED` | `ACTIVE` |
 
 ---
 
