@@ -214,6 +214,11 @@ assert.ok(ui_html.includes('id="nav-btn-initiative-test"'), 'UI.html harus memua
 assert.ok(ui_html.includes('id="nav-btn-demand"'), 'UI.html harus memuat tombol nav Demand Management');
 assert.ok(ui_html.includes('id="view-initiative-test"'), 'UI.html harus memuat view Uji Inisiatif AI');
 assert.ok(ui_html.includes('id="view-demand"'), 'UI.html harus memuat view Demand Management');
+assert.ok(ui_html.includes('id="stat-rejected-demands"'), 'UI.html harus memuat metrik stat-rejected-demands');
+assert.ok(ui_html.includes('id="tab-btn-demand-approved"'), 'UI.html harus memuat tab-btn-demand-approved');
+assert.ok(ui_html.includes('id="tab-btn-demand-rejected"'), 'UI.html harus memuat tab-btn-demand-rejected');
+assert.ok(ui_html.includes('id="container-demand-rejected-table"'), 'UI.html harus memuat container-demand-rejected-table');
+assert.ok(ui_html.includes('id="rejected-demands-table-body"'), 'UI.html harus memuat rejected-demands-table-body');
 assert.ok(ui_html.includes('id="perm-can-test-initiative"'), 'UI.html harus memuat checkbox perm-can-test-initiative di modal');
 assert.ok(ui_html.includes('id="perm-can-manage-demand"'), 'UI.html harus memuat checkbox perm-can-manage-demand di modal');
 assert.ok(ui_html.includes('id="modal-new-initiative"'), 'UI.html harus memuat modal buat inisiatif baru');
@@ -226,6 +231,9 @@ assert.ok(js_main.includes('start_initiative_session'), 'js_main.html harus mema
 assert.ok(js_main.includes('send_initiative_message'), 'js_main.html harus memanggil send_initiative_message');
 assert.ok(js_main.includes('load_demands_list'), 'js_main.html harus memuat load_demands_list');
 assert.ok(js_main.includes('update_demand_capacity'), 'js_main.html harus memuat update_demand_capacity');
+assert.ok(js_main.includes('switch_demand_tab'), 'js_main.html harus memuat fungsi switch_demand_tab');
+assert.ok(js_main.includes('render_rejected_demands_table'), 'js_main.html harus memuat render_rejected_demands_table');
+assert.ok(js_main.includes('open_rejected_initiative_session'), 'js_main.html harus memuat open_rejected_initiative_session');
 
 console.log('   ✓ Seluruh berkas terintegrasi dan konsisten.');
 

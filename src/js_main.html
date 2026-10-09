@@ -3161,6 +3161,7 @@ function simulate_mock_cycle_time_report(filters) {
 app_state.active_initiative_session = null;
 app_state.initiatives_list = [];
 app_state.demands_list = [];
+app_state.rejected_initiatives_list = [];
 
 /**
  * Membuka Modal Mulai Inisiatif Baru
@@ -3615,7 +3616,7 @@ function handle_send_initiative_message(e) {
  */
 
 /**
- * Memuat daftar seluruh Demand dari backend GAS
+ * Memuat daftar seluruh Demand dan Inisiatif Tertolak dari backend GAS
  */
 function load_demands_list() {
   const tbody = document.getElementById('demands-table-body');
@@ -3632,24 +3633,48 @@ function load_demands_list() {
     `;
   }
 
+  const tbody_rej = document.getElementById('rejected-demands-table-body');
+  if (tbody_rej) {
+    tbody_rej.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-8 text-center text-slate-400">
+          <div class="flex items-center justify-center space-x-2">
+            <div class="w-4 h-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Memuat inisiatif tertolak...</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(response => {
         if (response && response.success) {
-          app_state.demands_list = response.data || [];
+          const raw = response.data || {};
+          const demands = Array.isArray(raw) ? raw : (raw.demands || []);
+          const rejected = raw.rejected_initiatives || [];
+          const stats = raw.stats || null;
+
+          app_state.demands_list = demands;
+          app_state.rejected_initiatives_list = rejected;
+
           render_demands_table(app_state.demands_list);
-          update_demands_statistics(app_state.demands_list);
+          render_rejected_demands_table(app_state.rejected_initiatives_list);
+          update_demands_statistics(app_state.demands_list, stats, app_state.rejected_initiatives_list);
         } else {
           if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${response ? response.message : 'Gagal memuat demand.'}</td></tr>`;
+          if (tbody_rej) tbody_rej.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${response ? response.message : 'Gagal memuat data.'}</td></tr>`;
         }
       })
       .withFailureHandler(err => {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${err.message}</td></tr>`;
+        if (tbody_rej) tbody_rej.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${err.message}</td></tr>`;
       })
       .get_demands_list();
   } else {
     // Mock simulation
-    const mock_demands = app_state.demands_list || [
+    const mock_demands = app_state.demands_list && app_state.demands_list.length > 0 ? app_state.demands_list : [
       {
         id: 'DEM-001',
         initiative_test_id: 'INIT-101',
@@ -3665,29 +3690,160 @@ function load_demands_list() {
         approved_at: new Date().toISOString()
       }
     ];
+    const mock_rejected = app_state.rejected_initiatives_list && app_state.rejected_initiatives_list.length > 0 ? app_state.rejected_initiatives_list : [
+      {
+        id: 'INIT-999',
+        user_email: 'po-junior@example.com',
+        title: 'Fitur Gamifikasi Poin Transaksi',
+        attempt_count: 2,
+        status: 'REJECTED',
+        ai_summary_note: 'Inisiatif ditolak oleh Challenger AI karena tidak ada direct business impact terhadap GMV/Revenue dan biaya development terlalu tinggi.',
+        updated_at: new Date().toISOString()
+      }
+    ];
+    app_state.demands_list = mock_demands;
+    app_state.rejected_initiatives_list = mock_rejected;
+
     render_demands_table(mock_demands);
-    update_demands_statistics(mock_demands);
+    render_rejected_demands_table(mock_rejected);
+    update_demands_statistics(mock_demands, null, mock_rejected);
   }
 }
 
 /**
- * Update kartu ringkasan metrik Demand
+ * Update kartu ringkasan metrik Demand dan Inisiatif Tertolak
  */
-function update_demands_statistics(demands) {
+function update_demands_statistics(demands, stats, rejected_initiatives) {
   const total_el = document.getElementById('stat-total-demands');
   const pending_el = document.getElementById('stat-pending-demands');
   const planned_el = document.getElementById('stat-planned-demands');
   const converted_el = document.getElementById('stat-converted-demands');
+  const rejected_el = document.getElementById('stat-rejected-demands');
+  const badge_app = document.getElementById('badge-approved-count');
+  const badge_rej = document.getElementById('badge-rejected-count');
 
-  const total = demands.length;
-  const pending = demands.filter(d => d.capacity_status === 'PENDING_CAPACITY').length;
-  const planned = demands.filter(d => d.capacity_status === 'CAPACITY_PLANNED').length;
-  const converted = demands.filter(d => d.capacity_status === 'CONVERTED_TO_PROJECT').length;
+  const demands_arr = demands || [];
+  const rejected_arr = rejected_initiatives || app_state.rejected_initiatives_list || [];
+
+  const total = stats ? stats.total_demands : demands_arr.length;
+  const pending = stats ? stats.pending : demands_arr.filter(d => d.capacity_status === 'PENDING_CAPACITY').length;
+  const planned = stats ? stats.planned : demands_arr.filter(d => d.capacity_status === 'CAPACITY_PLANNED').length;
+  const converted = stats ? stats.converted : demands_arr.filter(d => d.capacity_status === 'CONVERTED_TO_PROJECT').length;
+  const rejected = stats ? stats.rejected : rejected_arr.length;
 
   if (total_el) total_el.textContent = total;
   if (pending_el) pending_el.textContent = pending;
   if (planned_el) planned_el.textContent = planned;
   if (converted_el) converted_el.textContent = converted;
+  if (rejected_el) rejected_el.textContent = rejected;
+
+  if (badge_app) badge_app.textContent = total;
+  if (badge_rej) badge_rej.textContent = rejected;
+}
+
+/**
+ * Berpindah tab antara Inisiatif Disetujui vs Inisiatif Tertolak di Demand Management
+ */
+function switch_demand_tab(tab_name) {
+  const btn_app = document.getElementById('tab-btn-demand-approved');
+  const btn_rej = document.getElementById('tab-btn-demand-rejected');
+  const c_app = document.getElementById('container-demand-approved-table');
+  const c_rej = document.getElementById('container-demand-rejected-table');
+
+  if (tab_name === 'rejected') {
+    if (btn_app) {
+      btn_app.className = 'px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-2 transition-all cursor-pointer';
+    }
+    if (btn_rej) {
+      btn_rej.className = 'px-4 py-2.5 text-xs font-bold border-b-2 border-rose-600 text-rose-600 flex items-center space-x-2 transition-all cursor-pointer';
+    }
+    if (c_app) c_app.classList.add('hidden');
+    if (c_rej) c_rej.classList.remove('hidden');
+  } else {
+    if (btn_app) {
+      btn_app.className = 'px-4 py-2.5 text-xs font-bold border-b-2 border-indigo-600 text-indigo-600 flex items-center space-x-2 transition-all cursor-pointer';
+    }
+    if (btn_rej) {
+      btn_rej.className = 'px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-2 transition-all cursor-pointer';
+    }
+    if (c_app) c_app.classList.remove('hidden');
+    if (c_rej) c_rej.classList.add('hidden');
+  }
+}
+
+/**
+ * Render baris tabel Inisiatif Tertolak
+ */
+function render_rejected_demands_table(rejected_list) {
+  const tbody = document.getElementById('rejected-demands-table-body');
+  if (!tbody) return;
+
+  const list = rejected_list || [];
+  if (list.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-12 text-center text-slate-400 italic">
+          Belum ada inisiatif yang ditolak oleh AI Challenger.<br>
+          <span class="text-[11px] text-slate-500 mt-1 inline-block">Semua inisiatif yang diuji masih berjalan atau telah disetujui.</span>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  list.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/60 transition-colors border-b border-slate-100';
+
+    const formatted_date = item.updated_at ? new Date(item.updated_at).toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : '-';
+
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div>
+          <div class="font-bold text-slate-900">${escape_html(item.title || 'Tanpa Judul')}</div>
+          <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+            ${escape_html(item.id)}
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <span class="text-xs text-slate-600 font-mono">${escape_html(item.user_email || '-')}</span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+          ${item.attempt_count || 1}x
+        </span>
+      </td>
+      <td class="py-3 px-4 max-w-xs">
+        <div class="text-xs text-rose-700 bg-rose-50/80 p-2 rounded-lg border border-rose-100 leading-relaxed">
+          ${escape_html(item.ai_summary_note || 'Inisiatif ditolak oleh Challenger AI karena nilai bisnis tidak mencukupi.')}
+        </div>
+      </td>
+      <td class="py-3 px-4 whitespace-nowrap text-xs text-slate-500">
+        ${formatted_date}
+      </td>
+      <td class="py-3 px-4 text-center whitespace-nowrap">
+        <button 
+          type="button" 
+          onclick="open_rejected_initiative_session('${escape_html(item.id)}')" 
+          class="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200 cursor-pointer">
+          Lihat Chat Sesi &rarr;
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Membuka sesi inisiatif yang ditolak langsung dari tabel Demand Management
+ */
+function open_rejected_initiative_session(session_id) {
+  switch_view('initiative-test');
+  open_initiative_session(session_id);
 }
 
 /**

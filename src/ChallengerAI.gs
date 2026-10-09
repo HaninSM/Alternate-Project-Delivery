@@ -662,51 +662,95 @@ function get_initiative_session_details(session_id) {
 function get_demands_list() {
   try {
     const spreadsheet = get_db_spreadsheet();
-    const sheet = spreadsheet.getSheetByName('Demands');
-    if (!sheet || sheet.getLastRow() <= 1) {
-      return { success: true, data: [] };
-    }
-
-    const values = sheet.getDataRange().getValues();
-    const header = values[0].map(h => String(h).trim().toLowerCase());
-    const id_idx = header.indexOf('id');
-    const init_idx = header.indexOf('initiative_test_id');
-    const title_idx = header.indexOf('title');
-    const email_idx = header.indexOf('submitter_email');
-    const prd_idx = header.indexOf('prd_summary');
-    const fsd_idx = header.indexOf('fsd_summary');
-    const eng_idx = header.indexOf('est_engineers');
-    const day_idx = header.indexOf('est_duration_days');
-    const stat_idx = header.indexOf('capacity_status');
-    const cap_idx = header.indexOf('allocated_capacity_hours');
-    const notes_idx = header.indexOf('capacity_notes');
-    const app_idx = header.indexOf('approved_at');
-    const crt_idx = header.indexOf('created_at');
+    const sheet_demands = spreadsheet.getSheetByName('Demands');
+    const sheet_tests = spreadsheet.getSheetByName('Initiative_Tests');
 
     const demands = [];
-    for (let r = 1; r < values.length; r++) {
-      const row = values[r];
-      demands.push({
-        id: row[id_idx],
-        initiative_test_id: row[init_idx],
-        title: row[title_idx],
-        submitter_email: row[email_idx],
-        prd_summary: row[prd_idx],
-        fsd_summary: row[fsd_idx],
-        est_engineers: Number(row[eng_idx]) || 0,
-        est_duration_days: Number(row[day_idx]) || 0,
-        capacity_status: String(row[stat_idx] || 'PENDING_CAPACITY'),
-        allocated_capacity_hours: Number(row[cap_idx]) || 0,
-        capacity_notes: row[notes_idx] || '',
-        approved_at: row[app_idx],
-        created_at: row[crt_idx]
-      });
+    if (sheet_demands && sheet_demands.getLastRow() > 1) {
+      const values = sheet_demands.getDataRange().getValues();
+      const header = values[0].map(h => String(h).trim().toLowerCase());
+      const id_idx = header.indexOf('id');
+      const init_idx = header.indexOf('initiative_test_id');
+      const title_idx = header.indexOf('title');
+      const email_idx = header.indexOf('submitter_email');
+      const prd_idx = header.indexOf('prd_summary');
+      const fsd_idx = header.indexOf('fsd_summary');
+      const eng_idx = header.indexOf('est_engineers');
+      const day_idx = header.indexOf('est_duration_days');
+      const stat_idx = header.indexOf('capacity_status');
+      const cap_idx = header.indexOf('allocated_capacity_hours');
+      const notes_idx = header.indexOf('capacity_notes');
+      const app_idx = header.indexOf('approved_at');
+      const crt_idx = header.indexOf('created_at');
+
+      for (let r = 1; r < values.length; r++) {
+        const row = values[r];
+        demands.push({
+          id: row[id_idx],
+          initiative_test_id: row[init_idx],
+          title: row[title_idx],
+          submitter_email: row[email_idx],
+          prd_summary: row[prd_idx],
+          fsd_summary: row[fsd_idx],
+          est_engineers: Number(row[eng_idx]) || 0,
+          est_duration_days: Number(row[day_idx]) || 0,
+          capacity_status: String(row[stat_idx] || 'PENDING_CAPACITY'),
+          allocated_capacity_hours: Number(row[cap_idx]) || 0,
+          capacity_notes: row[notes_idx] || '',
+          approved_at: row[app_idx],
+          created_at: row[crt_idx]
+        });
+      }
     }
 
-    // Urutkan berdasarkan waktu approve terbaru
-    demands.sort((a, b) => new Date(b.approved_at || b.created_at).getTime() - new Date(a.approved_at || a.created_at).getTime());
+    // Ambil inisiatif yang ditolak dari sheet Initiative_Tests
+    const rejected_initiatives = [];
+    if (sheet_tests && sheet_tests.getLastRow() > 1) {
+      const t_values = sheet_tests.getDataRange().getValues();
+      const t_header = t_values[0].map(h => String(h).trim().toLowerCase());
+      const t_id_idx = t_header.indexOf('id');
+      const t_email_idx = t_header.indexOf('user_email');
+      const t_title_idx = t_header.indexOf('initiative_title');
+      const t_attempt_idx = t_header.indexOf('attempt_count');
+      const t_status_idx = t_header.indexOf('status');
+      const t_note_idx = t_header.indexOf('ai_summary_note');
+      const t_upd_idx = t_header.indexOf('updated_at');
 
-    return { success: true, data: demands };
+      for (let r = 1; r < t_values.length; r++) {
+        const row = t_values[r];
+        const status = String(row[t_status_idx] || '').toUpperCase().trim();
+        if (status === 'REJECTED') {
+          rejected_initiatives.push({
+            id: row[t_id_idx],
+            user_email: row[t_email_idx],
+            title: row[t_title_idx],
+            attempt_count: Number(row[t_attempt_idx]) || 0,
+            status: 'REJECTED',
+            ai_summary_note: row[t_note_idx] || 'Inisiatif ditolak oleh Challenger AI.',
+            updated_at: row[t_upd_idx]
+          });
+        }
+      }
+    }
+
+    // Urutkan berdasarkan waktu approve/update terbaru
+    demands.sort((a, b) => new Date(b.approved_at || b.created_at).getTime() - new Date(a.approved_at || a.created_at).getTime());
+    rejected_initiatives.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    return {
+      success: true,
+      data: {
+        demands: demands,
+        rejected_initiatives: rejected_initiatives,
+        stats: {
+          total_demands: demands.length,
+          pending: demands.filter(d => d.capacity_status === 'PENDING_CAPACITY').length,
+          planned: demands.filter(d => d.capacity_status === 'CAPACITY_PLANNED').length,
+          converted: demands.filter(d => d.capacity_status === 'CONVERTED_TO_PROJECT').length,
+          rejected: rejected_initiatives.length
+        }
+      }
+    };
   } catch (error) {
     return { success: false, message: 'Gagal memuat daftar demand: ' + error.message };
   }

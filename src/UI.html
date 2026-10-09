@@ -1068,7 +1068,7 @@
         </div>
 
         <!-- Metrics Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Demand</p>
@@ -1108,10 +1108,40 @@
               🚀
             </div>
           </div>
+
+          <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-rose-500">Inisiatif Tertolak</p>
+              <h3 id="stat-rejected-demands" class="text-2xl font-bold text-rose-600 mt-0.5">0</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg">
+              ❌
+            </div>
+          </div>
         </div>
 
-        <!-- Demands Table Container -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Tabs Switcher for Demand vs Rejected Initiatives -->
+        <div class="flex items-center space-x-2 mb-4 border-b border-slate-200">
+          <button 
+            type="button" 
+            id="tab-btn-demand-approved"
+            onclick="switch_demand_tab('approved')" 
+            class="px-4 py-2.5 text-xs font-bold border-b-2 border-indigo-600 text-indigo-600 flex items-center space-x-2 transition-all cursor-pointer">
+            <span>Pipeline Inisiatif Disetujui</span>
+            <span id="badge-approved-count" class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-50 text-indigo-600 font-semibold">0</span>
+          </button>
+          <button 
+            type="button" 
+            id="tab-btn-demand-rejected"
+            onclick="switch_demand_tab('rejected')" 
+            class="px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center space-x-2 transition-all cursor-pointer">
+            <span>Inisiatif Tertolak (AI Challenger)</span>
+            <span id="badge-rejected-count" class="px-2 py-0.5 rounded-full text-[10px] bg-rose-50 text-rose-600 font-semibold">0</span>
+          </button>
+        </div>
+
+        <!-- Demands Table Container (Approved) -->
+        <div id="container-demand-approved-table" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
@@ -1131,6 +1161,31 @@
                       <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                       <span>Memuat data demand...</span>
                     </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Rejected Initiatives Table Container -->
+        <div id="container-demand-rejected-table" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th class="py-3 px-4">Inisiatif Tertolak</th>
+                  <th class="py-3 px-4">Product Owner</th>
+                  <th class="py-3 px-4 text-center">Percobaan Ke</th>
+                  <th class="py-3 px-4">Alasan Penolakan AI Challenger</th>
+                  <th class="py-3 px-4">Waktu Ditolak</th>
+                  <th class="py-3 px-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="rejected-demands-table-body" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    Belum ada inisiatif yang ditolak.
                   </td>
                 </tr>
               </tbody>
