@@ -37,6 +37,34 @@ function set_gemini_api_key_property(api_key) {
 }
 
 /**
+ * Jalankan fungsi ini satu kali di Apps Script Editor (pilih test_gemini_connection lalu klik Run ▶) untuk:
+ * 1. Memicu dialog otorisasi izin jaringan Google (Review Permissions -> Allow script.external_request)
+ * 2. Memverifikasi koneksi Gemini API aktif
+ */
+function test_gemini_connection() {
+  const apiKey = get_gemini_api_key();
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' + apiKey;
+  const payload = {
+    contents: [{ parts: [{ text: 'Halo' }] }]
+  };
+  const res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  const code = res.getResponseCode();
+  Logger.log('HTTP Status Code: ' + code);
+  Logger.log('Response: ' + res.getContentText());
+  if (code === 200) {
+    Logger.log('✅ SUKSES: Izin UrlFetchApp aktif & Gemini API berhasil merespons!');
+  } else {
+    Logger.log('⚠️ GAGAL: Response Code ' + code);
+  }
+  return code === 200 ? 'SUKSES' : 'GAGAL';
+}
+
+/**
  * System prompt rahasia server-side: Senior Product Challenger (ex-CPO / Head of Product)
  * @return {string} System prompt
  */
