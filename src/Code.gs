@@ -65,6 +65,8 @@ const DEFAULT_PERMISSIONS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: true,
     can_manage_users: true
   },
   PM: {
@@ -74,6 +76,8 @@ const DEFAULT_PERMISSIONS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: true,
     can_manage_users: false
   },
   MEMBER: {
@@ -83,6 +87,8 @@ const DEFAULT_PERMISSIONS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: false,
     can_manage_users: false
   },
   CLIENT: {
@@ -92,6 +98,8 @@ const DEFAULT_PERMISSIONS = {
     can_move_task: false,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: false,
+    can_manage_demand: false,
     can_manage_users: false
   }
 };

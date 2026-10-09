@@ -43,7 +43,12 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - `can_move_task`: Geser status task di Kanban & alokasi bucket.
   - `can_view_insights`: Akses analitik metrik & burndown.
   - `can_manage_users`: Akses menu CRUD User Management (Admin only).
-- **Proteksi Anti-Lockout:** Admin tidak dapat mencabut hak akses manajemen akun miliknya sendiri maupun menghapus akun aktifnya sendiri.
+### 5. AI Product Challenger (Gemini API) & Demand Management
+- **Senior Product Challenger Session:** PO dapat menguji inisiatif produk secara interaktif melawan AI ex-CPO/Head of Product spesialis finansial/multifinance.
+- **Kerahasiaan Prompt Server-Side:** System prompt diinjeksi secara rahasia di backend GAS tanpa kebocoran ke browser klien.
+- **Natural AI Initiation:** AI menyapa dan menantang terlebih dahulu: *"Silakan jelaskan inisiatif produk yang ingin kamu ajukan. Ringkas dan konkret."*
+- **Pelacakan Attempt & Status Evaluasi:** Sistem melacak jumlah percobaan (*attempts*), catatan evaluasi AI, dan timestamp untuk monitoring Admin.
+- **Demand Pipeline & Alokasi Kapasitas:** Inisiatif yang disetujui (*Approved*) otomatis masuk ke tabel `Demands` untuk dihitung kapasitas jam kerjanya oleh Admin/PM dan dapat dikonversi langsung menjadi Proyek aktif.
 
 ---
 
@@ -59,11 +64,13 @@ Alternate Project Delivery/
 │
 ├── src/                 # File sumber aplikasi Google Apps Script
 │   ├── Code.gs          # Entry point utama (doGet, include helper, routing RBAC)
+│   ├── Setup.gs         # Skema database Google Sheets & data simulator
 │   ├── API.gs           # Endpoint Projects, Sprints, Backlog, dan Tasks CRUD
 │   ├── Insights.gs      # Mesin kalkulasi Lead Time, Cycle Time, Burndown, Blocker
+│   ├── ChallengerAI.gs  # Controller Gemini API Product Challenger & Demand Management
 │   ├── Index.html       # Shell HTML utama
-│   ├── UI.html          # Komponen layout modular (Navbar, Sidebar, Dashboard, Backlog, Board)
-│   └── js_main.html     # Client-side controller, SPA logic, Drag-Drop & Chart.js
+│   ├── UI.html          # Komponen layout modular (Navbar, Sidebar, Dashboard, Board, Demand)
+│   └── js_main.html     # Client-side controller, SPA logic, Drag-Drop, Chat & Chart.js
 ```
 
 ---
@@ -72,23 +79,31 @@ Alternate Project Delivery/
 
 1. **Siapkan Google Spreadsheet:**
    - Buat Google Spreadsheet baru di Google Drive Anda.
-   - Buat 5 sheet/tab sesuai panduan [data-model.md](data-model.md):
+   - Buat 7 sheet/tab (atau biarkan fungsi `setup_database_schema` membuatnya otomatis):
      - `Users`
      - `Projects`
      - `Sprints`
      - `Tasks`
      - `Task_History`
+     - `Initiative_Tests`
+     - `Demands`
    - Salin ID Spreadsheet dari URL (contoh: `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`).
 
 2. **Buka Script Editor:**
    - Di menu Google Spreadsheet, klik **Extensions** > **Apps Script**.
 
 3. **Deploy File Kode:**
-   - Salin seluruh file dari folder `src/` (`Code.gs`, `API.gs`, `Insights.gs`, `Setup.gs`, `Index.html`, `UI.html`, `js_main.html`).
+   - Salin seluruh file dari folder `src/` (`Code.gs`, `Setup.gs`, `API.gs`, `Insights.gs`, `ChallengerAI.gs`, `Index.html`, `UI.html`, `js_main.html`).
    - Tempelkan `SPREADSHEET_ID` Anda di baris atas file `Code.gs`.
    - Jalankan fungsi `seed_dummy_data` di file `Setup.gs` satu kali untuk menginjeksi struktur data awal.
 
-4. **Deploy sebagai Web App:**
+4. **Konfigurasi Gemini API Key (Aman via Script Properties):**
+   - Di panel kiri Apps Script editor, klik **Project Settings** (ikon roda gigi ⚙️).
+   - Gulir ke bagian **Script Properties**, lalu klik **Add script property**.
+   - Masukkan Property: `GEMINI_API_KEY` dan Value: `<API_KEY_GEMINI_ANDA>`.
+   - Simpan Script Property. API key Anda terlindungi dengan aman di backend environment Google tanpa pernah terekspos ke repositori git atau klien browser.
+
+5. **Deploy sebagai Web App:**
    - Klik tombol **Deploy** > **New deployment**.
    - Pilih type: **Web app**.
    - **Execute as:** `User accessing the web app`.

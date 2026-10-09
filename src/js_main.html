@@ -109,6 +109,8 @@ function apply_rbac_permissions(role) {
     can_move_task: role !== 'CLIENT',
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: role !== 'CLIENT',
+    can_manage_demand: role === 'ADMIN' || role === 'PM',
     can_manage_users: role === 'ADMIN'
   };
 
@@ -116,6 +118,8 @@ function apply_rbac_permissions(role) {
   const btn_add_task = document.getElementById('btn-add-task');
   const nav_btn_users = document.getElementById('nav-btn-users');
   const nav_btn_cycle_time = document.getElementById('nav-btn-cycle-time');
+  const nav_btn_initiative_test = document.getElementById('nav-btn-initiative-test');
+  const nav_btn_demand = document.getElementById('nav-btn-demand');
   const btn_add_project = document.getElementById('btn-add-project');
   const btn_header_add_task = document.getElementById('btn-header-add-task');
   const btn_backlog_add_task = document.getElementById('btn-backlog-add-task');
@@ -170,6 +174,24 @@ function apply_rbac_permissions(role) {
       nav_btn_cycle_time.classList.remove('hidden');
     } else {
       nav_btn_cycle_time.classList.add('hidden');
+    }
+  }
+
+  // Menu Uji Inisiatif AI
+  if (nav_btn_initiative_test) {
+    if (perms.can_test_initiative !== false) {
+      nav_btn_initiative_test.classList.remove('hidden');
+    } else {
+      nav_btn_initiative_test.classList.add('hidden');
+    }
+  }
+
+  // Menu Demand Management
+  if (nav_btn_demand) {
+    if (perms.can_manage_demand !== false) {
+      nav_btn_demand.classList.remove('hidden');
+    } else {
+      nav_btn_demand.classList.add('hidden');
     }
   }
 
@@ -707,7 +729,7 @@ function switch_view(target_view) {
     switch_project_tab(app_state.current_project_tab || 'board');
   }
 
-  const views = ['dashboard', 'project', 'insights', 'cycle-time', 'settings', 'users'];
+  const views = ['dashboard', 'project', 'insights', 'cycle-time', 'initiative-test', 'demand', 'settings', 'users'];
   
   views.forEach(view_name => {
     const section_el = document.getElementById('view-' + view_name);
@@ -723,6 +745,12 @@ function switch_view(target_view) {
         }
         if (view_name === 'cycle-time') {
           load_cycle_time_report();
+        }
+        if (view_name === 'initiative-test') {
+          load_initiatives_list();
+        }
+        if (view_name === 'demand') {
+          load_demands_list();
         }
         if (view_name === 'dashboard') {
           load_projects_list();
@@ -2047,6 +2075,8 @@ const DEFAULT_ROLE_PERMS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: true,
     can_manage_users: true
   },
   PM: {
@@ -2056,6 +2086,8 @@ const DEFAULT_ROLE_PERMS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: true,
     can_manage_users: false
   },
   MEMBER: {
@@ -2065,6 +2097,8 @@ const DEFAULT_ROLE_PERMS = {
     can_move_task: true,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: true,
+    can_manage_demand: false,
     can_manage_users: false
   },
   CLIENT: {
@@ -2074,6 +2108,8 @@ const DEFAULT_ROLE_PERMS = {
     can_move_task: false,
     can_view_insights: true,
     can_view_cycle_time: true,
+    can_test_initiative: false,
+    can_manage_demand: false,
     can_manage_users: false
   }
 };
@@ -2091,6 +2127,8 @@ function handle_role_preset_change(role) {
   const cb_move_task = document.getElementById('perm-can-move-task');
   const cb_view_insights = document.getElementById('perm-can-view-insights');
   const cb_view_cycle_time = document.getElementById('perm-can-view-cycle-time');
+  const cb_test_init = document.getElementById('perm-can-test-initiative');
+  const cb_manage_dem = document.getElementById('perm-can-manage-demand');
   const cb_manage_users = document.getElementById('perm-can-manage-users');
 
   if (cb_create_proj) cb_create_proj.checked = perms.can_create_project;
@@ -2099,6 +2137,8 @@ function handle_role_preset_change(role) {
   if (cb_move_task) cb_move_task.checked = perms.can_move_task;
   if (cb_view_insights) cb_view_insights.checked = perms.can_view_insights;
   if (cb_view_cycle_time) cb_view_cycle_time.checked = perms.can_view_cycle_time !== false;
+  if (cb_test_init) cb_test_init.checked = perms.can_test_initiative !== false;
+  if (cb_manage_dem) cb_manage_dem.checked = !!perms.can_manage_demand;
   if (cb_manage_users) cb_manage_users.checked = perms.can_manage_users;
 }
 
@@ -2230,6 +2270,8 @@ function render_users_table(users) {
     if (perms.can_move_task) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 font-medium">Geser Task</span>');
     if (perms.can_view_insights) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-teal-50 text-teal-700 font-medium">Insights</span>');
     if (perms.can_view_cycle_time !== false) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-cyan-50 text-cyan-700 font-medium">Cycle Time</span>');
+    if (perms.can_test_initiative !== false) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-700 font-medium">Uji Inisiatif</span>');
+    if (perms.can_manage_demand) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 font-medium">Demand</span>');
     if (perms.can_manage_users) perm_tags.push('<span class="inline-block px-1.5 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 font-semibold border border-purple-200">Kelola User</span>');
 
     const tr = document.createElement('tr');
@@ -2340,6 +2382,8 @@ function open_user_modal(mode, user_id) {
     const cb_move_task = document.getElementById('perm-can-move-task');
     const cb_view_insights = document.getElementById('perm-can-view-insights');
     const cb_view_cycle_time = document.getElementById('perm-can-view-cycle-time');
+    const cb_test_init = document.getElementById('perm-can-test-initiative');
+    const cb_manage_dem = document.getElementById('perm-can-manage-demand');
     const cb_manage_users = document.getElementById('perm-can-manage-users');
 
     if (cb_create_proj) cb_create_proj.checked = !!perms.can_create_project;
@@ -2348,6 +2392,8 @@ function open_user_modal(mode, user_id) {
     if (cb_move_task) cb_move_task.checked = !!perms.can_move_task;
     if (cb_view_insights) cb_view_insights.checked = !!perms.can_view_insights;
     if (cb_view_cycle_time) cb_view_cycle_time.checked = perms.can_view_cycle_time !== false;
+    if (cb_test_init) cb_test_init.checked = perms.can_test_initiative !== false;
+    if (cb_manage_dem) cb_manage_dem.checked = !!perms.can_manage_demand;
     if (cb_manage_users) cb_manage_users.checked = !!perms.can_manage_users;
   }
 
@@ -2383,6 +2429,8 @@ function handle_submit_user(e) {
     can_move_task: document.getElementById('perm-can-move-task').checked,
     can_view_insights: document.getElementById('perm-can-view-insights').checked,
     can_view_cycle_time: document.getElementById('perm-can-view-cycle-time') ? document.getElementById('perm-can-view-cycle-time').checked : true,
+    can_test_initiative: document.getElementById('perm-can-test-initiative') ? document.getElementById('perm-can-test-initiative').checked : true,
+    can_manage_demand: document.getElementById('perm-can-manage-demand') ? document.getElementById('perm-can-manage-demand').checked : false,
     can_manage_users: document.getElementById('perm-can-manage-users').checked
   };
 
@@ -3102,5 +3150,780 @@ function simulate_mock_cycle_time_report(filters) {
 
   app_state.cycle_time_data = filtered;
   render_cycle_time_report(filtered);
+}
+
+/**
+ * ============================================================================
+ * AI PRODUCT CHALLENGER & DEMAND MANAGEMENT CONTROLLER
+ * ============================================================================
+ */
+
+app_state.active_initiative_session = null;
+app_state.initiatives_list = [];
+app_state.demands_list = [];
+
+/**
+ * Membuka Modal Mulai Inisiatif Baru
+ */
+function open_new_initiative_modal() {
+  const modal = document.getElementById('modal-new-initiative');
+  if (modal) {
+    modal.classList.remove('hidden');
+    const input = document.getElementById('input-new-initiative-title');
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+/**
+ * Menutup Modal Mulai Inisiatif Baru
+ */
+function close_new_initiative_modal() {
+  const modal = document.getElementById('modal-new-initiative');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Submit Form Mulai Sesi Uji Inisiatif Baru
+ */
+function handle_submit_new_initiative(e) {
+  e.preventDefault();
+  const title_input = document.getElementById('input-new-initiative-title');
+  const title = title_input ? title_input.value.trim() : '';
+  if (!title) return;
+
+  const btn = document.getElementById('btn-submit-new-initiative');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Memulai Sesi...</span>`;
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Mulai Sesi Uji &rarr;</span>`;
+        }
+        if (response && response.success) {
+          close_new_initiative_modal();
+          app_state.active_initiative_session = response.data;
+          render_active_initiative_chat(response.data);
+          load_initiatives_list();
+          show_notification('Sesi Challenger AI dimulai. AI telah memberikan pertanyaan pembuka!', 'info');
+        } else {
+          show_notification(response ? response.message : 'Gagal memulai sesi inisiatif.', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Mulai Sesi Uji &rarr;</span>`;
+        }
+        show_notification('Error server: ' + err.message, 'error');
+      })
+      .start_initiative_session(title);
+  } else {
+    // Mock simulation for offline testing
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Mulai Sesi Uji &rarr;</span>`;
+      }
+      close_new_initiative_modal();
+      const mock_session = {
+        id: 'INIT-' + Math.floor(1000 + Math.random() * 9000),
+        initiative_title: title,
+        user_email: (app_state.current_user ? app_state.current_user.email : 'po@example.com'),
+        attempt_count: 0,
+        status: 'IN_PROGRESS',
+        ai_summary_note: '',
+        messages: [
+          {
+            role: 'model',
+            text: 'Silakan jelaskan inisiatif produk yang ingin kamu ajukan. Ringkas dan konkret.',
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+      app_state.active_initiative_session = mock_session;
+      render_active_initiative_chat(mock_session);
+      load_initiatives_list();
+      show_notification('Sesi Challenger AI dimulai (Mock).', 'info');
+    }, 300);
+  }
+}
+
+/**
+ * Memuat riwayat pengujian inisiatif dari backend
+ */
+function load_initiatives_list() {
+  const list_container = document.getElementById('initiatives-history-list');
+  const count_badge = document.getElementById('initiatives-total-count-badge');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.initiatives_list = response.data || [];
+          render_initiatives_history_list(app_state.initiatives_list);
+          if (count_badge) count_badge.textContent = app_state.initiatives_list.length + ' Sesi';
+        } else {
+          if (list_container) list_container.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs">${response ? response.message : 'Gagal memuat riwayat.'}</div>`;
+        }
+      })
+      .withFailureHandler(err => {
+        if (list_container) list_container.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs">${err.message}</div>`;
+      })
+      .get_initiatives_list();
+  } else {
+    // Mock data for UI preview / test
+    const mock_list = app_state.initiatives_list && app_state.initiatives_list.length > 0 
+      ? app_state.initiatives_list 
+      : (app_state.active_initiative_session ? [app_state.active_initiative_session] : []);
+    render_initiatives_history_list(mock_list);
+    if (count_badge) count_badge.textContent = mock_list.length + ' Sesi';
+  }
+}
+
+/**
+ * Render daftar kartu riwayat inisiatif di panel kanan
+ */
+function render_initiatives_history_list(items) {
+  const container = document.getElementById('initiatives-history-list');
+  if (!container) return;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 text-slate-400 text-xs">
+        <p class="font-medium text-slate-600 mb-1">Belum ada riwayat pengujian</p>
+        <p class="text-[11px]">Inisiatif yang Anda atau tim uji akan tercatat di sini lengkap dengan jumlah percobaan (attempts).</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  items.forEach(item => {
+    const is_active = app_state.active_initiative_session && app_state.active_initiative_session.id === item.id;
+    let status_badge_cls = 'bg-amber-100 text-amber-800 border-amber-200';
+    let status_label = 'Dalam Evaluasi';
+    if (item.status === 'APPROVED') {
+      status_badge_cls = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      status_label = '✓ Approved';
+    } else if (item.status === 'REJECTED') {
+      status_badge_cls = 'bg-rose-100 text-rose-800 border-rose-200';
+      status_label = '✕ Ditolak (No Value)';
+    }
+
+    const card = document.createElement('div');
+    card.className = `p-3 rounded-xl cursor-pointer transition-all border ${is_active ? 'bg-indigo-50/80 border-indigo-300 shadow-sm' : 'hover:bg-slate-50 border-transparent hover:border-slate-200'}`;
+    card.onclick = () => open_initiative_session(item.id);
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2 mb-1">
+        <h4 class="text-xs font-bold text-slate-800 line-clamp-1 leading-snug">${escape_html(item.title || item.initiative_title || 'Inisiatif')}</h4>
+        <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border flex-shrink-0 ${status_badge_cls}">
+          ${status_label}
+        </span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+        <span class="font-mono text-slate-500">${escape_html(item.id)}</span>
+        <span class="font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded">Percobaan: ${item.attempt_count || 0}x</span>
+      </div>
+      ${item.user_email ? `<div class="text-[10px] text-slate-400 truncate mt-0.5">PO: ${escape_html(item.user_email)}</div>` : ''}
+      ${item.ai_summary_note ? `<div class="text-[10px] text-slate-500 line-clamp-2 mt-1.5 italic bg-slate-100/70 p-1.5 rounded">"${escape_html(item.ai_summary_note)}"</div>` : ''}
+    `;
+    container.appendChild(card);
+  });
+}
+
+/**
+ * Membuka detail sesi inisiatif dan merender obrolan
+ */
+function open_initiative_session(session_id) {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.active_initiative_session = response.data;
+          render_active_initiative_chat(response.data);
+          load_initiatives_list();
+        } else {
+          show_notification('Gagal memuat sesi: ' + (response ? response.message : ''), 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        show_notification('Error server: ' + err.message, 'error');
+      })
+      .get_initiative_session_details(session_id);
+  } else {
+    // Offline simulation
+    const item = (app_state.initiatives_list || []).find(i => i.id === session_id);
+    if (item) {
+      app_state.active_initiative_session = item;
+      render_active_initiative_chat(item);
+    }
+  }
+}
+
+/**
+ * Render percakapan sesi aktif di area chat tengah
+ */
+function render_active_initiative_chat(session) {
+  if (!session) return;
+
+  const title_el = document.getElementById('chat-session-title');
+  const id_el = document.getElementById('chat-session-id');
+  const status_badge = document.getElementById('chat-session-status-badge');
+  const attempt_badge = document.getElementById('chat-attempt-badge');
+  const mini_banner = document.getElementById('chat-approved-banner-mini');
+  const alert_approved = document.getElementById('chat-alert-approved');
+  const alert_rejected = document.getElementById('chat-alert-rejected');
+  const alert_appr_note = document.getElementById('chat-alert-approved-note');
+  const alert_rej_note = document.getElementById('chat-alert-rejected-note');
+  const messages_container = document.getElementById('initiative-chat-messages');
+  const input_msg = document.getElementById('input-initiative-message');
+  const btn_send = document.getElementById('btn-send-initiative');
+
+  if (title_el) title_el.textContent = session.title || session.initiative_title || 'Inisiatif';
+  if (id_el) id_el.textContent = session.id;
+  if (attempt_badge) attempt_badge.textContent = 'Percobaan: ' + (session.attempt_count || 0) + 'x';
+
+  // Status Styling
+  if (status_badge) {
+    if (session.status === 'APPROVED') {
+      status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+      status_badge.textContent = '✓ APPROVED';
+    } else if (session.status === 'REJECTED') {
+      status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300';
+      status_badge.textContent = '✕ DITOLAK (NO VALUE)';
+    } else {
+      status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
+      status_badge.textContent = 'DALAM EVALUASI';
+    }
+  }
+
+  // Mini Banner & Decision Alerts
+  if (session.status === 'APPROVED') {
+    if (mini_banner) mini_banner.classList.remove('hidden');
+    if (alert_approved) alert_approved.classList.remove('hidden');
+    if (alert_rejected) alert_rejected.classList.add('hidden');
+    if (alert_appr_note) alert_appr_note.textContent = session.ai_summary_note || 'Inisiatif disetujui & otomatis diteruskan ke Demand Management.';
+  } else if (session.status === 'REJECTED') {
+    if (mini_banner) mini_banner.classList.add('hidden');
+    if (alert_approved) alert_approved.classList.add('hidden');
+    if (alert_rejected) alert_rejected.classList.remove('hidden');
+    if (alert_rej_note) alert_rej_note.textContent = session.ai_summary_note || 'AI Challenger menyatakan inisiatif ini tidak memiliki value bisnis yang memadai.';
+  } else {
+    if (mini_banner) mini_banner.classList.add('hidden');
+    if (alert_approved) alert_approved.classList.add('hidden');
+    if (alert_rejected) alert_rejected.classList.add('hidden');
+  }
+
+  // Render Messages
+  if (messages_container) {
+    const msgs = session.messages || [];
+    if (msgs.length === 0) {
+      messages_container.innerHTML = `
+        <div class="text-center py-12 text-slate-400 text-xs">
+          Mulai sesi dengan menuliskan ringkasan inisiatif Anda di bawah.
+        </div>
+      `;
+    } else {
+      messages_container.innerHTML = '';
+      msgs.forEach(msg => {
+        const is_model = msg.role === 'model';
+        const bubble_wrapper = document.createElement('div');
+        bubble_wrapper.className = `flex items-start space-x-3 ${is_model ? '' : 'flex-row-reverse space-x-reverse'}`;
+
+        const avatar = is_model
+          ? `<div class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">AI</div>`
+          : `<div class="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">PO</div>`;
+
+        const bubble = `
+          <div class="max-w-[85%] md:max-w-[80%] rounded-2xl p-4 shadow-sm text-xs leading-relaxed ${is_model ? 'bg-white border border-slate-200 text-slate-800' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white'}">
+            <div class="flex items-center justify-between mb-1 text-[10px] ${is_model ? 'text-slate-400' : 'text-indigo-200'}">
+              <span class="font-bold">${is_model ? 'Product Challenger (ex-CPO)' : 'Product Owner'}</span>
+              <span>${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+            </div>
+            <div class="whitespace-pre-wrap ${is_model ? 'font-sans' : ''}">${escape_html(msg.text)}</div>
+          </div>
+        `;
+
+        bubble_wrapper.innerHTML = avatar + bubble;
+        messages_container.appendChild(bubble_wrapper);
+      });
+
+      // Auto-scroll ke pesan terbawah
+      messages_container.scrollTop = messages_container.scrollHeight;
+    }
+  }
+
+  if (input_msg) {
+    input_msg.disabled = false;
+    input_msg.value = '';
+    input_msg.focus();
+  }
+  if (btn_send) btn_send.disabled = false;
+}
+
+/**
+ * Mengirim pesan argumen user ke Challenger AI
+ */
+function handle_send_initiative_message(e) {
+  e.preventDefault();
+  if (!app_state.active_initiative_session) {
+    show_notification('Silakan pilih atau buat sesi inisiatif terlebih dahulu.', 'warning');
+    return;
+  }
+
+  const session_id = app_state.active_initiative_session.id;
+  const input_msg = document.getElementById('input-initiative-message');
+  const user_text = input_msg ? input_msg.value.trim() : '';
+  if (!user_text) return;
+
+  const btn_send = document.getElementById('btn-send-initiative');
+  const typing_indicator = document.getElementById('chat-typing-indicator');
+  const messages_container = document.getElementById('initiative-chat-messages');
+
+  // Segera tampilkan pesan user di UI
+  if (messages_container) {
+    const user_wrapper = document.createElement('div');
+    user_wrapper.className = 'flex items-start space-x-3 flex-row-reverse space-x-reverse';
+    user_wrapper.innerHTML = `
+      <div class="w-8 h-8 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">PO</div>
+      <div class="max-w-[85%] md:max-w-[80%] rounded-2xl p-4 shadow-sm text-xs leading-relaxed bg-gradient-to-r from-indigo-600 to-indigo-700 text-white">
+        <div class="flex items-center justify-between mb-1 text-[10px] text-indigo-200">
+          <span class="font-bold">Product Owner</span>
+          <span>Baru saja</span>
+        </div>
+        <div class="whitespace-pre-wrap">${escape_html(user_text)}</div>
+      </div>
+    `;
+    messages_container.appendChild(user_wrapper);
+    messages_container.scrollTop = messages_container.scrollHeight;
+  }
+
+  // Disable form input selama analisis AI
+  if (input_msg) {
+    input_msg.value = '';
+    input_msg.disabled = true;
+  }
+  if (btn_send) btn_send.disabled = true;
+  if (typing_indicator) typing_indicator.classList.remove('hidden');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (input_msg) input_msg.disabled = false;
+        if (btn_send) btn_send.disabled = false;
+        if (typing_indicator) typing_indicator.classList.add('hidden');
+
+        if (response && response.success) {
+          app_state.active_initiative_session = {
+            id: response.data.session_id,
+            initiative_title: app_state.active_initiative_session.initiative_title,
+            user_email: app_state.active_initiative_session.user_email,
+            attempt_count: response.data.attempt_count,
+            status: response.data.status,
+            ai_summary_note: response.data.note,
+            messages: response.data.messages
+          };
+          render_active_initiative_chat(app_state.active_initiative_session);
+          load_initiatives_list();
+
+          if (response.data.status === 'APPROVED') {
+            show_notification('🎉 Inisiatif Disetujui! Telah masuk ke menu Demand Management.', 'success');
+          } else if (response.data.status === 'REJECTED') {
+            show_notification('⚠️ Inisiatif Ditolak oleh AI Challenger (Tidak Ada Value).', 'warning');
+          }
+        } else {
+          show_notification(response ? response.message : 'Gagal mengirim pesan.', 'error');
+          if (input_msg) input_msg.value = user_text;
+        }
+      })
+      .withFailureHandler(err => {
+        if (input_msg) {
+          input_msg.disabled = false;
+          input_msg.value = user_text;
+        }
+        if (btn_send) btn_send.disabled = false;
+        if (typing_indicator) typing_indicator.classList.add('hidden');
+        show_notification('Error server: ' + err.message, 'error');
+      })
+      .send_initiative_message(session_id, user_text);
+  } else {
+    // Mock simulation for offline test
+    setTimeout(() => {
+      if (input_msg) input_msg.disabled = false;
+      if (btn_send) btn_send.disabled = false;
+      if (typing_indicator) typing_indicator.classList.add('hidden');
+
+      const mock_decision = user_text.toLowerCase().includes('approve') ? 'APPROVED' : (user_text.toLowerCase().includes('reject') ? 'REJECTED' : 'IN_PROGRESS');
+      const mock_reply = mock_decision === 'APPROVED' 
+        ? 'Inisiatif ini telah tervalidasi dengan baik dan memiliki proyeksi ROI yang solid. Berikut ringkasan PRD & FSD:\n\n### PRD Ringkas:\n- Tujuan: Otomasi alur verifikasi\n- Scope: Integrasi OCR & E-KYC\n\n### FSD Ringkas:\n- Workflow: Input -> Validasi -> Webhook\n\n<<<DECISION: APPROVED>>>\n<<<EST_ENGINEERS: 3>>>\n<<<EST_DAYS: 25>>>\n<<<NOTE: Inisiatif sangat solid dan terukur.>>>'
+        : (mock_decision === 'REJECTED' ? 'Inisiatif ini tidak memiliki diferensiasi dan biaya pengembangannya tidak sebanding dengan value efisiensi yang ditawarkan.\n\n<<<DECISION: REJECTED>>>\n<<<NOTE: Tidak ada value nyata.>>>' : 'Dari sisi operasional multifinance, bagaimana mitigasi risiko jika data pihak ketiga mengalami downtime? Seberapa besar efisiensi biaya nyata yang dihemat? Jelaskan dalam angka konkret.\n\n<<<DECISION: IN_PROGRESS>>>');
+
+      const clean_reply = mock_reply.replace(/<<<(DECISION|NOTE|EST_ENGINEERS|EST_DAYS):[\s\S]*?>>>/gi, '').trim();
+      const current_history = app_state.active_initiative_session.messages || [];
+      current_history.push({ role: 'user', text: user_text, timestamp: new Date().toISOString() });
+      current_history.push({ role: 'model', text: clean_reply, timestamp: new Date().toISOString() });
+
+      app_state.active_initiative_session.attempt_count = (app_state.active_initiative_session.attempt_count || 0) + 1;
+      app_state.active_initiative_session.status = mock_decision;
+      app_state.active_initiative_session.messages = current_history;
+
+      render_active_initiative_chat(app_state.active_initiative_session);
+      load_initiatives_list();
+    }, 600);
+  }
+}
+
+/**
+ * ============================================================================
+ * DEMAND MANAGEMENT CONTROLLER
+ * ============================================================================
+ */
+
+/**
+ * Memuat daftar seluruh Demand dari backend GAS
+ */
+function load_demands_list() {
+  const tbody = document.getElementById('demands-table-body');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-8 text-center text-slate-400">
+          <div class="flex items-center justify-center space-x-2">
+            <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Memuat pipeline demand...</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success) {
+          app_state.demands_list = response.data || [];
+          render_demands_table(app_state.demands_list);
+          update_demands_statistics(app_state.demands_list);
+        } else {
+          if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${response ? response.message : 'Gagal memuat demand.'}</td></tr>`;
+        }
+      })
+      .withFailureHandler(err => {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-500">${err.message}</td></tr>`;
+      })
+      .get_demands_list();
+  } else {
+    // Mock simulation
+    const mock_demands = app_state.demands_list || [
+      {
+        id: 'DEM-001',
+        initiative_test_id: 'INIT-101',
+        title: 'Otomasi Instant Approval Multifinance dengan E-KYC',
+        submitter_email: 'po@example.com',
+        prd_summary: 'PRD: Integrasi API e-KYC pihak ketiga, automated scoring rules, threshold approval.',
+        fsd_summary: 'FSD: Endpoint webhooks, fallback manual review, queue processing.',
+        est_engineers: 3,
+        est_duration_days: 20,
+        capacity_status: 'PENDING_CAPACITY',
+        allocated_capacity_hours: 0,
+        capacity_notes: '',
+        approved_at: new Date().toISOString()
+      }
+    ];
+    render_demands_table(mock_demands);
+    update_demands_statistics(mock_demands);
+  }
+}
+
+/**
+ * Update kartu ringkasan metrik Demand
+ */
+function update_demands_statistics(demands) {
+  const total_el = document.getElementById('stat-total-demands');
+  const pending_el = document.getElementById('stat-pending-demands');
+  const planned_el = document.getElementById('stat-planned-demands');
+  const converted_el = document.getElementById('stat-converted-demands');
+
+  const total = demands.length;
+  const pending = demands.filter(d => d.capacity_status === 'PENDING_CAPACITY').length;
+  const planned = demands.filter(d => d.capacity_status === 'CAPACITY_PLANNED').length;
+  const converted = demands.filter(d => d.capacity_status === 'CONVERTED_TO_PROJECT').length;
+
+  if (total_el) total_el.textContent = total;
+  if (pending_el) pending_el.textContent = pending;
+  if (planned_el) planned_el.textContent = planned;
+  if (converted_el) converted_el.textContent = converted;
+}
+
+/**
+ * Render baris tabel Demand
+ */
+function render_demands_table(demands) {
+  const tbody = document.getElementById('demands-table-body');
+  if (!tbody) return;
+
+  if (!demands || demands.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-12 text-center text-slate-400 italic">
+          Belum ada inisiatif yang lolos evaluasi Challenger AI ke Demand Pipeline.<br>
+          <span class="text-[11px] text-slate-500 mt-1 inline-block">Uji inisiatif produk Anda di menu <strong>Uji Inisiatif AI</strong> untuk mendapatkan approval.</span>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const user = app_state.current_user || {};
+  const perms = user.permissions || DEFAULT_ROLE_PERMS[user.role] || DEFAULT_ROLE_PERMS.CLIENT;
+
+  tbody.innerHTML = '';
+  demands.forEach(d => {
+    let status_badge = 'bg-amber-100 text-amber-800 border-amber-200';
+    let status_text = 'Menunggu Kapasitas';
+    if (d.capacity_status === 'CAPACITY_PLANNED') {
+      status_badge = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      status_text = 'Kapasitas Terencana';
+    } else if (d.capacity_status === 'CONVERTED_TO_PROJECT') {
+      status_badge = 'bg-purple-100 text-purple-800 border-purple-200';
+      status_text = '✓ Aktif Sebagai Proyek';
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50/60 transition-colors border-b border-slate-100';
+
+    tr.innerHTML = `
+      <td class="py-3 px-4">
+        <div>
+          <div class="font-bold text-slate-900">${escape_html(d.title)}</div>
+          <div class="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center space-x-2">
+            <span>${escape_html(d.id)}</span>
+            <span>&bull;</span>
+            <button type="button" onclick="open_demand_prd_modal('${escape_html(d.id)}')" class="text-indigo-600 hover:text-indigo-800 underline font-semibold">
+              Buka PRD/FSD &rarr;
+            </button>
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <span class="text-xs text-slate-600 font-mono">${escape_html(d.submitter_email)}</span>
+      </td>
+      <td class="py-3 px-4">
+        <div class="text-xs text-slate-700">
+          <span class="font-bold text-indigo-700">${d.est_engineers || 3} Engineers</span>
+          <span class="text-slate-400 block text-[10px]">${d.est_duration_days || 20} Hari Kerja</span>
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <div>
+          <span class="font-bold text-sm ${d.allocated_capacity_hours > 0 ? 'text-emerald-700' : 'text-slate-400'}">
+            ${d.allocated_capacity_hours > 0 ? d.allocated_capacity_hours + ' Jam' : 'Belum Dihitung'}
+          </span>
+          ${d.capacity_notes ? `<span class="block text-[10px] text-slate-500 truncate max-w-xs mt-0.5">"${escape_html(d.capacity_notes)}"</span>` : ''}
+        </div>
+      </td>
+      <td class="py-3 px-4">
+        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${status_badge}">
+          ${status_text}
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center">
+        <div class="flex items-center justify-center space-x-2">
+          ${perms.can_manage_demand !== false ? `
+            <button 
+              type="button" 
+              onclick="open_demand_capacity_modal('${escape_html(d.id)}')" 
+              class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer">
+              <span>Hitung Kapasitas</span>
+            </button>
+          ` : ''}
+
+          ${(perms.can_create_project && d.capacity_status !== 'CONVERTED_TO_PROJECT') ? `
+            <button 
+              type="button" 
+              onclick="handle_convert_demand_to_project('${escape_html(d.id)}')" 
+              class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center space-x-1 cursor-pointer">
+              <span>Jadikan Proyek</span>
+            </button>
+          ` : ''}
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Membuka Modal Input Alokasi Kapasitas
+ */
+function open_demand_capacity_modal(demand_id) {
+  const demand = (app_state.demands_list || []).find(d => d.id === demand_id);
+  if (!demand) {
+    show_notification('Data demand tidak ditemukan.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-demand-capacity');
+  const title_el = document.getElementById('modal-capacity-demand-title');
+  const id_input = document.getElementById('input-demand-id');
+  const hours_input = document.getElementById('input-capacity-hours');
+  const notes_input = document.getElementById('input-capacity-notes');
+  const eng_el = document.getElementById('modal-capacity-est-eng');
+  const days_el = document.getElementById('modal-capacity-est-days');
+
+  if (title_el) title_el.textContent = demand.title;
+  if (id_input) id_input.value = demand.id;
+  if (hours_input) hours_input.value = demand.allocated_capacity_hours || '';
+  if (notes_input) notes_input.value = demand.capacity_notes || '';
+  if (eng_el) eng_el.textContent = (demand.est_engineers || 3) + ' Engineers';
+  if (days_el) days_el.textContent = (demand.est_duration_days || 20) + ' Hari Kerja';
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Input Kapasitas
+ */
+function close_demand_capacity_modal() {
+  const modal = document.getElementById('modal-demand-capacity');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Submit Alokasi Kapasitas Demand
+ */
+function handle_submit_demand_capacity(e) {
+  e.preventDefault();
+  const demand_id = document.getElementById('input-demand-id').value;
+  const hours = document.getElementById('input-capacity-hours').value;
+  const notes = document.getElementById('input-capacity-notes').value;
+
+  const btn = document.getElementById('btn-submit-capacity');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Alokasi Kapasitas';
+        }
+        if (response && response.success) {
+          close_demand_capacity_modal();
+          show_notification('Kapasitas berhasil dialokasikan!', 'success');
+          load_demands_list();
+        } else {
+          show_notification(response ? response.message : 'Gagal menyimpan kapasitas.', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Simpan Alokasi Kapasitas';
+        }
+        show_notification('Error server: ' + err.message, 'error');
+      })
+      .update_demand_capacity(demand_id, hours, notes);
+  } else {
+    // Mock simulation
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Simpan Alokasi Kapasitas';
+      }
+      close_demand_capacity_modal();
+      const demand = (app_state.demands_list || []).find(d => d.id === demand_id);
+      if (demand) {
+        demand.allocated_capacity_hours = Number(hours);
+        demand.capacity_notes = notes;
+        demand.capacity_status = 'CAPACITY_PLANNED';
+      }
+      show_notification('Kapasitas berhasil dialokasikan (Mock)!', 'success');
+      render_demands_table(app_state.demands_list);
+      update_demands_statistics(app_state.demands_list);
+    }, 300);
+  }
+}
+
+/**
+ * Membuka Modal Detail PRD & FSD Inisiatif
+ */
+function open_demand_prd_modal(demand_id) {
+  const demand = (app_state.demands_list || []).find(d => d.id === demand_id);
+  if (!demand) return;
+
+  const modal = document.getElementById('modal-demand-prd-detail');
+  const title_el = document.getElementById('modal-prd-title');
+  const submitter_el = document.getElementById('modal-prd-submitter');
+  const prd_el = document.getElementById('modal-prd-content');
+  const fsd_el = document.getElementById('modal-fsd-content');
+
+  if (title_el) title_el.textContent = demand.title;
+  if (submitter_el) submitter_el.textContent = 'Diajukan oleh: ' + demand.submitter_email;
+  if (prd_el) prd_el.textContent = demand.prd_summary || '-';
+  if (fsd_el) fsd_el.textContent = demand.fsd_summary || '-';
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Detail PRD & FSD
+ */
+function close_demand_prd_modal() {
+  const modal = document.getElementById('modal-demand-prd-detail');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Konversi Demand yang sudah direncanakan menjadi Proyek Aktif
+ */
+function handle_convert_demand_to_project(demand_id) {
+  const demand = (app_state.demands_list || []).find(d => d.id === demand_id);
+  if (!demand) return;
+
+  if (!confirm(`Konversikan demand "${demand.title}" menjadi Proyek baru di Alternate Project Delivery?`)) {
+    return;
+  }
+
+  set_loading_state(true);
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        set_loading_state(false);
+        if (response && response.success) {
+          show_notification('Berhasil! Proyek baru telah dibuat dari Demand.', 'success');
+          load_demands_list();
+          load_projects_list();
+        } else {
+          show_notification(response ? response.message : 'Gagal konversi demand.', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        set_loading_state(false);
+        show_notification('Error server: ' + err.message, 'error');
+      })
+      .convert_demand_to_project(demand_id);
+  } else {
+    // Mock simulation
+    setTimeout(() => {
+      set_loading_state(false);
+      demand.capacity_status = 'CONVERTED_TO_PROJECT';
+      show_notification('Berhasil konversi (Mock)!', 'success');
+      render_demands_table(app_state.demands_list);
+      update_demands_statistics(app_state.demands_list);
+    }, 400);
+  }
 }
 </script>

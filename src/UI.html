@@ -71,6 +71,32 @@
       </button>
 
       <div class="pt-6 px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+        Inisiatif & Demand
+      </div>
+
+      <button 
+        type="button" 
+        id="nav-btn-initiative-test" 
+        onclick="switch_view('initiative-test')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span>Uji Inisiatif AI</span>
+      </button>
+
+      <button 
+        type="button" 
+        id="nav-btn-demand" 
+        onclick="switch_view('demand')" 
+        class="nav-tab-btn flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors group">
+        <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <span>Demand Management</span>
+      </button>
+
+      <div class="pt-6 px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
         Pengaturan
       </div>
 
@@ -840,6 +866,279 @@
         </div>
       </section>
 
+      <!-- VIEW 6: UJI INISIATIF AI (PRODUCT CHALLENGER) -->
+      <section id="view-initiative-test" class="spa-view hidden">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-5 mb-5 border-b border-slate-200 gap-4">
+          <div>
+            <div class="flex items-center space-x-2 mb-1">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700">
+                AI Senior Product Challenger
+              </span>
+              <span class="text-xs text-slate-400">&bull; Multifinance & Enterprise Specialist</span>
+            </div>
+            <h2 class="text-xl font-bold text-slate-800">Uji Kelayakan Inisiatif Produk</h2>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Tantang inisiatif Anda secara kritis bersama AI ex-CPO sebelum masuk ke tahap eksekusi.
+            </p>
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <button 
+              type="button" 
+              onclick="load_initiatives_list()" 
+              class="px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh Riwayat</span>
+            </button>
+            <button 
+              type="button" 
+              onclick="open_new_initiative_modal()" 
+              class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>+ Mulai Inisiatif Baru</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Layout: 2 Kolom (Sesi Aktif Chat & Riwayat Sesi) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Kolom Chat Aktif (8 cols) -->
+          <div class="lg:col-span-8 flex flex-col h-[750px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            
+            <!-- Sesi Info Header -->
+            <div class="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 text-white flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
+                  🎯
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-2">
+                    <h3 id="chat-session-title" class="text-sm font-bold text-slate-800 truncate">
+                      Pilih atau Mulai Sesi Inisiatif
+                    </h3>
+                    <span id="chat-session-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                      IDLE
+                    </span>
+                  </div>
+                  <div class="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
+                    <span id="chat-attempt-badge" class="font-semibold text-indigo-600">Percobaan: 0</span>
+                    <span>&bull;</span>
+                    <span id="chat-session-id" class="font-mono text-slate-400">INIT-NONE</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="chat-approved-banner-mini" class="hidden">
+                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
+                  <span>✓ APPROVED & DEMAND READY</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Dynamic Decision Alerts -->
+            <div id="chat-alert-approved" class="hidden p-3 bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-xs flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">🎉</span>
+                <div>
+                  <strong>Inisiatif Disetujui!</strong>
+                  <span class="block text-[11px] text-emerald-700" id="chat-alert-approved-note">Ide memenuhi kriteria bisnis dan telah diteruskan ke Demand Management.</span>
+                </div>
+              </div>
+              <button onclick="switch_view('demand')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-bold cursor-pointer">
+                Buka Demand &rarr;
+              </button>
+            </div>
+
+            <div id="chat-alert-rejected" class="hidden p-3 bg-rose-50 border-b border-rose-200 text-rose-900 text-xs flex items-center space-x-2">
+              <span class="text-base">⚠️</span>
+              <div>
+                <strong>Inisiatif Ditolak (Tidak Layak):</strong>
+                <span class="block text-[11px] text-rose-700" id="chat-alert-rejected-note">AI mengidentifikasi inisiatif ini belum memiliki value yang valid.</span>
+              </div>
+            </div>
+
+            <!-- Chat Scroll Area -->
+            <div id="initiative-chat-messages" class="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/30">
+              <div class="text-center py-16 text-slate-400 text-xs">
+                <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-bold mb-3">
+                  💬
+                </div>
+                <p class="font-medium text-slate-600 mb-1">Belum ada sesi aktif yang dipilih</p>
+                <p class="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  Klik tombol <strong>+ Mulai Inisiatif Baru</strong> di atas atau pilih salah satu riwayat di sebelah kanan untuk memulai sesi uji inisiatif.
+                </p>
+              </div>
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="p-4 border-t border-slate-200 bg-white">
+              <form id="form-initiative-chat" onsubmit="handle_send_initiative_message(event)" class="space-y-2">
+                <div class="flex items-end space-x-2">
+                  <textarea 
+                    id="input-initiative-message" 
+                    rows="2" 
+                    required 
+                    placeholder="Jelaskan inisiatif produk Anda secara ringkas dan konkret..." 
+                    class="flex-1 px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none disabled:bg-slate-100 disabled:cursor-not-allowed"></textarea>
+                  
+                  <button 
+                    type="submit" 
+                    id="btn-send-initiative" 
+                    class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed h-[42px]">
+                    <span id="btn-send-initiative-text">Kirim</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                  <span>💡 Tip: AI akan menguji validitas problem, target user, dampak bisnis riil, dan perkiraan biaya dev.</span>
+                  <span id="chat-typing-indicator" class="hidden text-indigo-600 font-semibold animate-pulse">
+                    Challenger AI sedang menganalisis...
+                  </span>
+                </div>
+              </form>
+            </div>
+
+          </div>
+
+          <!-- Kolom Riwayat Inisiatif & Status Admin (4 cols) -->
+          <div class="lg:col-span-4 flex flex-col h-[750px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Riwayat Pengujian Ide</h3>
+                <p class="text-[10px] text-slate-400">Total percobaan & status persetujuan</p>
+              </div>
+              <span id="initiatives-total-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                0 Sesi
+              </span>
+            </div>
+
+            <!-- List of Sessions -->
+            <div id="initiatives-history-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
+              <div class="text-center py-12 text-slate-400 text-xs">
+                Memuat riwayat pengujian...
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VIEW 7: DEMAND MANAGEMENT -->
+      <section id="view-demand" class="spa-view hidden">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-5 mb-6 border-b border-slate-200 gap-4">
+          <div>
+            <div class="flex items-center space-x-2 mb-1">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700">
+                Demand Management
+              </span>
+              <span class="text-xs text-slate-400">&bull; AI Approved Initiatives Pipeline</span>
+            </div>
+            <h2 class="text-xl font-bold text-slate-800">Perhitungan Kapasitas Tim (Demand Pipeline)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Kelola inisiatif yang telah disetujui AI Challenger, alokasikan jam kapasitas member, dan konversikan menjadi Proyek aktif.
+            </p>
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <button 
+              type="button" 
+              onclick="load_demands_list()" 
+              class="px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh Demand</span>
+            </button>
+            <button 
+              type="button" 
+              onclick="switch_view('initiative-test')" 
+              class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <span>+ Uji Inisiatif Baru</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Demand</p>
+              <h3 id="stat-total-demands" class="text-2xl font-bold text-slate-800 mt-0.5">0</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg">
+              📋
+            </div>
+          </div>
+
+          <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-amber-500">Menunggu Kapasitas</p>
+              <h3 id="stat-pending-demands" class="text-2xl font-bold text-amber-600 mt-0.5">0</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg">
+              ⏳
+            </div>
+          </div>
+
+          <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-emerald-500">Kapasitas Terencana</p>
+              <h3 id="stat-planned-demands" class="text-2xl font-bold text-emerald-600 mt-0.5">0</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
+              🎯
+            </div>
+          </div>
+
+          <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-purple-500">Konversi ke Proyek</p>
+              <h3 id="stat-converted-demands" class="text-2xl font-bold text-purple-600 mt-0.5">0</h3>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg">
+              🚀
+            </div>
+          </div>
+        </div>
+
+        <!-- Demands Table Container -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th class="py-3 px-4">Inisiatif / Demand</th>
+                  <th class="py-3 px-4">Submitter PO</th>
+                  <th class="py-3 px-4">Est. AI Challenger</th>
+                  <th class="py-3 px-4">Alokasi Kapasitas</th>
+                  <th class="py-3 px-4">Status Demand</th>
+                  <th class="py-3 px-4 text-center">Aksi Admin</th>
+                </tr>
+              </thead>
+              <tbody id="demands-table-body" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    <div class="flex items-center justify-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Memuat data demand...</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
@@ -1236,6 +1535,22 @@
               <span class="text-[10px] text-slate-500">Akses menu CRUD RBAC</span>
             </span>
           </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-test-initiative" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Uji Inisiatif AI</strong>
+              <span class="text-[10px] text-slate-500">Akses Product Challenger</span>
+            </span>
+          </label>
+
+          <label class="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input type="checkbox" id="perm-can-manage-demand" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300" />
+            <span>
+              <strong class="block text-slate-800">Kelola Demand</strong>
+              <span class="text-[10px] text-slate-500">Kalkulasi kapasitas member</span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -1411,5 +1726,153 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Buat Inisiatif Baru -->
+<div id="modal-new-initiative" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div class="flex items-center space-x-2">
+        <span class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">🎯</span>
+        <h3 class="text-base font-bold text-slate-800">Mulai Uji Inisiatif Baru</h3>
+      </div>
+      <button onclick="close_new_initiative_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-new-initiative" onsubmit="handle_submit_new_initiative(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Judul / Nama Inisiatif Produk *</label>
+        <input 
+          type="text" 
+          id="input-new-initiative-title" 
+          required 
+          placeholder="Contoh: Otomasi Instant Approval Multifinance dengan E-KYC" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+
+      <div class="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl text-[11px] text-indigo-800 space-y-1">
+        <p class="font-semibold">💡 Tips Uji Inisiatif:</p>
+        <p>AI Challenger akan menantang problem validity, pain point nyata, model bisnis, dan risiko operasional Anda secara kritis. Jawaban singkat dan konkret lebih disukai daripada jargon normatif.</p>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_new_initiative_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-submit-new-initiative" 
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span>Mulai Sesi Uji &rarr;</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Alokasi Kapasitas Demand -->
+<div id="modal-demand-capacity" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div>
+        <h3 class="text-base font-bold text-slate-800">Alokasi Kapasitas Tim</h3>
+        <p id="modal-capacity-demand-title" class="text-xs text-indigo-600 font-medium truncate max-w-sm mt-0.5">Inisiatif</p>
+      </div>
+      <button onclick="close_demand_capacity_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <form id="form-demand-capacity" onsubmit="handle_submit_demand_capacity(event)" class="space-y-4">
+      <input type="hidden" id="input-demand-id" value="" />
+
+      <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+        <div>
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Est. Tim AI</span>
+          <strong id="modal-capacity-est-eng" class="text-slate-800 text-sm">3 Engineers</strong>
+        </div>
+        <div>
+          <span class="text-slate-400 block text-[10px] uppercase font-bold">Est. Durasi AI</span>
+          <strong id="modal-capacity-est-days" class="text-slate-800 text-sm">20 Hari Kerja</strong>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Total Jam Kapasitas Member yang Dialokasikan (Hours) *</label>
+        <input 
+          type="number" 
+          id="input-capacity-hours" 
+          required 
+          min="1" 
+          max="5000" 
+          placeholder="Contoh: 160" 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-[10px] text-slate-400 mt-1">Perhitungan total jam kerja tim (misal 2 developer x 80 jam = 160 jam).</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Catatan Pembagian Peran / Alokasi Member</label>
+        <textarea 
+          id="input-capacity-notes" 
+          rows="3" 
+          placeholder="Contoh: 1 Frontend Engineer (60h), 1 Backend Engineer (80h), 1 QA (20h). Prioritas Sprint Q4." 
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="close_demand_capacity_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button 
+          type="submit" 
+          id="btn-submit-capacity" 
+          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
+          <span>Simpan Alokasi Kapasitas</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Detail PRD & FSD Inisiatif -->
+<div id="modal-demand-prd-detail" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col p-6 border border-slate-200 transform transition-all">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div>
+        <h3 id="modal-prd-title" class="text-base font-bold text-slate-800">Detail PRD & FSD Inisiatif</h3>
+        <span id="modal-prd-submitter" class="text-xs text-slate-400">Submitter: po@example.com</span>
+      </div>
+      <button onclick="close_demand_prd_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+      <div>
+        <h4 class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1">Product Requirement Document (PRD)</h4>
+        <div id="modal-prd-content" class="p-3 bg-slate-50 border border-slate-200 rounded-xl whitespace-pre-wrap font-sans text-slate-700 leading-relaxed">
+          -
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1">Functional Specification Document (FSD)</h4>
+        <div id="modal-fsd-content" class="p-3 bg-slate-50 border border-slate-200 rounded-xl whitespace-pre-wrap font-sans text-slate-700 leading-relaxed">
+          -
+        </div>
+      </div>
+    </div>
+
+    <div class="pt-4 border-t border-slate-100 flex justify-end">
+      <button 
+        type="button" 
+        onclick="close_demand_prd_modal()" 
+        class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer">
+        Tutup
+      </button>
+    </div>
   </div>
 </div>
