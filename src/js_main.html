@@ -3543,6 +3543,19 @@ function handle_send_initiative_message(e) {
         } else {
           show_notification(response ? response.message : 'Gagal mengirim pesan.', 'error');
           if (input_msg) input_msg.value = user_text;
+          if (messages_container) {
+            const err_wrapper = document.createElement('div');
+            err_wrapper.className = 'p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-start space-x-2.5 my-2';
+            err_wrapper.innerHTML = `
+              <span class="text-base flex-shrink-0">⚠️</span>
+              <div>
+                <strong class="block font-bold text-rose-900">Gagal Menghubungi Challenger AI:</strong>
+                <p class="text-[11px] text-rose-700 mt-0.5 leading-relaxed">${escape_html(response ? response.message : 'Terjadi kendala pada backend.')}</p>
+              </div>
+            `;
+            messages_container.appendChild(err_wrapper);
+            messages_container.scrollTop = messages_container.scrollHeight;
+          }
         }
       })
       .withFailureHandler(err => {
@@ -3553,6 +3566,19 @@ function handle_send_initiative_message(e) {
         if (btn_send) btn_send.disabled = false;
         if (typing_indicator) typing_indicator.classList.add('hidden');
         show_notification('Error server: ' + err.message, 'error');
+        if (messages_container) {
+          const err_wrapper = document.createElement('div');
+          err_wrapper.className = 'p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-start space-x-2.5 my-2';
+          err_wrapper.innerHTML = `
+            <span class="text-base flex-shrink-0">⚠️</span>
+            <div>
+              <strong class="block font-bold text-rose-900">Error Koneksi ke Challenger AI:</strong>
+              <p class="text-[11px] text-rose-700 mt-0.5 leading-relaxed">${escape_html(err.message)}</p>
+            </div>
+          `;
+          messages_container.appendChild(err_wrapper);
+          messages_container.scrollTop = messages_container.scrollHeight;
+        }
       })
       .send_initiative_message(session_id, user_text);
   } else {

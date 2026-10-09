@@ -17,7 +17,10 @@ function get_gemini_api_key() {
   try {
     key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || '';
   } catch (e) {}
-  return String(key || '').trim();
+  if (!key || key.trim() === '') {
+    throw new Error('GEMINI_API_KEY belum dikonfigurasi di Script Properties. Silakan buka Project Settings (ikon ⚙️) di Google Apps Script > Script Properties > Add: GEMINI_API_KEY.');
+  }
+  return key.trim();
 }
 
 /**
@@ -107,12 +110,9 @@ Jika inisiatif PUNYA value dan kamu telah menyetujui serta membuatkan PRD/FSD le
  */
 function call_gemini_api(contents_array) {
   const apiKey = get_gemini_api_key();
-  if (!apiKey) {
-    throw new Error('Gemini API Key belum dikonfigurasi.');
-  }
 
-  const model = 'gemini-2.5-flash';
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+  const primaryModel = 'gemini-3.8-flash';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + primaryModel + ':generateContent?key=' + apiKey;
 
   const payload = {
     system_instruction: {
@@ -138,16 +138,26 @@ function call_gemini_api(contents_array) {
   let code = response.getResponseCode();
   let responseText = response.getContentText();
 
-  // Fallback ke model gemini-1.5-flash jika model tidak ditemukan
-  if (code === 404 || code === 400) {
-    const fallbackUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
-    response = UrlFetchApp.fetch(fallbackUrl, options);
-    code = response.getResponseCode();
-    responseText = response.getContentText();
+  // Fallback ke model 2.5-flash jika 3.8-flash bermasalah
+  if (code !== 200) {
+    const fallbackUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey;
+    const fallbackResp = UrlFetchApp.fetch(fallbackUrl, options);
+    if (fallbackResp.getResponseCode() === 200) {
+      response = fallbackResp;
+      code = 200;
+      responseText = fallbackResp.getContentText();
+    }
   }
 
   if (code !== 200) {
-    throw new Error('Gemini API Error (' + code + '): ' + responseText);
+    let errMsg = 'Gemini API Error (' + code + ')';
+    try {
+      const errObj = JSON.parse(responseText);
+      if (errObj.error && errObj.error.message) {
+        errMsg = errObj.error.message;
+      }
+    } catch (e) {}
+    throw new Error(errMsg);
   }
 
   const data = JSON.parse(responseText);
