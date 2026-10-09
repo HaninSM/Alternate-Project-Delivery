@@ -312,10 +312,35 @@ function build_burndown_series(tasks, histories, sprint_info) {
  * @param {Date|string} date_val
  * @return {string}
  */
+/**
+ * Helper aman untuk konversi nilai tanggal (mendukung objek Date, string ISO, atau timestamp)
+ * @param {Date|string|number} raw_val
+ * @param {number} fallback_ms
+ * @return {number}
+ */
+function parse_date_safe_ms(raw_val, fallback_ms) {
+  if (!raw_val) return fallback_ms;
+  if (raw_val instanceof Date) {
+    const t = raw_val.getTime();
+    return isNaN(t) ? fallback_ms : t;
+  }
+  const parsed = new Date(raw_val).getTime();
+  return isNaN(parsed) ? fallback_ms : parsed;
+}
+
+/**
+ * Format tanggal ke format string YYYY-MM-DD aman
+ * @param {Date|string} date_val
+ * @return {string}
+ */
 function format_date_str(date_val) {
   if (!date_val) return new Date().toISOString().split('T')[0];
   if (date_val instanceof Date) {
-    return Utilities.formatDate(date_val, Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd');
+    try {
+      return Utilities.formatDate(date_val, Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd');
+    } catch (e) {
+      return date_val.toISOString().split('T')[0];
+    }
   }
   return String(date_val).split('T')[0];
 }
@@ -345,8 +370,90 @@ function format_duration_human(ms) {
 }
 
 /**
- * API Backend: Mengambil data laporan Time-in-Status & Cycle Time per Task
- * Mendukung filter: project_id, sprint_id, status, assignee_id, search_keyword
+ * OPSI 2 CHANNEL 1: Mengambil metadata khusus (Daftar Project, Sprint, User)
+ * Ringan, cepat, dan dijamin langsung mengisi seluruh combobox filter.
+ *
+ * @return {Object} Payload { success: boolean, data: { projects, sprints, users } }
+ */
+function get_cycle_time_metadata() {
+  try {
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_projects = spreadsheet.getSheetByName('Projects');
+    const sheet_sprints = spreadsheet.getSheetByName('Sprints');
+    const sheet_users = spreadsheet.getSheetByName('Users');
+
+    const projects = [];
+    if (sheet_projects && sheet_projects.getLastRow() > 1) {
+      const p_vals = sheet_projects.getDataRange().getValues();
+      const p_head = p_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = p_head.indexOf('id') !== -1 ? p_head.indexOf('id') : 0;
+      const nm_i = p_head.indexOf('name') !== -1 ? p_head.indexOf('name') : 1;
+      const pm_i = p_head.indexOf('pm_id') !== -1 ? p_head.indexOf('pm_id') : 2;
+
+      for (let r = 1; r < p_vals.length; r++) {
+        projects.push({
+          id: String(p_vals[r][id_i]).trim(),
+          name: String(p_vals[r][nm_i]).trim(),
+          pm_id: pm_i !== -1 ? String(p_vals[r][pm_i]).trim() : ''
+        });
+      }
+    }
+
+    const sprints = [];
+    if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
+      const sp_vals = sheet_sprints.getDataRange().getValues();
+      const sp_head = sp_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = sp_head.indexOf('id') !== -1 ? sp_head.indexOf('id') : 0;
+      const prj_i = sp_head.indexOf('project_id') !== -1 ? sp_head.indexOf('project_id') : 1;
+      const nm_i = sp_head.indexOf('name') !== -1 ? sp_head.indexOf('name') : 2;
+      const st_i = sp_head.indexOf('status') !== -1 ? sp_head.indexOf('status') : 5;
+
+      for (let r = 1; r < sp_vals.length; r++) {
+        sprints.push({
+          id: String(sp_vals[r][id_i]).trim(),
+          project_id: prj_i !== -1 ? String(sp_vals[r][prj_i]).trim() : '',
+          name: nm_i !== -1 ? String(sp_vals[r][nm_i]).trim() : String(sp_vals[r][id_i]).trim(),
+          status: st_i !== -1 && sp_vals[r][st_i] ? String(sp_vals[r][st_i]).toUpperCase().trim() : 'ACTIVE'
+        });
+      }
+    }
+
+    const users = [];
+    if (sheet_users && sheet_users.getLastRow() > 1) {
+      const u_vals = sheet_users.getDataRange().getValues();
+      const u_head = u_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = u_head.indexOf('id') !== -1 ? u_head.indexOf('id') : 0;
+      const nm_i = u_head.indexOf('name') !== -1 ? u_head.indexOf('name') : 1;
+      const rl_i = u_head.indexOf('role') !== -1 ? u_head.indexOf('role') : 3;
+
+      for (let r = 1; r < u_vals.length; r++) {
+        users.push({
+          id: String(u_vals[r][id_i]).trim(),
+          name: String(u_vals[r][nm_i]).trim(),
+          role: rl_i !== -1 ? String(u_vals[r][rl_i]).trim() : 'MEMBER'
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        projects: projects,
+        sprints: sprints,
+        users: users
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: 'Gagal memuat metadata Cycle Time: ' + err.message
+    };
+  }
+}
+
+/**
+ * OPSI 2 CHANNEL 2: Mengambil data baris laporan Time-in-Status & Cycle Time per Task
+ * Dilengkapi dynamic header mapping dan safe date computation.
  *
  * @param {Object} [filters] - Parameter filter dari antarmuka pengguna
  * @return {Object} Payload { success: boolean, data: Array, metadata: Object }
@@ -360,8 +467,8 @@ function get_cycle_time_report_data(filters) {
     const sheet_history = spreadsheet.getSheetByName('Task_History');
     const sheet_users = spreadsheet.getSheetByName('Users');
 
-    if (!sheet_tasks) {
-      return { success: false, message: 'Sheet "Tasks" tidak ditemukan.' };
+    if (!sheet_tasks || sheet_tasks.getLastRow() <= 1) {
+      return { success: true, data: [], metadata: { total_tasks: 0, projects: [], sprints: [], users: [] } };
     }
 
     const f = filters || {};
@@ -371,92 +478,102 @@ function get_cycle_time_report_data(filters) {
     const filter_assignee_id = f.assignee_id ? String(f.assignee_id).trim() : '';
     const filter_keyword = f.search ? String(f.search).toLowerCase().trim() : '';
 
-    // 1. Lookup Projects
+    // 1. Dynamic Lookup Projects
     const projects_map = {};
     if (sheet_projects && sheet_projects.getLastRow() > 1) {
-      const p_values = sheet_projects.getDataRange().getValues();
-      for (let i = 1; i < p_values.length; i++) {
-        projects_map[p_values[i][0]] = {
-          id: p_values[i][0],
-          name: p_values[i][1],
-          pm_id: p_values[i][2]
+      const p_vals = sheet_projects.getDataRange().getValues();
+      const p_head = p_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = p_head.indexOf('id') !== -1 ? p_head.indexOf('id') : 0;
+      const nm_i = p_head.indexOf('name') !== -1 ? p_head.indexOf('name') : 1;
+
+      for (let i = 1; i < p_vals.length; i++) {
+        const pid = String(p_vals[i][id_i]).trim();
+        projects_map[pid] = {
+          id: pid,
+          name: String(p_vals[i][nm_i]).trim()
         };
       }
     }
 
-    // 2. Lookup Sprints & Sprint to Project mapping
+    // 2. Dynamic Lookup Sprints
     const sprints_map = {};
     if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
-      const sp_values = sheet_sprints.getDataRange().getValues();
-      const sp_header = sp_values[0].map(h => String(h).trim().toLowerCase());
-      const sp_id_idx = sp_header.indexOf('id');
-      const sp_prj_idx = sp_header.indexOf('project_id');
-      const sp_name_idx = sp_header.indexOf('name');
-      const sp_status_idx = sp_header.indexOf('status');
+      const sp_vals = sheet_sprints.getDataRange().getValues();
+      const sp_head = sp_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = sp_head.indexOf('id') !== -1 ? sp_head.indexOf('id') : 0;
+      const prj_i = sp_head.indexOf('project_id') !== -1 ? sp_head.indexOf('project_id') : 1;
+      const nm_i = sp_head.indexOf('name') !== -1 ? sp_head.indexOf('name') : 2;
+      const st_i = sp_head.indexOf('status') !== -1 ? sp_head.indexOf('status') : 5;
 
-      for (let i = 1; i < sp_values.length; i++) {
-        const sid = sp_values[i][sp_id_idx];
+      for (let i = 1; i < sp_vals.length; i++) {
+        const sid = String(sp_vals[i][id_i]).trim();
         sprints_map[sid] = {
           id: sid,
-          project_id: sp_prj_idx !== -1 ? sp_values[i][sp_prj_idx] : '',
-          name: sp_name_idx !== -1 ? sp_values[i][sp_name_idx] : sid,
-          status: sp_status_idx !== -1 ? sp_values[i][sp_status_idx] : 'ACTIVE'
+          project_id: prj_i !== -1 ? String(sp_vals[i][prj_i]).trim() : '',
+          name: nm_i !== -1 ? String(sp_vals[i][nm_i]).trim() : sid,
+          status: st_i !== -1 && sp_vals[i][st_i] ? String(sp_vals[i][st_i]).toUpperCase().trim() : 'ACTIVE'
         };
       }
     }
 
-    // 3. Lookup Users
+    // 3. Dynamic Lookup Users
     const users_map = {};
     if (sheet_users && sheet_users.getLastRow() > 1) {
-      const u_values = sheet_users.getDataRange().getValues();
-      for (let i = 1; i < u_values.length; i++) {
-        users_map[u_values[i][0]] = {
-          id: u_values[i][0],
-          name: u_values[i][1],
-          role: u_values[i][3]
+      const u_vals = sheet_users.getDataRange().getValues();
+      const u_head = u_vals[0].map(h => String(h).trim().toLowerCase());
+      const id_i = u_head.indexOf('id') !== -1 ? u_head.indexOf('id') : 0;
+      const nm_i = u_head.indexOf('name') !== -1 ? u_head.indexOf('name') : 1;
+      const rl_i = u_head.indexOf('role') !== -1 ? u_head.indexOf('role') : 3;
+
+      for (let i = 1; i < u_vals.length; i++) {
+        const uid = String(u_vals[i][id_i]).trim();
+        users_map[uid] = {
+          id: uid,
+          name: String(u_vals[i][nm_i]).trim(),
+          role: rl_i !== -1 ? String(u_vals[i][rl_i]).trim() : 'MEMBER'
         };
       }
     }
 
-    // 4. Baca History & Kelompokkan per Task
+    // 4. Dynamic Lookup History & Group by Task
     const history_by_task = {};
     if (sheet_history && sheet_history.getLastRow() > 1) {
-      const h_values = sheet_history.getDataRange().getValues();
-      const h_header = h_values[0].map(h => String(h).trim().toLowerCase());
-      const h_task_idx = h_header.indexOf('task_id');
-      const h_old_idx = h_header.indexOf('old_status');
-      const h_new_idx = h_header.indexOf('new_status');
-      const h_by_idx = h_header.indexOf('changed_by');
-      const h_time_idx = h_header.indexOf('timestamp');
+      const h_vals = sheet_history.getDataRange().getValues();
+      const h_head = h_vals[0].map(h => String(h).trim().toLowerCase());
+      const t_id_i = h_head.indexOf('task_id');
+      const o_st_i = h_head.indexOf('old_status');
+      const n_st_i = h_head.indexOf('new_status');
+      const by_i = h_head.indexOf('changed_by');
+      const ts_i = h_head.indexOf('timestamp');
 
-      for (let r = 1; r < h_values.length; r++) {
-        const tid = String(h_values[r][h_task_idx]).trim();
+      for (let r = 1; r < h_vals.length; r++) {
+        const tid = String(h_vals[r][t_id_i]).trim();
         if (!history_by_task[tid]) history_by_task[tid] = [];
         history_by_task[tid].push({
-          old_status: String(h_values[r][h_old_idx]).toUpperCase().trim(),
-          new_status: String(h_values[r][h_new_idx]).toUpperCase().trim(),
-          changed_by: h_values[r][h_by_idx],
-          timestamp: h_values[r][h_time_idx]
+          old_status: String(h_vals[r][o_st_i]).toUpperCase().trim(),
+          new_status: String(h_vals[r][n_st_i]).toUpperCase().trim(),
+          changed_by: by_i !== -1 ? h_vals[r][by_i] : '',
+          timestamp: ts_i !== -1 ? h_vals[r][ts_i] : null
         });
       }
     }
 
-    // 5. Baca Tasks & Filter
-    const task_values = sheet_tasks.getDataRange().getValues();
-    const t_header = task_values[0].map(h => String(h).trim().toLowerCase());
-    const id_idx = t_header.indexOf('id');
-    const sp_idx = t_header.indexOf('sprint_id');
-    const title_idx = t_header.indexOf('title');
-    const status_idx = t_header.indexOf('status');
-    const assignee_idx = t_header.indexOf('assignee_id');
-    const created_idx = t_header.indexOf('created_at');
-    const updated_idx = t_header.indexOf('updated_at');
+    // 5. Baca Tasks & Proses Data
+    const task_vals = sheet_tasks.getDataRange().getValues();
+    const t_head = task_vals[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = t_head.indexOf('id') !== -1 ? t_head.indexOf('id') : 0;
+    const sp_idx = t_head.indexOf('sprint_id') !== -1 ? t_head.indexOf('sprint_id') : 1;
+    const title_idx = t_head.indexOf('title') !== -1 ? t_head.indexOf('title') : 2;
+    const status_idx = t_head.indexOf('status') !== -1 ? t_head.indexOf('status') : 3;
+    const assignee_idx = t_head.indexOf('assignee_id') !== -1 ? t_head.indexOf('assignee_id') : 4;
+    const created_idx = t_head.indexOf('created_at') !== -1 ? t_head.indexOf('created_at') : 6;
+    const updated_idx = t_head.indexOf('updated_at') !== -1 ? t_head.indexOf('updated_at') : 7;
 
     const now_ts = new Date().getTime();
     const report_rows = [];
 
-    for (let r = 1; r < task_values.length; r++) {
-      const row = task_values[r];
+    for (let r = 1; r < task_vals.length; r++) {
+      const row = task_vals[r];
       const task_id = String(row[id_idx]).trim();
       const sprint_id = String(row[sp_idx] || '').trim();
       const title = String(row[title_idx] || '').trim();
@@ -465,22 +582,31 @@ function get_cycle_time_report_data(filters) {
       const created_at_raw = row[created_idx];
       const updated_at_raw = row[updated_idx];
 
-      // Resolve Project ID dari Sprint
-      const sprint_info = sprints_map[sprint_id] || { id: sprint_id, project_id: '', name: sprint_id };
-      const project_id = sprint_info.project_id || '';
+      // Resolve Project ID: jika sprint_id berformat BACKLOG-PRJ-001, extract PRJ-001
+      let project_id = '';
+      let sprint_name = sprint_id;
+
+      if (sprints_map[sprint_id]) {
+        project_id = sprints_map[sprint_id].project_id;
+        sprint_name = sprints_map[sprint_id].name;
+      } else if (sprint_id.startsWith('BACKLOG-')) {
+        project_id = sprint_id.replace('BACKLOG-', '');
+        sprint_name = 'Product Backlog';
+      }
+
       const project_info = projects_map[project_id] || { id: project_id, name: project_id || '-' };
 
-      // Filter Evaluation
+      // Evaluasi Filter
       if (filter_project_id && project_id !== filter_project_id) continue;
       if (filter_sprint_id && sprint_id !== filter_sprint_id) continue;
       if (filter_status && current_status !== filter_status) continue;
       if (filter_assignee_id && assignee_id !== filter_assignee_id) continue;
       if (filter_keyword && !task_id.toLowerCase().includes(filter_keyword) && !title.toLowerCase().includes(filter_keyword)) continue;
 
-      // Logika Kalkulasi Durasi per Kolom
-      const created_ts = created_at_raw ? new Date(created_at_raw).getTime() : now_ts;
+      // Safe Date Calculation
+      const created_ts = parse_date_safe_ms(created_at_raw, now_ts);
       const t_histories = history_by_task[task_id] || [];
-      t_histories.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      t_histories.sort((a, b) => parse_date_safe_ms(a.timestamp, 0) - parse_date_safe_ms(b.timestamp, 0));
 
       let duration_todo_ms = 0;
       let duration_in_progress_ms = 0;
@@ -492,7 +618,7 @@ function get_cycle_time_report_data(filters) {
 
       for (let h = 0; h < t_histories.length; h++) {
         const trans = t_histories[h];
-        const trans_ts = new Date(trans.timestamp).getTime();
+        const trans_ts = parse_date_safe_ms(trans.timestamp, last_ts);
         const delta = Math.max(0, trans_ts - last_ts);
 
         if (last_status === 'TODO') duration_todo_ms += delta;
@@ -504,7 +630,7 @@ function get_cycle_time_report_data(filters) {
         last_ts = trans_ts;
       }
 
-      // Hitung segmen status aktif saat ini
+      // Hitung segmen durasi aktif kolom saat ini
       const active_delta = Math.max(0, now_ts - last_ts);
       if (current_status === 'TODO') duration_todo_ms += active_delta;
       else if (current_status === 'IN_PROGRESS') duration_in_progress_ms += active_delta;
@@ -514,11 +640,11 @@ function get_cycle_time_report_data(filters) {
       // Cycle Time: Total pengerjaan aktif (IN_PROGRESS + REVIEW)
       const cycle_time_ms = duration_in_progress_ms + duration_review_ms;
 
-      // Lead Time: Total waktu dari pembuatan hingga DONE atau hingga sekarang jika belum selesai
+      // Lead Time: Total waktu sejak dibuat hingga DONE atau hingga sekarang
       let lead_time_ms = 0;
       const first_done = t_histories.find(h => h.new_status === 'DONE');
       if (current_status === 'DONE') {
-        const done_ts = first_done ? new Date(first_done.timestamp).getTime() : (updated_at_raw ? new Date(updated_at_raw).getTime() : now_ts);
+        const done_ts = first_done ? parse_date_safe_ms(first_done.timestamp, now_ts) : parse_date_safe_ms(updated_at_raw, now_ts);
         lead_time_ms = Math.max(0, done_ts - created_ts);
       } else {
         lead_time_ms = Math.max(0, now_ts - created_ts);
@@ -532,7 +658,7 @@ function get_cycle_time_report_data(filters) {
         project_id: project_id,
         project_name: project_info.name || '-',
         sprint_id: sprint_id,
-        sprint_name: sprint_info.name || '-',
+        sprint_name: sprint_name,
         assignee_id: assignee_id,
         assignee_name: users_map[assignee_id] ? users_map[assignee_id].name : (assignee_id || 'Unassigned'),
         created_at: format_date_str(created_at_raw),
@@ -570,4 +696,5 @@ function get_cycle_time_report_data(filters) {
     };
   }
 }
+
 

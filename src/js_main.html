@@ -2586,6 +2586,40 @@ function get_cycle_time_filter_params() {
 /**
  * Memuat data laporan Cycle Time dari backend GAS
  */
+/**
+ * OPSI 2 CHANNEL 1 (Frontend): Memuat metadata combobox (Projects, Sprints, Users)
+ * Dipanggil seawal mungkin saat masuk ke menu Cycle Time agar combobox langsung terisi instan.
+ */
+function preload_cycle_time_metadata(callback) {
+  if (app_state.cycle_time_metadata) {
+    populate_cycle_time_comboboxes(app_state.cycle_time_metadata);
+    if (typeof callback === 'function') callback();
+    return;
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(response => {
+        if (response && response.success && response.data) {
+          app_state.cycle_time_metadata = response.data;
+          populate_cycle_time_comboboxes(response.data);
+        }
+        if (typeof callback === 'function') callback();
+      })
+      .withFailureHandler(err => {
+        console.warn('Metadata preload warning:', err);
+        if (typeof callback === 'function') callback();
+      })
+      .get_cycle_time_metadata();
+  } else {
+    // Mode simulasi
+    if (typeof callback === 'function') callback();
+  }
+}
+
+/**
+ * OPSI 2 CHANNEL 2 (Frontend): Memuat data baris laporan Cycle Time dari backend GAS
+ */
 function load_cycle_time_report() {
   const tbody = document.getElementById('ct-table-body');
   if (tbody) {
@@ -2601,6 +2635,17 @@ function load_cycle_time_report() {
     `;
   }
 
+  // Jalankan preload metadata terlebih dahulu jika belum ada
+  preload_cycle_time_metadata(() => {
+    fetch_cycle_time_table_data();
+  });
+}
+
+/**
+ * Mengambil data baris laporan berdasarkan filter
+ */
+function fetch_cycle_time_table_data() {
+  const tbody = document.getElementById('ct-table-body');
   const filters = get_cycle_time_filter_params();
 
   if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -2610,16 +2655,23 @@ function load_cycle_time_report() {
         set_loading_state(false);
         if (response && response.success) {
           app_state.cycle_time_data = response.data || [];
-          app_state.cycle_time_metadata = response.metadata || null;
-          populate_cycle_time_comboboxes(response.metadata);
+          if (response.metadata) {
+            app_state.cycle_time_metadata = response.metadata;
+            populate_cycle_time_comboboxes(response.metadata);
+          }
           render_cycle_time_report(app_state.cycle_time_data);
         } else {
           show_notification('Gagal memuat laporan Cycle Time: ' + (response ? response.message : ''), 'error');
           if (tbody) {
             tbody.innerHTML = `
               <tr>
-                <td colspan="11" class="py-6 text-center text-rose-500 font-medium">
-                  ${escape_html(response ? response.message : 'Gagal memuat data')}
+                <td colspan="11" class="py-8 text-center text-rose-500 font-medium">
+                  <div class="flex flex-col items-center justify-center space-y-2">
+                    <span>⚠️ ${escape_html(response ? response.message : 'Gagal memuat data')}</span>
+                    <button onclick="load_cycle_time_report()" class="px-3 py-1 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs hover:bg-rose-100 transition-colors cursor-pointer">
+                      Coba Lagi
+                    </button>
+                  </div>
                 </td>
               </tr>
             `;
@@ -2629,6 +2681,20 @@ function load_cycle_time_report() {
       .withFailureHandler(err => {
         set_loading_state(false);
         show_notification('Error memuat data Cycle Time: ' + err.message, 'error');
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="11" class="py-8 text-center text-rose-500 font-medium">
+                <div class="flex flex-col items-center justify-center space-y-2">
+                  <span>⚠️ Gagal menghubungi server: ${escape_html(err.message)}</span>
+                  <button onclick="load_cycle_time_report()" class="px-3 py-1 bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs hover:bg-rose-100 transition-colors cursor-pointer">
+                    Coba Lagi
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }
       })
       .get_cycle_time_report_data(filters);
   } else {

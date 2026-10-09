@@ -127,11 +127,23 @@ console.log('\n5. Menguji Controller di js_main.html...');
 const js_content = fs.readFileSync(path.join(__dirname, '../src/js_main.html'), 'utf8');
 
 assert(js_content.includes('load_cycle_time_report'), 'js_main.html harus memiliki fungsi load_cycle_time_report');
+assert(js_content.includes('preload_cycle_time_metadata'), 'js_main.html harus memiliki fungsi preload_cycle_time_metadata (Opsi 2)');
+assert(js_content.includes('fetch_cycle_time_table_data'), 'js_main.html harus memiliki fungsi fetch_cycle_time_table_data (Opsi 2)');
 assert(js_content.includes('render_cycle_time_report'), 'js_main.html harus memiliki fungsi render_cycle_time_report');
 assert(js_content.includes('populate_cycle_time_comboboxes'), 'js_main.html harus memiliki fungsi populate_cycle_time_comboboxes');
 assert(js_content.includes('can_view_cycle_time'), 'js_main.html harus memvalidasi permission can_view_cycle_time');
 console.log('   ✓ Controller dan event handler Cycle Time terpasang dengan rapi di js_main.html.');
 
+// 6. Uji Opsi 2 Dual-Channel API di Insights.gs
+console.log('\n6. Menguji Dual-Channel Backend API di Insights.gs (Opsi 2)...');
+const insights_content = fs.readFileSync(path.join(__dirname, '../src/Insights.gs'), 'utf8');
+
+assert(insights_content.includes('function get_cycle_time_metadata()'), 'Insights.gs harus memiliki endpoint get_cycle_time_metadata()');
+assert(insights_content.includes('function parse_date_safe_ms'), 'Insights.gs harus memiliki helper parse_date_safe_ms');
+assert(insights_content.includes('function get_cycle_time_report_data'), 'Insights.gs harus memiliki endpoint get_cycle_time_report_data');
+console.log('   ✓ Dual-Channel API get_cycle_time_metadata & safe date handling terverifikasi.');
+
 console.log('\n================================================================');
-console.log('  SEMUA PENGUJIAN TAHAP 10 (CYCLE TIME REPORT) BERHASIL (100% PASS)!');
+console.log('  SEMUA PENGUJIAN TAHAP 10 (CYCLE TIME REPORT OPSI 2) BERHASIL (100% PASS)!');
 console.log('================================================================\n');
+
