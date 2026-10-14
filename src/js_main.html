@@ -1365,6 +1365,8 @@ function handle_submit_new_project(e) {
         if (response && response.success) {
           show_notification('Project ' + project_payload.name + ' (' + mode + ') berhasil dibuat!', 'success');
           close_project_modal();
+          // Segarkan daftar project agar Dashboard Utama langsung terisi
+          load_projects_list();
           if (mode === 'SCRUM') {
             select_project_and_open_planning(response.data.id, response.data.name, response.data.sprint_id, response.data.sprint_name);
           } else {
