@@ -532,6 +532,13 @@ function create_task_card_element(task, can_edit) {
     card.className = 'p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between space-y-2.5';
   }
 
+  // Klik kartu untuk membuka modal detail task & deskripsi WYSIWYG
+  card.onclick = (e) => {
+    if (!e.target.closest('button') && !e.target.closest('select')) {
+      open_task_detail_modal(task.id);
+    }
+  };
+
   // Badge status kecil di kartu tanpa dropdown/combobox
   const status_color_map = {
     TODO: 'bg-slate-100 text-slate-600',
@@ -565,6 +572,12 @@ function create_task_card_element(task, can_edit) {
     `;
   }
 
+  // Indikator Deskripsi / Catatan WYSIWYG
+  const has_desc = Boolean(task.description && String(task.description).trim() !== '');
+  const desc_badge = has_desc 
+    ? '<span class="text-[10px] text-indigo-500 hover:text-indigo-700 font-semibold cursor-pointer" title="Memiliki deskripsi detail / tabel spesifikasi">📝</span>' 
+    : '';
+
   // Tombol Cepat "+ Subtask" khusus item Level 0 (Task, Story, Bug)
   let quick_subtask_btn = '';
   if (can_edit && (work_type === 'TASK' || work_type === 'USER_STORY' || work_type === 'BUG')) {
@@ -589,6 +602,7 @@ function create_task_card_element(task, can_edit) {
           ${work_type_badge}
         </div>
         <div class="flex items-center space-x-1">
+          ${desc_badge}
           ${hierarchy_info_html}
           <span class="text-[11px] font-medium text-slate-500 flex items-center">
             <svg class="w-3.5 h-3.5 mr-0.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -598,7 +612,7 @@ function create_task_card_element(task, can_edit) {
           </span>
         </div>
       </div>
-      <h4 class="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
+      <h4 class="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug hover:text-indigo-600 transition-colors cursor-pointer" title="Klik untuk melihat detail & deskripsi">
         ${escape_html(task.title)}
       </h4>
     </div>
@@ -861,8 +875,22 @@ function open_task_modal() {
   if (!modal) return;
   modal.classList.remove('hidden');
 
+  setup_wysiwyg_paste_listener();
+
   const title_el = document.getElementById('modal-task-title');
   if (title_el) title_el.textContent = 'Buat Work Item Baru';
+
+  const mode_badge = document.getElementById('modal-task-mode-badge');
+  if (mode_badge) mode_badge.classList.add('hidden');
+
+  const id_input = document.getElementById('input-task-id');
+  if (id_input) id_input.value = '';
+
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.innerHTML = '';
+
+  const title_input = document.getElementById('input-task-title');
+  if (title_input) title_input.value = '';
 
   const badge_el = document.getElementById('modal-task-destination-badge');
   const label_el = document.getElementById('modal-task-target-label');
@@ -874,6 +902,9 @@ function open_task_modal() {
 
   const type_select = document.getElementById('input-task-work-type');
   if (type_select) type_select.value = 'TASK';
+
+  const submit_btn = document.getElementById('btn-submit-task');
+  if (submit_btn) submit_btn.textContent = 'Simpan Task';
 
   handle_work_type_change();
   load_assignee_options();
@@ -887,8 +918,22 @@ function open_backlog_task_modal() {
   if (!modal) return;
   modal.classList.remove('hidden');
 
+  setup_wysiwyg_paste_listener();
+
   const title_el = document.getElementById('modal-task-title');
   if (title_el) title_el.textContent = 'Tambah Item ke Product Backlog';
+
+  const mode_badge = document.getElementById('modal-task-mode-badge');
+  if (mode_badge) mode_badge.classList.add('hidden');
+
+  const id_input = document.getElementById('input-task-id');
+  if (id_input) id_input.value = '';
+
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.innerHTML = '';
+
+  const title_input = document.getElementById('input-task-title');
+  if (title_input) title_input.value = '';
 
   const badge_el = document.getElementById('modal-task-destination-badge');
   const label_el = document.getElementById('modal-task-target-label');
@@ -900,6 +945,9 @@ function open_backlog_task_modal() {
 
   const type_select = document.getElementById('input-task-work-type');
   if (type_select) type_select.value = 'TASK';
+
+  const submit_btn = document.getElementById('btn-submit-task');
+  if (submit_btn) submit_btn.textContent = 'Simpan Task';
 
   handle_work_type_change();
   load_assignee_options();
@@ -915,8 +963,22 @@ function open_subtask_modal(parent_id, parent_title) {
   if (!modal) return;
   modal.classList.remove('hidden');
 
+  setup_wysiwyg_paste_listener();
+
   const title_el = document.getElementById('modal-task-title');
   if (title_el) title_el.textContent = 'Tambah Subtask (Level -1)';
+
+  const mode_badge = document.getElementById('modal-task-mode-badge');
+  if (mode_badge) mode_badge.classList.add('hidden');
+
+  const id_input = document.getElementById('input-task-id');
+  if (id_input) id_input.value = '';
+
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.innerHTML = '';
+
+  const title_input = document.getElementById('input-task-title');
+  if (title_input) title_input.value = '';
 
   const badge_el = document.getElementById('modal-task-destination-badge');
   const label_el = document.getElementById('modal-task-target-label');
@@ -1048,7 +1110,7 @@ function populate_parent_select(parents, for_work_type, preselected_id) {
 }
 
 /**
- * Menutup Modal Tambah Task Baru
+ * Menutup Modal Tambah / Edit Task Baru
  */
 function close_task_modal() {
   const modal = document.getElementById('modal-task');
@@ -1056,10 +1118,466 @@ function close_task_modal() {
   modal.classList.add('hidden');
   const form = document.getElementById('form-new-task');
   if (form) form.reset();
+  const id_input = document.getElementById('input-task-id');
+  if (id_input) id_input.value = '';
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.innerHTML = '';
+  const mode_badge = document.getElementById('modal-task-mode-badge');
+  if (mode_badge) mode_badge.classList.add('hidden');
   const target_input = document.getElementById('input-task-target-bucket');
   if (target_input) target_input.value = '';
   const container_parent = document.getElementById('container-task-parent-select');
   if (container_parent) container_parent.classList.add('hidden');
+  const submit_btn = document.getElementById('btn-submit-task');
+  if (submit_btn) submit_btn.textContent = 'Simpan Task';
+}
+
+/**
+ * ============================================================================
+ * WYSIWYG EDITOR CONTROLLER & EXCEL / SPREADSHEET TABLE PASTE ENGINE
+ * ============================================================================
+ */
+
+/**
+ * Menjalankan perintah format dasar (bold, italic, underline, strike, list, dll.)
+ */
+function exec_editor_cmd(cmd, val = null) {
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.focus();
+  document.execCommand(cmd, false, val);
+}
+
+/**
+ * Menjalankan format blok (h3, h4, p)
+ */
+function exec_editor_format(tag) {
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.focus();
+  document.execCommand('formatBlock', false, tag);
+}
+
+/**
+ * Menyisipkan HTML di posisi kursor aktif
+ */
+function insert_html_at_cursor(html_str) {
+  const editor = document.getElementById('editor-task-description');
+  if (!editor) return;
+  editor.focus();
+
+  const sel = window.getSelection();
+  if (sel && sel.getRangeAt && sel.rangeCount) {
+    let range = sel.getRangeAt(0);
+    // Pastikan range berada di dalam editor
+    if (!editor.contains(range.commonAncestorContainer)) {
+      editor.focus();
+      range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    range.deleteContents();
+    const temp_div = document.createElement('div');
+    temp_div.innerHTML = html_str;
+    const frag = document.createDocumentFragment();
+    let node, last_node;
+    while ((node = temp_div.firstChild)) {
+      last_node = frag.appendChild(node);
+    }
+    range.insertNode(frag);
+    if (last_node) {
+      const new_range = range.cloneRange();
+      new_range.setStartAfter(last_node);
+      new_range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(new_range);
+    }
+  } else {
+    document.execCommand('insertHTML', false, html_str);
+  }
+}
+
+/**
+ * Membuat tabel default NxM langsung ke dalam editor WYSIWYG
+ */
+function insert_editor_table(rows = 3, cols = 3) {
+  let table_html = '<div class="overflow-x-auto my-2 border border-slate-200 rounded-lg"><table class="wysiwyg-table w-full border-collapse border border-slate-300 text-xs text-left"><thead><tr class="bg-slate-100 font-bold">';
+  for (let c = 1; c <= cols; c++) {
+    table_html += `<th class="border border-slate-300 px-3 py-1.5 text-slate-700 bg-slate-100">Kolom ${c}</th>`;
+  }
+  table_html += '</tr></thead><tbody>';
+  for (let r = 1; r <= rows; r++) {
+    table_html += '<tr class="even:bg-slate-50/50">';
+    for (let c = 1; c <= cols; c++) {
+      table_html += `<td class="border border-slate-300 px-3 py-1.5 text-slate-700 bg-white">Data ${r}-${c}</td>`;
+    }
+    table_html += '</tr>';
+  }
+  table_html += '</tbody></table></div><p><br></p>';
+  insert_html_at_cursor(table_html);
+}
+
+/**
+ * Manipulasi tabel aktif (Tambah baris, tambah kolom, hapus baris, hapus kolom)
+ */
+function editor_table_action(action) {
+  const editor = document.getElementById('editor-task-description');
+  if (!editor) return;
+
+  const sel = window.getSelection();
+  if (!sel || !sel.anchorNode) {
+    show_notification('Arahkan kursor ke dalam salah satu sel tabel terlebih dahulu.', 'info');
+    return;
+  }
+
+  let cell = sel.anchorNode;
+  while (cell && cell !== editor && cell.nodeName !== 'TD' && cell.nodeName !== 'TH') {
+    cell = cell.parentNode;
+  }
+
+  if (!cell || (cell.nodeName !== 'TD' && cell.nodeName !== 'TH')) {
+    show_notification('Arahkan kursor ke dalam salah satu sel tabel terlebih dahulu.', 'info');
+    return;
+  }
+
+  const row = cell.parentElement;
+  const table = row ? row.closest('table') : null;
+  if (!row || !table) return;
+
+  const col_idx = Array.from(row.children).indexOf(cell);
+
+  if (action === 'add-row') {
+    const new_row = document.createElement('tr');
+    new_row.className = 'even:bg-slate-50/50';
+    const cell_count = row.children.length;
+    for (let i = 0; i < cell_count; i++) {
+      const new_td = document.createElement('td');
+      new_td.className = 'border border-slate-300 px-3 py-1.5 text-slate-700 bg-white';
+      new_td.innerHTML = '&nbsp;';
+      new_row.appendChild(new_td);
+    }
+    row.insertAdjacentElement('afterend', new_row);
+  } else if (action === 'del-row') {
+    if (table.querySelectorAll('tr').length <= 1) {
+      const container = table.closest('.overflow-x-auto') || table;
+      container.remove();
+    } else {
+      row.remove();
+    }
+  } else if (action === 'add-col') {
+    const all_rows = table.querySelectorAll('tr');
+    all_rows.forEach(r => {
+      const is_header = r.parentElement && r.parentElement.tagName === 'THEAD';
+      const new_c = document.createElement(is_header ? 'th' : 'td');
+      new_c.className = is_header 
+        ? 'border border-slate-300 px-3 py-1.5 text-slate-700 bg-slate-100 font-bold'
+        : 'border border-slate-300 px-3 py-1.5 text-slate-700 bg-white';
+      new_c.innerHTML = is_header ? 'Kolom Baru' : '&nbsp;';
+      if (col_idx >= 0 && col_idx < r.children.length) {
+        r.children[col_idx].insertAdjacentElement('afterend', new_c);
+      } else {
+        r.appendChild(new_c);
+      }
+    });
+  } else if (action === 'del-col') {
+    const all_rows = table.querySelectorAll('tr');
+    if (row.children.length <= 1) {
+      const container = table.closest('.overflow-x-auto') || table;
+      container.remove();
+    } else {
+      all_rows.forEach(r => {
+        if (col_idx >= 0 && col_idx < r.children.length) {
+          r.children[col_idx].remove();
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Pembersih HTML Tabel dari Microsoft Excel & Google Sheets
+ * Menormalkan struktur tabel, menghapus namespace MSO berlebihan, dan membungkus dengan scroll responsif
+ */
+function sanitize_and_format_excel_html(raw_html) {
+  if (!raw_html) return '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(raw_html, 'text/html');
+  const tables = doc.querySelectorAll('table');
+
+  if (!tables || tables.length === 0) {
+    return raw_html;
+  }
+
+  const container = document.createElement('div');
+
+  tables.forEach(table => {
+    const clean_table = document.createElement('table');
+    clean_table.className = 'wysiwyg-table w-full border-collapse border border-slate-300 my-2 text-xs text-left';
+
+    const trs = table.querySelectorAll('tr');
+    const has_thead = table.querySelector('thead') !== null;
+    const tbody = document.createElement('tbody');
+
+    trs.forEach((tr, tr_idx) => {
+      const clean_tr = document.createElement('tr');
+      clean_tr.className = (tr_idx === 0 && !has_thead) ? 'bg-slate-100 font-bold' : 'even:bg-slate-50/50';
+
+      const cells = tr.querySelectorAll('th, td');
+      cells.forEach(c => {
+        const is_th = c.tagName.toLowerCase() === 'th' || (tr_idx === 0 && !has_thead);
+        const clean_c = document.createElement(is_th ? 'th' : 'td');
+        clean_c.className = is_th
+          ? 'border border-slate-300 bg-slate-100 px-3 py-1.5 font-bold text-slate-700 text-left'
+          : 'border border-slate-300 px-3 py-1.5 text-slate-700 bg-white text-left';
+
+        if (c.getAttribute('colspan')) clean_c.setAttribute('colspan', c.getAttribute('colspan'));
+        if (c.getAttribute('rowspan')) clean_c.setAttribute('rowspan', c.getAttribute('rowspan'));
+
+        clean_c.innerHTML = c.innerHTML.trim() || '&nbsp;';
+        clean_tr.appendChild(clean_c);
+      });
+
+      tbody.appendChild(clean_tr);
+    });
+
+    clean_table.appendChild(tbody);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'overflow-x-auto my-2 border border-slate-200 rounded-lg';
+    wrap.appendChild(clean_table);
+    container.appendChild(wrap);
+  });
+
+  return container.innerHTML;
+}
+
+/**
+ * Konversi Plaintext TSV (Tab-Separated Values) dari Excel / Sheets menjadi HTML Table
+ */
+function convert_tsv_to_html_table(tsv_text) {
+  if (!tsv_text) return '';
+  const lines = tsv_text.split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length === 0) return '';
+
+  let table_html = '<div class="overflow-x-auto my-2 border border-slate-200 rounded-lg"><table class="wysiwyg-table w-full border-collapse border border-slate-300 text-xs text-left"><tbody>';
+
+  lines.forEach((line, row_idx) => {
+    const cols = line.split('\t');
+    const is_head = (row_idx === 0);
+    table_html += `<tr class="${is_head ? 'bg-slate-100 font-bold' : 'even:bg-slate-50/50'}">`;
+    cols.forEach(col_val => {
+      const clean_val = escape_html(col_val.trim()) || '&nbsp;';
+      if (is_head) {
+        table_html += `<th class="border border-slate-300 bg-slate-100 px-3 py-1.5 font-bold text-slate-700">${clean_val}</th>`;
+      } else {
+        table_html += `<td class="border border-slate-300 px-3 py-1.5 text-slate-700 bg-white">${clean_val}</td>`;
+      }
+    });
+    table_html += '</tr>';
+  });
+
+  table_html += '</tbody></table></div><p><br></p>';
+  return table_html;
+}
+
+/**
+ * Pasang listener paste clipboard interceptor pada editor WYSIWYG
+ */
+function setup_wysiwyg_paste_listener() {
+  const editor = document.getElementById('editor-task-description');
+  if (!editor || editor.dataset.pasteListenerAttached === 'true') return;
+
+  editor.dataset.pasteListenerAttached = 'true';
+
+  editor.addEventListener('paste', function(e) {
+    const clipboard_data = e.clipboardData || window.clipboardData;
+    if (!clipboard_data) return;
+
+    const html_data = clipboard_data.getData('text/html');
+    const text_data = clipboard_data.getData('text/plain');
+
+    // 1. Kasus Tabel HTML (dari Microsoft Excel Desktop, Excel Online, Google Sheets)
+    if (html_data && (html_data.includes('<table') || html_data.includes('<tr'))) {
+      e.preventDefault();
+      const clean_html = sanitize_and_format_excel_html(html_data);
+      insert_html_at_cursor(clean_html);
+      return;
+    }
+
+    // 2. Kasus TSV Clipboard (Teks tab-delimited saat dicopy dari Excel / Sheets)
+    if (text_data && text_data.includes('\t') && (text_data.includes('\n') || text_data.includes('\r'))) {
+      e.preventDefault();
+      const tsv_table = convert_tsv_to_html_table(text_data);
+      insert_html_at_cursor(tsv_table);
+      return;
+    }
+
+    // 3. Paste teks biasa tanpa tabel dibiarkan diproses secara native browser
+  });
+}
+
+/**
+ * Membuka Modal Detail Work Item (Read WYSIWYG & Meta)
+ */
+function open_task_detail_modal(task_id) {
+  if (!task_id) return;
+  const modal = document.getElementById('modal-task-detail');
+  if (!modal) return;
+
+  // Cari task dari app_state
+  let all_tasks = (app_state.tasks || []).concat(app_state.backlog_tasks || []);
+  (app_state.sprints || []).forEach(sp => {
+    all_tasks = all_tasks.concat(sp.tasks || []);
+  });
+
+  const task = all_tasks.find(t => String(t.id).trim() === String(task_id).trim());
+  if (!task) {
+    show_notification('Data work item tidak ditemukan.', 'error');
+    return;
+  }
+
+  app_state.current_detail_task_id = task.id;
+
+  const id_badge = document.getElementById('detail-task-id-badge');
+  const type_badge = document.getElementById('detail-task-type-badge');
+  const parent_badge = document.getElementById('detail-task-parent-badge');
+  const status_badge = document.getElementById('detail-task-status-badge');
+  const title_el = document.getElementById('detail-task-title');
+  const assignee_el = document.getElementById('detail-task-assignee');
+  const estimate_el = document.getElementById('detail-task-estimate');
+  const sprint_el = document.getElementById('detail-task-sprint');
+  const updated_el = document.getElementById('detail-task-updated');
+  const desc_rendered = document.getElementById('detail-task-description-rendered');
+  const edit_btn = document.getElementById('btn-edit-from-detail');
+
+  if (id_badge) id_badge.textContent = task.id;
+  if (title_el) title_el.textContent = task.title;
+
+  const work_type = String(task.work_type || 'TASK').toUpperCase();
+  const work_type_badge_map = {
+    INITIATIVE: '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">🟣 Inisiatif (Level 1)</span>',
+    USER_STORY: '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">🔵 Story (Level 0)</span>',
+    TASK: '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200">🔷 Task (Level 0)</span>',
+    BUG: '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">🔴 Bug (Level 0)</span>',
+    SUBTASK: '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">⚪ Subtask (Level -1)</span>'
+  };
+  if (type_badge) type_badge.innerHTML = work_type_badge_map[work_type] || work_type_badge_map.TASK;
+
+  if (parent_badge) {
+    if (task.parent_id) {
+      parent_badge.innerHTML = `<span class="text-[10px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Parent: ↳ ${escape_html(task.parent_id)}</span>`;
+      parent_badge.classList.remove('hidden');
+    } else {
+      parent_badge.innerHTML = '';
+      parent_badge.classList.add('hidden');
+    }
+  }
+
+  const status_color_map = {
+    TODO: 'bg-slate-100 text-slate-600',
+    IN_PROGRESS: 'bg-blue-100 text-blue-700',
+    REVIEW: 'bg-amber-100 text-amber-700',
+    DONE: 'bg-emerald-100 text-emerald-700'
+  };
+  if (status_badge) {
+    status_badge.innerHTML = `<span class="text-[10px] font-bold px-2 py-0.5 rounded ${status_color_map[task.status] || 'bg-slate-100 text-slate-600'}">${task.status || 'TODO'}</span>`;
+  }
+
+  if (assignee_el) assignee_el.textContent = task.assignee_name || 'Belum Ditugaskan';
+  if (estimate_el) estimate_el.textContent = (task.estimate_hours || 0) + ' Jam';
+  if (sprint_el) sprint_el.textContent = task.sprint_id || '-';
+  if (updated_el) updated_el.textContent = task.updated_at ? task.updated_at.split('T')[0] : '-';
+
+  if (desc_rendered) {
+    if (task.description && task.description.trim() !== '') {
+      desc_rendered.innerHTML = task.description;
+    } else {
+      desc_rendered.innerHTML = '<p class="text-xs text-slate-400 italic">Belum ada deskripsi untuk work item ini. Klik tombol "Edit Work Item" untuk menambahkan deskripsi atau tabel spesifikasi.</p>';
+    }
+  }
+
+  // Otorisasi tombol Edit
+  const current_user = app_state.current_user || {};
+  const perms = current_user.permissions || (typeof DEFAULT_ROLE_PERMS !== 'undefined' ? DEFAULT_ROLE_PERMS[current_user.role] : {}) || {};
+  const can_edit = !current_user.role || current_user.role === 'ADMIN' || current_user.role === 'PM' || perms.can_create_task !== false || perms.can_move_task !== false;
+  if (edit_btn) {
+    edit_btn.style.display = can_edit ? 'inline-flex' : 'none';
+  }
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Detail Work Item
+ */
+function close_task_detail_modal() {
+  const modal = document.getElementById('modal-task-detail');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Membuka form edit modal langsung dari tampilan detail
+ */
+function handle_edit_from_detail() {
+  const task_id = app_state.current_detail_task_id;
+  if (!task_id) return;
+
+  let all_tasks = (app_state.tasks || []).concat(app_state.backlog_tasks || []);
+  (app_state.sprints || []).forEach(sp => {
+    all_tasks = all_tasks.concat(sp.tasks || []);
+  });
+  const task = all_tasks.find(t => String(t.id).trim() === String(task_id).trim());
+  if (!task) return;
+
+  close_task_detail_modal();
+  open_task_modal_for_edit(task);
+}
+
+/**
+ * Membuka Modal Task dalam Mode Edit Terisi Data Lengkap
+ */
+function open_task_modal_for_edit(task) {
+  const modal = document.getElementById('modal-task');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  setup_wysiwyg_paste_listener();
+
+  const title_el = document.getElementById('modal-task-title');
+  if (title_el) title_el.textContent = 'Edit Work Item (' + task.id + ')';
+
+  const mode_badge = document.getElementById('modal-task-mode-badge');
+  if (mode_badge) mode_badge.classList.remove('hidden');
+
+  const id_input = document.getElementById('input-task-id');
+  if (id_input) id_input.value = task.id;
+
+  const target_input = document.getElementById('input-task-target-bucket');
+  if (target_input) target_input.value = task.sprint_id || app_state.active_sprint_id;
+
+  const title_input = document.getElementById('input-task-title');
+  if (title_input) title_input.value = task.title || '';
+
+  const est_input = document.getElementById('input-task-estimate');
+  if (est_input) est_input.value = task.estimate_hours || 8;
+
+  const type_select = document.getElementById('input-task-work-type');
+  if (type_select) type_select.value = String(task.work_type || 'TASK').toUpperCase();
+
+  const editor = document.getElementById('editor-task-description');
+  if (editor) editor.innerHTML = task.description || '';
+
+  handle_work_type_change(task.parent_id);
+  load_assignee_options();
+
+  // Set selected assignee
+  setTimeout(() => {
+    const ass_select = document.getElementById('input-task-assignee');
+    if (ass_select && task.assignee_id) ass_select.value = task.assignee_id;
+  }, 100);
+
+  const submit_btn = document.getElementById('btn-submit-task');
+  if (submit_btn) submit_btn.textContent = 'Simpan Perubahan';
 }
 
 /**
@@ -1084,10 +1602,11 @@ function load_assignee_options() {
 }
 
 /**
- * Submit form pembuatan task baru ke Backend dengan validasi hirarki
+ * Submit form pembuatan / update task ke Backend dengan validasi hirarki & deskripsi WYSIWYG
  */
 function handle_submit_new_task(e) {
   e.preventDefault();
+  const id_el = document.getElementById('input-task-id');
   const title_el = document.getElementById('input-task-title');
   const est_el = document.getElementById('input-task-estimate');
   const assignee_el = document.getElementById('input-task-assignee');
@@ -1095,12 +1614,16 @@ function handle_submit_new_task(e) {
   const target_input = document.getElementById('input-task-target-bucket');
   const type_el = document.getElementById('input-task-work-type');
   const parent_el = document.getElementById('input-task-parent-id');
+  const editor_el = document.getElementById('editor-task-description');
 
   if (!title_el || !title_el.value.trim()) return;
 
+  const is_edit = (id_el && id_el.value.trim() !== '');
+  const task_id = is_edit ? id_el.value.trim() : '';
   const target_sprint = (target_input && target_input.value) ? target_input.value : app_state.active_sprint_id;
   const work_type = type_el ? type_el.value : 'TASK';
   const parent_id = parent_el ? parent_el.value.trim() : '';
+  const description = editor_el ? editor_el.innerHTML.trim() : '';
 
   // Validasi lokal sisi klien
   if (work_type === 'SUBTASK' && !parent_id) {
@@ -1109,84 +1632,137 @@ function handle_submit_new_task(e) {
   }
 
   const task_payload = {
+    id: task_id,
     sprint_id: target_sprint,
     title: title_el.value.trim(),
     estimate_hours: Number(est_el ? est_el.value : 8) || 8,
     assignee_id: assignee_el ? assignee_el.value : '',
     work_type: work_type,
-    parent_id: work_type === 'INITIATIVE' ? '' : parent_id
+    parent_id: work_type === 'INITIATIVE' ? '' : parent_id,
+    description: description
   };
 
   if (submit_btn) {
     submit_btn.disabled = true;
-    submit_btn.textContent = 'Menyimpan...';
+    submit_btn.textContent = is_edit ? 'Menyimpan Perubahan...' : 'Menyimpan...';
   }
 
   if (typeof google !== 'undefined' && google.script && google.script.run) {
-    google.script.run
-      .withSuccessHandler(response => {
-        if (submit_btn) {
-          submit_btn.disabled = false;
-          submit_btn.textContent = 'Simpan Task';
-        }
-        if (response && response.success) {
-          show_notification('Work item (' + work_type + ') berhasil dibuat!', 'success');
-          close_task_modal();
-          if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
-            load_scrum_planning_data();
-          } else {
-            load_sprint_tasks();
-            load_sprint_insights();
+    if (is_edit) {
+      google.script.run
+        .withSuccessHandler(response => {
+          if (submit_btn) {
+            submit_btn.disabled = false;
+            submit_btn.textContent = 'Simpan Task';
           }
-        } else {
-          show_notification('Gagal membuat task: ' + (response ? response.message : ''), 'error');
-        }
-      })
-      .withFailureHandler(err => {
-        if (submit_btn) {
-          submit_btn.disabled = false;
-          submit_btn.textContent = 'Simpan Task';
-        }
-        show_notification('Error membuat task: ' + err.message, 'error');
-      })
-      .create_new_task(task_payload);
+          if (response && response.success) {
+            show_notification('Rincian work item (' + task_id + ') berhasil diperbarui!', 'success');
+            close_task_modal();
+            if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
+              load_scrum_planning_data();
+            } else {
+              load_sprint_tasks();
+              load_sprint_insights();
+            }
+          } else {
+            show_notification('Gagal memperbarui task: ' + (response ? response.message : ''), 'error');
+          }
+        })
+        .withFailureHandler(err => {
+          if (submit_btn) {
+            submit_btn.disabled = false;
+            submit_btn.textContent = 'Simpan Task';
+          }
+          show_notification('Error memperbarui task: ' + err.message, 'error');
+        })
+        .update_task_details(task_payload);
+    } else {
+      google.script.run
+        .withSuccessHandler(response => {
+          if (submit_btn) {
+            submit_btn.disabled = false;
+            submit_btn.textContent = 'Simpan Task';
+          }
+          if (response && response.success) {
+            show_notification('Work item (' + work_type + ') berhasil dibuat!', 'success');
+            close_task_modal();
+            if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
+              load_scrum_planning_data();
+            } else {
+              load_sprint_tasks();
+              load_sprint_insights();
+            }
+          } else {
+            show_notification('Gagal membuat task: ' + (response ? response.message : ''), 'error');
+          }
+        })
+        .withFailureHandler(err => {
+          if (submit_btn) {
+            submit_btn.disabled = false;
+            submit_btn.textContent = 'Simpan Task';
+          }
+          show_notification('Error membuat task: ' + err.message, 'error');
+        })
+        .create_new_task(task_payload);
+    }
   } else {
     // Mode simulasi lokal
     if (submit_btn) {
       submit_btn.disabled = false;
       submit_btn.textContent = 'Simpan Task';
     }
-    const new_mock_task = {
-      id: 'TSK-' + ('000' + (app_state.tasks.length + 1)).slice(-3),
-      sprint_id: target_sprint,
-      title: task_payload.title,
-      status: 'TODO',
-      assignee_name: 'Simulasi User',
-      estimate_hours: task_payload.estimate_hours,
-      work_type: work_type,
-      hierarchy_level: work_type === 'INITIATIVE' ? 1 : (work_type === 'SUBTASK' ? -1 : 0),
-      parent_id: task_payload.parent_id,
-      subtask_count: 0,
-      subtask_done_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    if (is_edit) {
+      let found = (app_state.tasks || []).find(t => t.id === task_id);
+      if (!found) found = (app_state.backlog_tasks || []).find(t => t.id === task_id);
+      (app_state.sprints || []).forEach(sp => {
+        if (!found) found = (sp.tasks || []).find(t => t.id === task_id);
+      });
+      if (found) {
+        found.title = task_payload.title;
+        found.estimate_hours = task_payload.estimate_hours;
+        found.work_type = task_payload.work_type;
+        found.parent_id = task_payload.parent_id;
+        found.description = task_payload.description;
+        found.updated_at = new Date().toISOString();
+      }
+      show_notification('Work item (' + task_id + ') berhasil diperbarui!', 'success');
+    } else {
+      const new_mock_task = {
+        id: 'TSK-' + ('000' + (app_state.tasks.length + 1)).slice(-3),
+        sprint_id: target_sprint,
+        title: task_payload.title,
+        status: 'TODO',
+        assignee_name: 'Simulasi User',
+        estimate_hours: task_payload.estimate_hours,
+        work_type: work_type,
+        hierarchy_level: work_type === 'INITIATIVE' ? 1 : (work_type === 'SUBTASK' ? -1 : 0),
+        parent_id: task_payload.parent_id,
+        description: task_payload.description,
+        subtask_count: 0,
+        subtask_done_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-    // Update parent subtask count jika ini subtask
-    if (task_payload.parent_id) {
-      const parent_task = (app_state.tasks || []).find(t => t.id === task_payload.parent_id);
-      if (parent_task) parent_task.subtask_count = (parent_task.subtask_count || 0) + 1;
+      if (task_payload.parent_id) {
+        const parent_task = (app_state.tasks || []).find(t => t.id === task_payload.parent_id);
+        if (parent_task) parent_task.subtask_count = (parent_task.subtask_count || 0) + 1;
+      }
+
+      if (target_sprint.startsWith('BACKLOG')) {
+        app_state.backlog_tasks.push(new_mock_task);
+      } else {
+        app_state.tasks.push(new_mock_task);
+      }
+      show_notification('Work item (' + work_type + ') berhasil ditambahkan!', 'success');
     }
 
-    if (target_sprint.startsWith('BACKLOG')) {
-      app_state.backlog_tasks.push(new_mock_task);
+    if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
       render_scrum_planning_view();
     } else {
-      app_state.tasks.push(new_mock_task);
       render_kanban_board();
     }
     close_task_modal();
-    show_notification('Work item (' + work_type + ') berhasil ditambahkan!', 'success');
   }
 }
 
@@ -1914,6 +2490,18 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
     `;
   }
 
+  // Klik kartu untuk membuka detail & deskripsi WYSIWYG
+  card.onclick = (e) => {
+    if (!e.target.closest('button') && !e.target.closest('select')) {
+      open_task_detail_modal(task.id);
+    }
+  };
+
+  const has_desc = Boolean(task.description && String(task.description).trim() !== '');
+  const desc_icon = has_desc 
+    ? '<span class="text-[10px] text-indigo-500 font-semibold flex-shrink-0 cursor-pointer" title="Memiliki rincian spesifikasi / tabel">📝</span>' 
+    : '';
+
   // Desain Kartu 3-Baris: Terisolasi, Lebar Bebas, Bersih dari Tumpang Tindih
   card.innerHTML = `
     <!-- Baris 1: Header (Drag Icon, ID, Work Type, Parent Tag, Quick Move Dropdown) -->
@@ -1934,13 +2522,14 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
     </div>
 
     <!-- Baris 2: Judul Tugas (Lebar penuh, mudah dibaca, tidak bertumpuk) -->
-    <div class="pl-4">
-      <h5 class="text-xs font-semibold text-slate-800 leading-snug line-clamp-2" title="${escape_html(task.title)}">
-        ${escape_html(task.title)}
+    <div class="pl-4 cursor-pointer">
+      <h5 class="text-xs font-semibold text-slate-800 leading-snug line-clamp-2 hover:text-indigo-600 transition-colors flex items-center gap-1.5" title="Klik untuk melihat detail & deskripsi">
+        <span>${escape_html(task.title)}</span>
+        ${desc_icon}
       </h5>
     </div>
 
-    <!-- Baris 3: Footer (PIC, Subtask Pill, + Subtask, Estimasi Jam) -->
+    <!-- Baris 3: Footer (PIC, Subtask Pill, + Subtask, Estimasi Jam & Detail) -->
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 pl-4 text-[11px]">
       <div class="flex items-center space-x-1.5 min-w-0 text-slate-500">
         <div class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
@@ -1954,6 +2543,13 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
       <div class="flex items-center gap-1.5 flex-shrink-0">
         ${subtask_progress_pill}
         ${quick_subtask_btn}
+        <button 
+          type="button" 
+          onclick="event.stopPropagation(); open_task_detail_modal('${escape_html(task.id)}')" 
+          title="Buka rincian spesifikasi & tabel task"
+          class="text-[10px] text-slate-500 hover:text-indigo-600 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 transition-colors cursor-pointer">
+          Detail ↗
+        </button>
         <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 select-none">
           <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           ${task.estimate_hours || 0} Jam

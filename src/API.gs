@@ -264,6 +264,7 @@ function get_sprint_tasks(sprint_id) {
     const type_idx = header.indexOf('work_type');
     const level_idx = header.indexOf('hierarchy_level');
     const parent_idx = header.indexOf('parent_id');
+    const desc_idx = header.indexOf('description');
 
     const tasks = [];
     const target_sprint = String(sprint_id).trim();
@@ -278,6 +279,7 @@ function get_sprint_tasks(sprint_id) {
         const raw_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
         const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
         const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
+        const raw_desc = desc_idx !== -1 ? String(row[desc_idx] || '') : '';
 
         tasks.push({
           id: row[id_idx],
@@ -292,6 +294,7 @@ function get_sprint_tasks(sprint_id) {
           work_type: raw_type,
           hierarchy_level: raw_level,
           parent_id: raw_parent,
+          description: raw_desc,
           subtask_count: 0,
           subtask_done_count: 0
         });
@@ -418,8 +421,10 @@ function create_new_task(task_input) {
       }
     }
 
+    const description = task_input.description ? String(task_input.description) : '';
+
     sheet_tasks.appendRow([
-      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp, work_type, hierarchy_level, parent_id
+      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp, work_type, hierarchy_level, parent_id, description
     ]);
 
     const history_id = 'HIS-' + Utilities.getUuid().substring(0, 8).toUpperCase();
@@ -436,7 +441,8 @@ function create_new_task(task_input) {
         title: title,
         work_type: work_type,
         hierarchy_level: hierarchy_level,
-        parent_id: parent_id
+        parent_id: parent_id,
+        description: description
       }
     };
   } catch (e) {
@@ -601,6 +607,139 @@ function update_task_status(task_id, new_status) {
 }
 
 /**
+ * Memperbarui rincian work item (Judul, Deskripsi WYSIWYG, Estimasi Jam, Assignee, Work Type, Parent)
+ *
+ * @param {Object} task_input - { id, title, description, estimate_hours, assignee_id, work_type, parent_id }
+ * @return {Object} Payload { success: boolean, message: string, data?: Object }
+ */
+function update_task_details(task_input) {
+  try {
+    if (!task_input || !task_input.id) {
+      return { success: false, message: 'ID task tidak valid.' };
+    }
+
+    const user_profile = get_user_role();
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (!permissions.can_create_task && !permissions.can_move_task) {
+      return { success: false, message: 'Akses Ditolak: Anda tidak memiliki izin untuk mengubah rincian task.' };
+    }
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_tasks = spreadsheet.getSheetByName('Tasks');
+    if (!sheet_tasks || sheet_tasks.getLastRow() <= 1) {
+      return { success: false, message: 'Sheet Tasks tidak ditemukan atau kosong.' };
+    }
+
+    const task_values = sheet_tasks.getDataRange().getValues();
+    const header = task_values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = header.indexOf('id');
+    const title_idx = header.indexOf('title');
+    const ass_idx = header.indexOf('assignee_id');
+    const est_idx = header.indexOf('estimate_hours');
+    const upd_idx = header.indexOf('updated_at');
+    const type_idx = header.indexOf('work_type');
+    const level_idx = header.indexOf('hierarchy_level');
+    const parent_idx = header.indexOf('parent_id');
+    const desc_idx = header.indexOf('description');
+
+    let target_row_index = -1;
+    let current_row = null;
+
+    for (let r = 1; r < task_values.length; r++) {
+      if (String(task_values[r][id_idx]).trim() === String(task_input.id).trim()) {
+        target_row_index = r + 1;
+        current_row = task_values[r];
+        break;
+      }
+    }
+
+    if (target_row_index === -1) {
+      return { success: false, message: 'Task dengan ID "' + task_input.id + '" tidak ditemukan.' };
+    }
+
+    const title = task_input.title ? task_input.title.trim() : String(current_row[title_idx] || '');
+    if (!title) {
+      return { success: false, message: 'Judul task tidak boleh kosong.' };
+    }
+
+    const estimate_hours = task_input.estimate_hours !== undefined 
+      ? (Number(task_input.estimate_hours) || 0) 
+      : (Number(current_row[est_idx]) || 0);
+
+    const assignee_id = task_input.assignee_id !== undefined 
+      ? String(task_input.assignee_id).trim() 
+      : String(current_row[ass_idx] || '');
+
+    const description = task_input.description !== undefined 
+      ? String(task_input.description) 
+      : (desc_idx !== -1 ? String(current_row[desc_idx] || '') : '');
+
+    let work_type = task_input.work_type 
+      ? String(task_input.work_type).toUpperCase().trim() 
+      : (type_idx !== -1 ? String(current_row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK');
+
+    if (!['INITIATIVE', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK'].includes(work_type)) {
+      work_type = 'TASK';
+    }
+
+    const hierarchy_level = get_work_type_level(work_type);
+    let parent_id = task_input.parent_id !== undefined 
+      ? String(task_input.parent_id).trim() 
+      : (parent_idx !== -1 ? String(current_row[parent_idx] || '').trim() : '');
+
+    // Validasi aturan hirarki jika work_type atau parent berubah
+    if (hierarchy_level === 1) {
+      parent_id = '';
+    } else if (hierarchy_level === -1) {
+      if (!parent_id) {
+        return { success: false, message: 'Validasi Hirarki Gagal: Subtask (Level -1) wajib memilih parent work item Level 0 (Task, User Story, atau Bug).' };
+      }
+      if (parent_id === String(task_input.id).trim()) {
+        return { success: false, message: 'Validasi Hirarki Gagal: Work item tidak bisa menjadi parent untuk dirinya sendiri.' };
+      }
+    }
+
+    const current_timestamp = new Date().toISOString();
+
+    if (title_idx !== -1) sheet_tasks.getRange(target_row_index, title_idx + 1).setValue(title);
+    if (est_idx !== -1) sheet_tasks.getRange(target_row_index, est_idx + 1).setValue(estimate_hours);
+    if (ass_idx !== -1) sheet_tasks.getRange(target_row_index, ass_idx + 1).setValue(assignee_id);
+    if (type_idx !== -1) sheet_tasks.getRange(target_row_index, type_idx + 1).setValue(work_type);
+    if (level_idx !== -1) sheet_tasks.getRange(target_row_index, level_idx + 1).setValue(hierarchy_level);
+    if (parent_idx !== -1) sheet_tasks.getRange(target_row_index, parent_idx + 1).setValue(parent_id);
+    if (upd_idx !== -1) sheet_tasks.getRange(target_row_index, upd_idx + 1).setValue(current_timestamp);
+    if (desc_idx !== -1) {
+      sheet_tasks.getRange(target_row_index, desc_idx + 1).setValue(description);
+    } else {
+      const new_col_idx = sheet_tasks.getLastColumn() + 1;
+      sheet_tasks.getRange(1, new_col_idx).setValue('description');
+      sheet_tasks.getRange(target_row_index, new_col_idx).setValue(description);
+    }
+
+    return {
+      success: true,
+      message: 'Rincian work item berhasil diperbarui.',
+      data: {
+        id: task_input.id,
+        title: title,
+        estimate_hours: estimate_hours,
+        assignee_id: assignee_id,
+        work_type: work_type,
+        hierarchy_level: hierarchy_level,
+        parent_id: parent_id,
+        description: description,
+        updated_at: current_timestamp
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal memperbarui rincian task: ' + error.message };
+  }
+}
+
+/**
  * Helper format tanggal aman untuk serialisasi GAS ke client
  */
 function format_gas_date(val) {
@@ -700,6 +839,7 @@ function get_project_backlog_and_sprints(project_id) {
       const type_idx = header.indexOf('work_type');
       const level_idx = header.indexOf('hierarchy_level');
       const parent_idx = header.indexOf('parent_id');
+      const desc_idx = header.indexOf('description');
 
       for (let r = 1; r < t_values.length; r++) {
         const row = t_values[r];
@@ -708,6 +848,7 @@ function get_project_backlog_and_sprints(project_id) {
         const raw_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
         const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
         const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
+        const raw_desc = desc_idx !== -1 ? String(row[desc_idx] || '') : '';
 
         const task_obj = {
           id: row[id_idx],
@@ -721,7 +862,8 @@ function get_project_backlog_and_sprints(project_id) {
           updated_at: format_gas_date(row[upd_idx]),
           work_type: raw_type,
           hierarchy_level: raw_level,
-          parent_id: raw_parent
+          parent_id: raw_parent,
+          description: raw_desc
         };
 
         // Cek apakah masuk bucket Backlog

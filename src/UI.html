@@ -1205,15 +1205,23 @@
   </div>
 </div>
 
-<!-- Modal Dialog Tambah Task Baru -->
-<div id="modal-task" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 transform transition-all">
-    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-      <h3 id="modal-task-title" class="text-base font-bold text-slate-800">Buat Task Baru</h3>
-      <button onclick="close_task_modal()" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
+<!-- Modal Dialog Tambah / Edit Task (Mendukung WYSIWYG & Copy-Paste Tabel Excel) -->
+<div id="modal-task" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] flex flex-col border border-slate-200 transform transition-all overflow-hidden">
+    <!-- Header Modal -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+      <div class="flex items-center space-x-2">
+        <h3 id="modal-task-title" class="text-base font-bold text-slate-800">Buat Work Item Baru</h3>
+        <span id="modal-task-mode-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+          Edit Mode
+        </span>
+      </div>
+      <button onclick="close_task_modal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none cursor-pointer p-1">&times;</button>
     </div>
 
-    <form id="form-new-task" onsubmit="handle_submit_new_task(event)" class="space-y-4">
+    <!-- Form Scrollable -->
+    <form id="form-new-task" onsubmit="handle_submit_new_task(event)" class="overflow-y-auto px-6 py-5 space-y-4 flex-1">
+      <input type="hidden" id="input-task-id" value="" />
       <input type="hidden" id="input-task-target-bucket" value="" />
       <div id="modal-task-destination-badge" class="hidden text-xs font-medium px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
         Target: <strong id="modal-task-target-label">Backlog</strong>
@@ -1251,11 +1259,11 @@
           type="text" 
           id="input-task-title" 
           required 
-          placeholder="Contoh: Implementasi Payment Gateway" 
+          placeholder="Contoh: Implementasi Payment Gateway Core Flow" 
           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Estimasi (Jam) *</label>
           <input 
@@ -1263,12 +1271,12 @@
             id="input-task-estimate" 
             required 
             min="1" 
-            max="200" 
+            max="500" 
             value="8" 
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Ditugaskan Kepada</label>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Ditugaskan Kepada (PIC)</label>
           <select 
             id="input-task-assignee" 
             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer">
@@ -1277,7 +1285,79 @@
         </div>
       </div>
 
-      <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+      <!-- Deskripsi Detail (WYSIWYG Editor dengan Dukungan Tabel Excel & Spreadsheet) -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+          <label class="block text-xs font-semibold text-slate-700">
+            Deskripsi Work Item (WYSIWYG)
+          </label>
+          <span class="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium">
+            📋 Mendukung Copy-Paste Tabel dari Excel & Spreadsheet
+          </span>
+        </div>
+
+        <!-- Toolbar WYSIWYG -->
+        <div class="border border-slate-300 rounded-t-xl bg-slate-50 p-1.5 flex flex-wrap items-center gap-1 text-slate-700 border-b-0 select-none">
+          <!-- Text Styling Group -->
+          <div class="flex items-center space-x-0.5 pr-1.5 border-r border-slate-200">
+            <button type="button" onclick="exec_editor_cmd('bold')" title="Tebal (Ctrl+B)" class="p-1.5 rounded hover:bg-slate-200 text-xs font-bold text-slate-800 cursor-pointer"><b>B</b></button>
+            <button type="button" onclick="exec_editor_cmd('italic')" title="Miring (Ctrl+I)" class="p-1.5 rounded hover:bg-slate-200 text-xs italic text-slate-800 cursor-pointer"><i>I</i></button>
+            <button type="button" onclick="exec_editor_cmd('underline')" title="Garis Bawah (Ctrl+U)" class="p-1.5 rounded hover:bg-slate-200 text-xs underline text-slate-800 cursor-pointer"><u>U</u></button>
+            <button type="button" onclick="exec_editor_cmd('strikeThrough')" title="Coret" class="p-1.5 rounded hover:bg-slate-200 text-xs line-through text-slate-800 cursor-pointer"><s>S</s></button>
+          </div>
+
+          <!-- Headings & Format Group -->
+          <div class="flex items-center space-x-1 px-1.5 border-r border-slate-200">
+            <button type="button" onclick="exec_editor_format('h3')" title="Heading 2 / Judul Bagian" class="px-2 py-1 rounded hover:bg-slate-200 text-[11px] font-bold text-slate-800 cursor-pointer">H2</button>
+            <button type="button" onclick="exec_editor_format('h4')" title="Heading 3 / Sub-judul" class="px-2 py-1 rounded hover:bg-slate-200 text-[11px] font-bold text-slate-800 cursor-pointer">H3</button>
+            <button type="button" onclick="exec_editor_format('p')" title="Paragraf Normal" class="px-2 py-1 rounded hover:bg-slate-200 text-[11px] text-slate-800 cursor-pointer">¶</button>
+          </div>
+
+          <!-- Lists Group -->
+          <div class="flex items-center space-x-0.5 px-1.5 border-r border-slate-200">
+            <button type="button" onclick="exec_editor_cmd('insertUnorderedList')" title="Daftar Poin (Bullet List)" class="p-1.5 rounded hover:bg-slate-200 text-xs text-slate-800 cursor-pointer" aria-label="Bullet List">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16M2 6h.01M2 12h.01M2 18h.01"/></svg>
+            </button>
+            <button type="button" onclick="exec_editor_cmd('insertOrderedList')" title="Daftar Angka (Numbered List)" class="p-1.5 rounded hover:bg-slate-200 text-xs text-slate-800 cursor-pointer" aria-label="Numbered List">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 6h14M7 12h14M7 18h14M3 6h1v4M3 10h2M3 14h2l-2 2h2M3 18h2v2H3"/></svg>
+            </button>
+          </div>
+
+          <!-- Table Tools Group -->
+          <div class="flex items-center space-x-1 px-1.5 border-r border-slate-200">
+            <button type="button" onclick="insert_editor_table(3, 3)" title="Sisipkan Tabel 3x3" class="px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold border border-indigo-200 cursor-pointer flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-10v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/></svg>
+              <span>+ Tabel</span>
+            </button>
+            <button type="button" onclick="editor_table_action('add-row')" title="Tambah Baris pada Tabel" class="px-1.5 py-1 rounded hover:bg-slate-200 text-[10px] text-slate-700 cursor-pointer font-medium">+ Baris</button>
+            <button type="button" onclick="editor_table_action('add-col')" title="Tambah Kolom pada Tabel" class="px-1.5 py-1 rounded hover:bg-slate-200 text-[10px] text-slate-700 cursor-pointer font-medium">+ Kolom</button>
+            <button type="button" onclick="editor_table_action('del-row')" title="Hapus Baris Terpilih" class="px-1.5 py-1 rounded hover:bg-rose-50 hover:text-rose-700 text-[10px] text-slate-500 cursor-pointer">- Baris</button>
+            <button type="button" onclick="editor_table_action('del-col')" title="Hapus Kolom Terpilih" class="px-1.5 py-1 rounded hover:bg-rose-50 hover:text-rose-700 text-[10px] text-slate-500 cursor-pointer">- Kolom</button>
+          </div>
+
+          <!-- Utilities -->
+          <div class="flex items-center space-x-0.5 pl-1">
+            <button type="button" onclick="exec_editor_cmd('removeFormat')" title="Hapus Pemformatan" class="p-1.5 rounded hover:bg-slate-200 text-xs text-slate-600 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Editable Canvas -->
+        <div 
+          id="editor-task-description" 
+          contenteditable="true" 
+          class="w-full px-3.5 py-3 border border-slate-300 rounded-b-xl bg-white text-xs sm:text-sm text-slate-800 min-h-[140px] max-h-[260px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner"
+          placeholder="Tulis deskripsi detail, acceptance criteria, atau paste langsung (Ctrl+V) tabel dari Microsoft Excel / Google Sheets di sini...">
+        </div>
+        <input type="hidden" id="input-task-description" value="" />
+        <p class="text-[10px] text-slate-400 mt-1">
+          💡 Tips: Anda dapat meng-copy tabel dari Excel atau Google Sheets lalu tekan <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[9px] font-mono">Ctrl+V</kbd> langsung di area editor di atas. Format tabel dan sel akan terjaga rapi.
+        </p>
+      </div>
+
+      <!-- Action Buttons Footer inside Modal -->
+      <div class="pt-4 border-t border-slate-100 flex justify-end space-x-2">
         <button 
           type="button" 
           onclick="close_task_modal()" 
@@ -1287,11 +1367,86 @@
         <button 
           type="submit" 
           id="btn-submit-task" 
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors cursor-pointer flex items-center">
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors cursor-pointer flex items-center space-x-1.5">
           <span>Simpan Task</span>
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Dialog Detail Work Item (Read / View WYSIWYG & Full Details) -->
+<div id="modal-task-detail" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 transform transition-all overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
+      <div class="flex items-center space-x-2.5 flex-wrap">
+        <span id="detail-task-id-badge" class="px-2 py-0.5 text-xs font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 rounded">
+          TSK-XXX
+        </span>
+        <span id="detail-task-type-badge"></span>
+        <span id="detail-task-parent-badge"></span>
+        <span id="detail-task-status-badge"></span>
+      </div>
+      <button onclick="close_task_detail_modal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none cursor-pointer p-1">&times;</button>
+    </div>
+
+    <!-- Body Scrollable -->
+    <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+      <!-- Title -->
+      <div>
+        <h3 id="detail-task-title" class="text-lg font-bold text-slate-900 leading-snug"></h3>
+      </div>
+
+      <!-- Metadata Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+        <div>
+          <span class="block text-slate-400 font-medium text-[10px] uppercase">Assignee PIC</span>
+          <span id="detail-task-assignee" class="font-semibold text-slate-800"></span>
+        </div>
+        <div>
+          <span class="block text-slate-400 font-medium text-[10px] uppercase">Estimasi Waktu</span>
+          <span id="detail-task-estimate" class="font-semibold text-slate-800"></span>
+        </div>
+        <div>
+          <span class="block text-slate-400 font-medium text-[10px] uppercase">Sprint / Bucket</span>
+          <span id="detail-task-sprint" class="font-semibold text-slate-800 truncate block"></span>
+        </div>
+        <div>
+          <span class="block text-slate-400 font-medium text-[10px] uppercase">Terakhir Diupdate</span>
+          <span id="detail-task-updated" class="font-semibold text-slate-800"></span>
+        </div>
+      </div>
+
+      <!-- Rendered Description Canvas with Tables & Styles -->
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Deskripsi & Catatan Spesifikasi</h4>
+        <div id="detail-task-description-rendered" class="p-4 bg-white border border-slate-200 rounded-xl min-h-[120px] text-sm text-slate-800 overflow-x-auto leading-relaxed">
+          <!-- Rendered HTML Description inserted here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between flex-shrink-0">
+      <span class="text-[11px] text-slate-400">Alternate Project Delivery • Work Item Detail</span>
+      <div class="flex items-center space-x-2">
+        <button 
+          type="button" 
+          onclick="close_task_detail_modal()" 
+          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-white transition-colors cursor-pointer">
+          Tutup
+        </button>
+        <button 
+          type="button" 
+          id="btn-edit-from-detail"
+          onclick="handle_edit_from_detail()" 
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          <span>Edit Work Item</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 

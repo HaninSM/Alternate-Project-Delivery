@@ -33,6 +33,34 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #94a3b8;
     }
+
+    /* Styling tabel untuk editor WYSIWYG dan display detail task */
+    .wysiwyg-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5rem 0;
+      font-size: 0.75rem;
+    }
+    .wysiwyg-table th, .wysiwyg-table td {
+      border: 1px solid #cbd5e1;
+      padding: 0.45rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    .wysiwyg-table th {
+      background-color: #f1f5f9;
+      font-weight: 600;
+      color: #334155;
+    }
+    .wysiwyg-table tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    #editor-task-description:empty:before {
+      content: attr(placeholder);
+      color: #94a3b8;
+      pointer-events: none;
+      display: block;
+    }
   </style>
 </head>
 <body class="bg-slate-50 antialiased overflow-hidden select-none">
