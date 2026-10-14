@@ -244,7 +244,15 @@ function compute_metrics(tasks, histories, sprint_info) {
  * @return {Object} Struktur series { labels, ideal_hours, actual_hours }
  */
 function build_burndown_series(tasks, histories, sprint_info) {
-  const total_scope_hours = tasks.reduce((sum, t) => sum + (Number(t.estimate_hours) || 0), 0);
+  // Cegah double counting:
+  // Jika sebuah item (Level 0 / Inisiatif) memiliki child subtasks di sprint ini, hitung jam dari item daun (leaf_tasks)
+  const is_parent_id = new Set();
+  tasks.forEach(t => {
+    if (t.parent_id) is_parent_id.add(String(t.parent_id).trim());
+  });
+
+  const leaf_tasks = tasks.filter(t => !is_parent_id.has(String(t.id).trim()));
+  const total_scope_hours = leaf_tasks.reduce((sum, t) => sum + (Number(t.estimate_hours) || 0), 0);
 
   const start_d = new Date(sprint_info.start_date);
   const end_d = new Date(sprint_info.end_date);
@@ -287,7 +295,7 @@ function build_burndown_series(tasks, histories, sprint_info) {
     // Garis Aktual: Total jam belum selesai pada akhir hari tersebut
     if (current_day.getTime() <= now.getTime() + 86400000) {
       let remaining = total_scope_hours;
-      tasks.forEach(t => {
+      leaf_tasks.forEach(t => {
         const done_ts = task_completion_time[t.id];
         // Jika task telah diselesaikan sebelum atau pada akhir hari ini, kurangkan sisa jam
         if (done_ts && done_ts <= current_day.getTime() + 86400000 - 1) {
@@ -477,6 +485,7 @@ function get_cycle_time_report_data(filters) {
     const filter_status = f.status ? String(f.status).toUpperCase().trim() : '';
     const filter_assignee_id = f.assignee_id ? String(f.assignee_id).trim() : '';
     const filter_keyword = f.search ? String(f.search).toLowerCase().trim() : '';
+    const filter_work_type = f.work_type ? String(f.work_type).toUpperCase().trim() : '';
 
     // 1. Dynamic Lookup Projects
     const projects_map = {};
@@ -575,6 +584,9 @@ function get_cycle_time_report_data(filters) {
     const assignee_idx = t_head.indexOf('assignee_id') !== -1 ? t_head.indexOf('assignee_id') : 4;
     const created_idx = t_head.indexOf('created_at') !== -1 ? t_head.indexOf('created_at') : 6;
     const updated_idx = t_head.indexOf('updated_at') !== -1 ? t_head.indexOf('updated_at') : 7;
+    const type_idx = t_head.indexOf('work_type');
+    const level_idx = t_head.indexOf('hierarchy_level');
+    const parent_idx = t_head.indexOf('parent_id');
 
     const now_ts = new Date().getTime();
     const report_rows = [];
@@ -588,6 +600,9 @@ function get_cycle_time_report_data(filters) {
       const assignee_id = String(row[assignee_idx] || '').trim();
       const created_at_raw = row[created_idx];
       const updated_at_raw = row[updated_idx];
+      const raw_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+      const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : 0;
+      const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
 
       // Resolve Project ID: jika sprint_id berformat BACKLOG-PRJ-001, extract PRJ-001
       let project_id = '';
@@ -608,6 +623,7 @@ function get_cycle_time_report_data(filters) {
       if (filter_sprint_id && sprint_id !== filter_sprint_id) continue;
       if (filter_status && current_status !== filter_status) continue;
       if (filter_assignee_id && assignee_id !== filter_assignee_id) continue;
+      if (filter_work_type && raw_type !== filter_work_type) continue;
       if (filter_keyword && !task_id.toLowerCase().includes(filter_keyword) && !title.toLowerCase().includes(filter_keyword)) continue;
 
       // Safe Date Calculation
@@ -661,6 +677,9 @@ function get_cycle_time_report_data(filters) {
         key: task_id,
         summary: title,
         status: current_status,
+        work_type: raw_type,
+        hierarchy_level: raw_level,
+        parent_id: raw_parent,
         project_id: project_id,
         project_name: project_info.name || '-',
         sprint_id: sprint_id,

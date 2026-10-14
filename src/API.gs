@@ -5,6 +5,26 @@
 
 const VALID_TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
 
+const WORK_TYPES = {
+  INITIATIVE: { type: 'INITIATIVE', level: 1, label: 'Inisiatif' },
+  USER_STORY: { type: 'USER_STORY', level: 0, label: 'User Story' },
+  TASK: { type: 'TASK', level: 0, label: 'Task' },
+  BUG: { type: 'BUG', level: 0, label: 'BUG' },
+  SUBTASK: { type: 'SUBTASK', level: -1, label: 'Subtask' }
+};
+
+/**
+ * Mendapatkan level angka hirarki (-1, 0, 1) dari suatu work type
+ * @param {string} type_str
+ * @return {number} -1 untuk Subtask, 1 untuk Inisiatif, 0 untuk Task/Story/Bug
+ */
+function get_work_type_level(type_str) {
+  const t = String(type_str || 'TASK').toUpperCase().trim();
+  if (t === 'INITIATIVE') return 1;
+  if (t === 'SUBTASK') return -1;
+  return 0; // TASK, USER_STORY, BUG default ke 0
+}
+
 /**
  * Mengambil daftar user untuk pilihan dropdown assignee & PIC
  */
@@ -224,6 +244,9 @@ function get_sprint_tasks(sprint_id) {
     const est_idx = header.indexOf('estimate_hours');
     const crt_idx = header.indexOf('created_at');
     const upd_idx = header.indexOf('updated_at');
+    const type_idx = header.indexOf('work_type');
+    const level_idx = header.indexOf('hierarchy_level');
+    const parent_idx = header.indexOf('parent_id');
 
     const tasks = [];
     const target_sprint = String(sprint_id).trim();
@@ -235,6 +258,10 @@ function get_sprint_tasks(sprint_id) {
       // Hanya masukkan task yang sprint_id nya COCOK PERSIS!
       if (row_sprint === target_sprint) {
         const assignee_id = row[ass_idx];
+        const raw_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+        const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
+        const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
+
         tasks.push({
           id: row[id_idx],
           sprint_id: row_sprint,
@@ -244,10 +271,27 @@ function get_sprint_tasks(sprint_id) {
           assignee_name: user_name_map[assignee_id] || assignee_id || 'Belum Ditugaskan',
           estimate_hours: Number(row[est_idx]) || 0,
           created_at: row[crt_idx],
-          updated_at: row[upd_idx]
+          updated_at: row[upd_idx],
+          work_type: raw_type,
+          hierarchy_level: raw_level,
+          parent_id: raw_parent,
+          subtask_count: 0,
+          subtask_done_count: 0
         });
       }
     }
+
+    // Hitung agregasi subtask untuk parent task dalam sprint ini
+    const task_map = {};
+    tasks.forEach(t => { task_map[t.id] = t; });
+    tasks.forEach(t => {
+      if (t.parent_id && task_map[t.parent_id]) {
+        task_map[t.parent_id].subtask_count += 1;
+        if (t.status === 'DONE') {
+          task_map[t.parent_id].subtask_done_count += 1;
+        }
+      }
+    });
 
     // PENTING: Jika tasks.length === 0, tetap kembalikan [] (Board bersih)!
     return { success: true, data: tasks };
@@ -258,6 +302,10 @@ function get_sprint_tasks(sprint_id) {
 
 /**
  * Membuat task baru di sheet Tasks dan mencatat audit trail di Task_History
+ * Mendukung hirarki work type:
+ * - INITIATIVE (Level 1): Tidak boleh memiliki parent
+ * - TASK, USER_STORY, BUG (Level 0): Opsional memiliki parent berlevel 1 (Inisiatif)
+ * - SUBTASK (Level -1): Wajib memiliki parent berlevel 0 (Task/User Story/Bug)
  */
 function create_new_task(task_input) {
   try {
@@ -284,8 +332,77 @@ function create_new_task(task_input) {
     const assignee_id = task_input.assignee_id || '';
     const estimate_hours = Number(task_input.estimate_hours) || 8;
 
+    let work_type = String(task_input.work_type || 'TASK').toUpperCase().trim();
+    if (!['INITIATIVE', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK'].includes(work_type)) {
+      work_type = 'TASK';
+    }
+    const hierarchy_level = get_work_type_level(work_type);
+    let parent_id = task_input.parent_id ? String(task_input.parent_id).trim() : '';
+
+    // Validasi aturan hirarki
+    if (hierarchy_level === 1) {
+      // Inisiatif tidak boleh memiliki parent
+      parent_id = '';
+    } else if (hierarchy_level === -1) {
+      // Subtask WAJIB memiliki parent berlevel 0 (Task / User Story / Bug)
+      if (!parent_id) {
+        return { success: false, message: 'Validasi Hirarki Gagal: Subtask (Level -1) wajib memilih parent work item Level 0 (Task, User Story, atau Bug).' };
+      }
+      
+      const all_tasks_data = sheet_tasks.getDataRange().getValues();
+      const t_hdr = all_tasks_data[0].map(h => String(h).trim().toLowerCase());
+      const p_id_idx = t_hdr.indexOf('id');
+      const p_type_idx = t_hdr.indexOf('work_type');
+      const p_lvl_idx = t_hdr.indexOf('hierarchy_level');
+
+      let parent_row = null;
+      for (let r = 1; r < all_tasks_data.length; r++) {
+        if (String(all_tasks_data[r][p_id_idx]).trim() === parent_id) {
+          parent_row = all_tasks_data[r];
+          break;
+        }
+      }
+
+      if (!parent_row) {
+        return { success: false, message: 'Validasi Hirarki Gagal: Parent dengan ID "' + parent_id + '" tidak ditemukan.' };
+      }
+
+      const p_raw_type = p_type_idx !== -1 ? String(parent_row[p_type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+      const parent_level = p_lvl_idx !== -1 && parent_row[p_lvl_idx] !== '' ? Number(parent_row[p_lvl_idx]) : get_work_type_level(p_raw_type);
+      if (parent_level !== 0) {
+        return { success: false, message: 'Validasi Hirarki Gagal: Parent dari Subtask harus berlevel 0 (Task, User Story, atau Bug), tidak boleh berlevel ' + parent_level + '.' };
+      }
+    } else if (hierarchy_level === 0) {
+      // Work item level 0 opsional memiliki parent berlevel 1 (Inisiatif)
+      if (parent_id) {
+        const all_tasks_data = sheet_tasks.getDataRange().getValues();
+        const t_hdr = all_tasks_data[0].map(h => String(h).trim().toLowerCase());
+        const p_id_idx = t_hdr.indexOf('id');
+        const p_type_idx = t_hdr.indexOf('work_type');
+        const p_lvl_idx = t_hdr.indexOf('hierarchy_level');
+
+        let parent_row = null;
+        for (let r = 1; r < all_tasks_data.length; r++) {
+          if (String(all_tasks_data[r][p_id_idx]).trim() === parent_id) {
+            parent_row = all_tasks_data[r];
+            break;
+          }
+        }
+
+        if (!parent_row) {
+          return { success: false, message: 'Validasi Hirarki Gagal: Inisiatif parent dengan ID "' + parent_id + '" tidak ditemukan.' };
+        }
+
+        const p_raw_type = p_type_idx !== -1 ? String(parent_row[p_type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+        const parent_level = p_lvl_idx !== -1 && parent_row[p_lvl_idx] !== '' ? Number(parent_row[p_lvl_idx]) : get_work_type_level(p_raw_type);
+        if (parent_level !== 1) {
+          return { success: false, message: 'Validasi Hirarki Gagal: Parent dari item Level 0 harus berupa Inisiatif (Level 1).' };
+        }
+      }
+    }
+
     sheet_tasks.appendRow([
-      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp
+      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp, work_type, hierarchy_level, parent_id
     ]);
 
     const history_id = 'HIS-' + Utilities.getUuid().substring(0, 8).toUpperCase();
@@ -293,9 +410,102 @@ function create_new_task(task_input) {
       history_id, task_id, 'NONE', 'TODO', current_user_email, current_timestamp
     ]);
 
-    return { success: true, message: 'Task berhasil dibuat.' };
+    return { 
+      success: true, 
+      message: 'Task berhasil dibuat.',
+      data: {
+        id: task_id,
+        sprint_id: sprint_id,
+        title: title,
+        work_type: work_type,
+        hierarchy_level: hierarchy_level,
+        parent_id: parent_id
+      }
+    };
   } catch (e) {
     return { success: false, message: e.message };
+  }
+}
+
+/**
+ * Mengambil daftar parent yang memenuhi syarat sesuai aturan hirarki work type
+ *
+ * @param {string} project_id - ID Project aktif
+ * @param {string} target_work_type - Tipe work item yang akan dibuat ('SUBTASK', 'TASK', 'USER_STORY', 'BUG', 'INITIATIVE')
+ * @return {Object} Payload { success: boolean, data: Array<Object> }
+ */
+function get_eligible_parents_for_task(project_id, target_work_type) {
+  try {
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_tasks = spreadsheet.getSheetByName('Tasks');
+    const sheet_sprints = spreadsheet.getSheetByName('Sprints');
+
+    if (!sheet_tasks || sheet_tasks.getLastRow() <= 1) {
+      return { success: true, data: [] };
+    }
+
+    const type = String(target_work_type || 'TASK').toUpperCase().trim();
+    const target_level = get_work_type_level(type);
+
+    if (target_level === 1) {
+      // Inisiatif tidak punya parent
+      return { success: true, data: [] };
+    }
+
+    // Tentukan level parent yang dicari:
+    // Jika target_level === -1 (Subtask) -> cari item berlevel 0 (Task, User Story, Bug)
+    // Jika target_level === 0 (Story, Task, Bug) -> cari item berlevel 1 (Inisiatif)
+    const required_parent_level = target_level === -1 ? 0 : 1;
+
+    // Ambil daftar sprint milik project_id ini
+    const prj_sprint_ids = new Set(['BACKLOG-' + project_id, 'BACKLOG']);
+    if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
+      const sp_values = sheet_sprints.getDataRange().getValues();
+      const sp_hdr = sp_values[0].map(h => String(h).trim().toLowerCase());
+      const sp_id_idx = sp_hdr.indexOf('id');
+      const sp_prj_idx = sp_hdr.indexOf('project_id');
+      for (let s = 1; s < sp_values.length; s++) {
+        if (!project_id || String(sp_values[s][sp_prj_idx]).trim() === project_id) {
+          prj_sprint_ids.add(String(sp_values[s][sp_id_idx]).trim());
+        }
+      }
+    }
+
+    const t_values = sheet_tasks.getDataRange().getValues();
+    const t_hdr = t_values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = t_hdr.indexOf('id');
+    const sp_idx = t_hdr.indexOf('sprint_id');
+    const title_idx = t_hdr.indexOf('title');
+    const type_idx = t_hdr.indexOf('work_type');
+    const level_idx = t_hdr.indexOf('hierarchy_level');
+
+    const parents = [];
+    for (let r = 1; r < t_values.length; r++) {
+      const row = t_values[r];
+      const row_sprint = String(row[sp_idx]).trim();
+
+      // Hanya task yang berada dalam lingkup project ini
+      if (prj_sprint_ids.size > 0 && !prj_sprint_ids.has(row_sprint)) {
+        continue;
+      }
+
+      const row_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+      const row_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(row_type);
+
+      if (row_level === required_parent_level) {
+        parents.push({
+          id: row[id_idx],
+          title: row[title_idx],
+          work_type: row_type,
+          hierarchy_level: row_level,
+          sprint_id: row_sprint
+        });
+      }
+    }
+
+    return { success: true, data: parents };
+  } catch (error) {
+    return { success: false, message: 'Gagal mengambil opsi parent: ' + error.message };
   }
 }
 
@@ -470,11 +680,18 @@ function get_project_backlog_and_sprints(project_id) {
       const est_idx = header.indexOf('estimate_hours');
       const crt_idx = header.indexOf('created_at');
       const upd_idx = header.indexOf('updated_at');
+      const type_idx = header.indexOf('work_type');
+      const level_idx = header.indexOf('hierarchy_level');
+      const parent_idx = header.indexOf('parent_id');
 
       for (let r = 1; r < t_values.length; r++) {
         const row = t_values[r];
         const row_sprint = String(row[sp_idx]).trim();
         const assignee_id = row[ass_idx];
+        const raw_type = type_idx !== -1 ? String(row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+        const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
+        const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
+
         const task_obj = {
           id: row[id_idx],
           sprint_id: row_sprint,
@@ -484,7 +701,10 @@ function get_project_backlog_and_sprints(project_id) {
           assignee_name: user_name_map[assignee_id] || assignee_id || 'Belum Ditugaskan',
           estimate_hours: Number(row[est_idx]) || 0,
           created_at: format_gas_date(row[crt_idx]),
-          updated_at: format_gas_date(row[upd_idx])
+          updated_at: format_gas_date(row[upd_idx]),
+          work_type: raw_type,
+          hierarchy_level: raw_level,
+          parent_id: raw_parent
         };
 
         // Cek apakah masuk bucket Backlog

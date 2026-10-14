@@ -7,7 +7,7 @@ const SPREADSHEET_SCHEMA = {
   Users: ['id', 'name', 'email', 'role', 'permissions'],
   Projects: ['id', 'name', 'pm_id'],
   Sprints: ['id', 'project_id', 'name', 'start_date', 'end_date', 'status'],
-  Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at'],
+  Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at', 'work_type', 'hierarchy_level', 'parent_id'],
   Task_History: ['id', 'task_id', 'old_status', 'new_status', 'changed_by', 'timestamp'],
   Initiative_Tests: ['id', 'user_email', 'initiative_title', 'attempt_count', 'status', 'ai_summary_note', 'conversation_history', 'created_at', 'updated_at'],
   Demands: ['id', 'initiative_test_id', 'title', 'submitter_email', 'prd_summary', 'fsd_summary', 'est_engineers', 'est_duration_days', 'capacity_status', 'allocated_capacity_hours', 'capacity_notes', 'approved_at', 'created_at']
@@ -70,6 +70,26 @@ function setup_database_schema(target_spreadsheet_id) {
           const current_sp_status = sp_values[r][sp_status_idx];
           if (!current_sp_status || String(current_sp_status).trim() === '') {
             sheet.getRange(r + 1, sp_status_idx + 1).setValue('ACTIVE');
+          }
+        }
+      }
+    }
+
+    // Khusus sheet Tasks: jika ada baris data yang kolom work_type-nya kosong, backfill otomatis
+    if (sheet_name === 'Tasks' && sheet.getLastRow() > 1) {
+      const t_values = sheet.getDataRange().getValues();
+      const t_header = t_values[0].map(h => String(h).trim().toLowerCase());
+      const type_idx = t_header.indexOf('work_type');
+      const level_idx = t_header.indexOf('hierarchy_level');
+      const parent_idx = t_header.indexOf('parent_id');
+
+      if (type_idx !== -1 && level_idx !== -1 && parent_idx !== -1) {
+        for (let r = 1; r < t_values.length; r++) {
+          const current_type = t_values[r][type_idx];
+          if (!current_type || String(current_type).trim() === '') {
+            sheet.getRange(r + 1, type_idx + 1).setValue('TASK');
+            sheet.getRange(r + 1, level_idx + 1).setValue(0);
+            sheet.getRange(r + 1, parent_idx + 1).setValue('');
           }
         }
       }
@@ -149,14 +169,17 @@ function seed_dummy_data(target_spreadsheet_id) {
     ['SPR-001', 'PRJ-001', 'Sprint 1 - Foundations & Core Flow', '2026-10-01', '2026-10-10', 'ACTIVE']
   ];
 
-  // 5. Data Dummy Tasks
+  // 5. Data Dummy Tasks (Lengkap dengan work_type, hierarchy_level, parent_id)
   const tasks_data = [
-    ['TSK-001', 'SPR-001', 'Setup Database Schema & Google Sheets Tabs', 'DONE', 'USR-003', 8, '2026-10-01T08:00:00Z', '2026-10-02T16:00:00Z'],
-    ['TSK-002', 'SPR-001', 'Implementasi Shell UI Tailwind CSS & SPA', 'DONE', 'USR-003', 12, '2026-10-01T09:00:00Z', '2026-10-03T18:00:00Z'],
-    ['TSK-003', 'SPR-001', 'Time-in-Status Engine & Audit Trail', 'REVIEW', 'USR-003', 16, '2026-10-02T10:00:00Z', '2026-10-05T14:00:00Z'],
-    ['TSK-004', 'SPR-001', 'Integrasi API Gateway Payment Provider', 'IN_PROGRESS', 'USR-004', 14, '2026-10-02T11:00:00Z', '2026-10-04T09:00:00Z'],
-    ['TSK-005', 'SPR-001', 'Burndown Chart Visualization & Metrics', 'IN_PROGRESS', 'USR-003', 10, '2026-10-06T08:00:00Z', '2026-10-07T10:00:00Z'],
-    ['TSK-006', 'SPR-001', 'UAT Bersama Klien Eksternal & Release Notes', 'TODO', 'USR-002', 8, '2026-10-01T08:00:00Z', '2026-10-01T08:00:00Z']
+    ['TSK-000', 'SPR-001', 'Inisiatif Portal Delivery Multifinance', 'IN_PROGRESS', 'USR-002', 40, '2026-10-01T08:00:00Z', '2026-10-01T08:00:00Z', 'INITIATIVE', 1, ''],
+    ['TSK-001', 'SPR-001', 'Setup Database Schema & Google Sheets Tabs', 'DONE', 'USR-003', 8, '2026-10-01T08:00:00Z', '2026-10-02T16:00:00Z', 'TASK', 0, 'TSK-000'],
+    ['TSK-002', 'SPR-001', 'Implementasi Shell UI Tailwind CSS & SPA', 'DONE', 'USR-003', 12, '2026-10-01T09:00:00Z', '2026-10-03T18:00:00Z', 'USER_STORY', 0, 'TSK-000'],
+    ['TSK-003', 'SPR-001', 'Time-in-Status Engine & Audit Trail', 'REVIEW', 'USR-003', 16, '2026-10-02T10:00:00Z', '2026-10-05T14:00:00Z', 'TASK', 0, 'TSK-000'],
+    ['TSK-004', 'SPR-001', 'Integrasi API Gateway Payment Provider', 'IN_PROGRESS', 'USR-004', 14, '2026-10-02T11:00:00Z', '2026-10-04T09:00:00Z', 'BUG', 0, 'TSK-000'],
+    ['TSK-005', 'SPR-001', 'Burndown Chart Visualization & Metrics', 'IN_PROGRESS', 'USR-003', 10, '2026-10-06T08:00:00Z', '2026-10-07T10:00:00Z', 'TASK', 0, ''],
+    ['TSK-006', 'SPR-001', 'UAT Bersama Klien Eksternal & Release Notes', 'TODO', 'USR-002', 8, '2026-10-01T08:00:00Z', '2026-10-01T08:00:00Z', 'USER_STORY', 0, 'TSK-000'],
+    ['TSK-007', 'SPR-001', 'Subtask: Migrasi Schema & Kolom Baru', 'DONE', 'USR-003', 4, '2026-10-01T08:00:00Z', '2026-10-02T16:00:00Z', 'SUBTASK', -1, 'TSK-001'],
+    ['TSK-008', 'SPR-001', 'Subtask: Testing Webhook Signature', 'IN_PROGRESS', 'USR-004', 6, '2026-10-02T11:00:00Z', '2026-10-04T09:00:00Z', 'SUBTASK', -1, 'TSK-004']
   ];
 
   // 6. Data Dummy Task_History
