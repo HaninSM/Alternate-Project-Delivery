@@ -66,7 +66,9 @@ function get_projects_list() {
     if (sheet_users && sheet_users.getLastRow() > 1) {
       const u_values = sheet_users.getDataRange().getValues();
       for (let i = 1; i < u_values.length; i++) {
-        user_name_map[u_values[i][0]] = u_values[i][1];
+        if (u_values[i] && u_values[i][0]) {
+          user_name_map[String(u_values[i][0]).trim()] = String(u_values[i][1] || u_values[i][0]).trim();
+        }
       }
     }
 
@@ -78,12 +80,15 @@ function get_projects_list() {
       const sp_status_idx = sp_header.indexOf('status');
 
       for (let r = 1; r < sp_values.length; r++) {
-        const sp_id = sp_values[r][0];
-        const prj_id = String(sp_values[r][1]).trim();
-        const sp_name = sp_values[r][2];
+        if (!sp_values[r] || !sp_values[r][0]) continue;
+        const sp_id = String(sp_values[r][0]).trim();
+        const prj_id = String(sp_values[r][1] || '').trim();
+        const sp_name = String(sp_values[r][2] || sp_id).trim();
         const sp_status = sp_status_idx !== -1 && sp_values[r][sp_status_idx]
           ? String(sp_values[r][sp_status_idx]).trim().toUpperCase()
           : (sp_values[r][5] ? String(sp_values[r][5]).trim().toUpperCase() : 'ACTIVE');
+
+        if (!prj_id) continue;
 
         if (!project_sprint_map[prj_id]) {
           project_sprint_map[prj_id] = { id: sp_id, name: sp_name, status: sp_status };
@@ -101,38 +106,50 @@ function get_projects_list() {
       const sp_idx = t_values[0].map(h => String(h).trim().toLowerCase()).indexOf('sprint_id');
       const status_idx = t_values[0].map(h => String(h).trim().toLowerCase()).indexOf('status');
 
-      for (let r = 1; r < t_values.length; r++) {
-        const s_id = String(t_values[r][sp_idx]).trim();
-        const status = String(t_values[r][status_idx]).toUpperCase().trim();
+      if (sp_idx !== -1 && status_idx !== -1) {
+        for (let r = 1; r < t_values.length; r++) {
+          if (!t_values[r] || !t_values[r][sp_idx]) continue;
+          const s_id = String(t_values[r][sp_idx]).trim();
+          const status = String(t_values[r][status_idx] || '').toUpperCase().trim();
 
-        if (!sprint_task_stats[s_id]) {
-          sprint_task_stats[s_id] = { total: 0, done: 0 };
-        }
-        sprint_task_stats[s_id].total++;
-        if (status === 'DONE') {
-          sprint_task_stats[s_id].done++;
+          if (!sprint_task_stats[s_id]) {
+            sprint_task_stats[s_id] = { total: 0, done: 0 };
+          }
+          sprint_task_stats[s_id].total++;
+          if (status === 'DONE') {
+            sprint_task_stats[s_id].done++;
+          }
         }
       }
     }
 
     const prj_values = sheet_projects.getDataRange().getValues();
+    const prj_header = prj_values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = prj_header.indexOf('id') !== -1 ? prj_header.indexOf('id') : 0;
+    const name_idx = prj_header.indexOf('name') !== -1 ? prj_header.indexOf('name') : 1;
+    const pm_idx = prj_header.indexOf('pm_id') !== -1 ? prj_header.indexOf('pm_id') : 2;
+
     const projects = [];
     for (let r = 1; r < prj_values.length; r++) {
-      const project_id = prj_values[r][0];
-      const pm_id = prj_values[r][2];
-      const active_sp = project_sprint_map[project_id] || { id: 'SPR-001', name: 'Sprint 1' };
+      if (!prj_values[r] || !prj_values[r][id_idx]) continue;
+      const project_id = String(prj_values[r][id_idx]).trim();
+      if (!project_id) continue;
+
+      const project_name = String(prj_values[r][name_idx] || project_id).trim();
+      const pm_id = String(prj_values[r][pm_idx] || '').trim();
+      const active_sp = project_sprint_map[project_id] || { id: 'SPR-' + project_id.replace('PRJ-', ''), name: 'Sprint 1 - Foundations' };
       const stats = sprint_task_stats[active_sp.id] || { total: 0, done: 0 };
 
       projects.push({
         id: project_id,
-        name: prj_values[r][1],
+        name: project_name,
         pm_id: pm_id,
         pm_name: user_name_map[pm_id] || pm_id || 'Project Manager',
         active_sprint_id: active_sp.id,
-        active_sprint_name: active_sp.name,
+        active_sprint_name: active_sp.name || 'Sprint 1',
         active_sprint_status: active_sp.status || 'ACTIVE',
-        total_tasks: stats.total,
-        done_tasks: stats.done
+        total_tasks: stats.total || 0,
+        done_tasks: stats.done || 0
       });
     }
 

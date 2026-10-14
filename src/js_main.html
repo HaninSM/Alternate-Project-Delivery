@@ -1212,15 +1212,39 @@ function close_project_modal() {
  * Mengambil daftar project dari backend
  */
 function load_projects_list() {
+  const container = document.getElementById('dashboard-project-list');
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(response => {
         if (response && response.success) {
           app_state.projects = response.data || [];
-          render_projects_dashboard(response.data);
+          render_projects_dashboard(app_state.projects);
+          update_header_project_dropdown(app_state.projects);
+        } else {
+          show_notification('Gagal memuat daftar project: ' + (response ? response.message : 'Respon tidak valid'), 'error');
+          if (container) {
+            container.innerHTML = `
+              <div class="col-span-full p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center text-xs text-rose-600">
+                Gagal memuat daftar project: ${escape_html(response ? response.message : 'Error tidak diketahui')}
+              </div>
+            `;
+          }
+        }
+      })
+      .withFailureHandler(err => {
+        show_notification('Error server saat memuat project: ' + err.message, 'error');
+        if (container) {
+          container.innerHTML = `
+            <div class="col-span-full p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center text-xs text-rose-600">
+              Error server saat memuat proyek: ${escape_html(err.message)}
+            </div>
+          `;
         }
       })
       .get_projects_list();
+  } else {
+    render_projects_dashboard(app_state.projects || []);
+    update_header_project_dropdown(app_state.projects || []);
   }
 }
 
@@ -1231,11 +1255,12 @@ function render_projects_dashboard(projects) {
   const container = document.getElementById('dashboard-project-list');
   if (!container) return;
 
-  if (!projects || projects.length === 0) {
+  if (!projects || !Array.isArray(projects) || projects.length === 0) {
     container.innerHTML = `
       <div class="col-span-full p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center">
-        <p class="text-sm text-slate-500 mb-2">Belum ada project terdaftar.</p>
-        <button onclick="open_project_modal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 cursor-pointer">
+        <p class="text-sm font-semibold text-slate-700 mb-1">Belum ada project terdaftar.</p>
+        <p class="text-xs text-slate-400 mb-4">Buat project pertama Anda untuk memulai manajemen Kanban & Scrum.</p>
+        <button type="button" onclick="open_project_modal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 cursor-pointer shadow-sm transition-colors">
           + Buat Project Pertama
         </button>
       </div>
@@ -1245,32 +1270,83 @@ function render_projects_dashboard(projects) {
 
   container.innerHTML = '';
   projects.forEach(prj => {
+    if (!prj || !prj.id) return;
     const card = document.createElement('div');
     card.className = 'p-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4';
     card.innerHTML = `
       <div>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">${prj.id}</span>
-          <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Aktif</span>
+          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">${escape_html(prj.id)}</span>
+          <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+            ${escape_html(prj.active_sprint_status === 'ACTIVE' ? 'Sprint Aktif' : (prj.active_sprint_status || 'Aktif'))}
+          </span>
         </div>
-        <h4 class="text-sm font-bold text-slate-800">${escape_html(prj.name)}</h4>
-        <p class="text-xs text-slate-500 mt-1">PIC: <strong>${escape_html(prj.pm_name)}</strong></p>
+        <h4 class="text-sm font-bold text-slate-800">${escape_html(prj.name || prj.id)}</h4>
+        <p class="text-xs text-slate-500 mt-1">PIC: <strong>${escape_html(prj.pm_name || 'Project Manager')}</strong></p>
       </div>
       <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
         <span class="text-xs text-slate-500">Selesai: <strong>${prj.done_tasks || 0}/${prj.total_tasks || 0}</strong> Task</span>
         <div class="flex items-center space-x-1.5">
-          <button onclick="select_project_and_open_planning('${prj.id}', '${prj.name.replace(/'/g, "\\'")}', '${prj.active_sprint_id || ''}', '${(prj.active_sprint_name || '').replace(/'/g, "\\'")}')" class="text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer">
+          <button type="button" class="btn-open-planning text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer">
             Planning
           </button>
-          <button onclick="select_project_and_open_board('${prj.id}', '${prj.name.replace(/'/g, "\\'")}', '${prj.active_sprint_id || ''}', '${(prj.active_sprint_name || '').replace(/'/g, "\\'")}')" class="text-xs font-bold text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1">
+          <button type="button" class="btn-open-board text-xs font-bold text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1">
             <span>Board</span>
             <span>&rarr;</span>
           </button>
         </div>
       </div>
     `;
+
+    // Pasang handler langsung tanpa rentan syntax error quote escaping
+    const btn_plan = card.querySelector('.btn-open-planning');
+    if (btn_plan) {
+      btn_plan.onclick = () => select_project_and_open_planning(prj.id, prj.name, prj.active_sprint_id, prj.active_sprint_name);
+    }
+    const btn_board = card.querySelector('.btn-open-board');
+    if (btn_board) {
+      btn_board.onclick = () => select_project_and_open_board(prj.id, prj.name, prj.active_sprint_id, prj.active_sprint_name);
+    }
+
     container.appendChild(card);
   });
+}
+
+/**
+ * Memperbarui Dropdown Proyek di Top Navbar agar user bisa beralih proyek dari mana saja
+ */
+function update_header_project_dropdown(projects) {
+  const select_el = document.getElementById('header-project-select');
+  if (!select_el) return;
+
+  if (!projects || projects.length === 0) {
+    select_el.innerHTML = '<option value="">(Belum Ada Proyek)</option>';
+    return;
+  }
+
+  const current_active = app_state.active_project_id || (projects[0] ? projects[0].id : '');
+  let options_html = '';
+  projects.forEach(p => {
+    options_html += `<option value="${escape_html(p.id)}"${p.id === current_active ? ' selected' : ''}>${escape_html(p.name)} (${escape_html(p.id)})</option>`;
+  });
+  select_el.innerHTML = options_html;
+  select_el.value = current_active;
+}
+
+/**
+ * Handler ketika user mengganti proyek via Dropdown Top Navbar
+ */
+function handle_header_project_change(selected_prj_id) {
+  if (!selected_prj_id) return;
+  const target_prj = (app_state.projects || []).find(p => p.id === selected_prj_id);
+  if (target_prj) {
+    if (app_state.current_view === 'scrum-planning' || app_state.current_project_tab === 'planning') {
+      select_project_and_open_planning(target_prj.id, target_prj.name, target_prj.active_sprint_id, target_prj.active_sprint_name);
+    } else {
+      select_project_and_open_board(target_prj.id, target_prj.name, target_prj.active_sprint_id, target_prj.active_sprint_name);
+    }
+    show_notification('Beralih ke project ' + target_prj.name, 'info');
+  }
 }
 
 /**
@@ -1281,11 +1357,11 @@ function select_project_and_open_board(project_id, project_name, sprint_id, spri
   app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
   app_state.active_sprint_name = sprint_name || 'Sprint 1 - Foundations';
   
-  const header_prj = document.getElementById('header-project-name');
-  if (header_prj) header_prj.textContent = project_name;
-
   const header_sp = document.getElementById('header-sprint-name');
   if (header_sp) header_sp.textContent = app_state.active_sprint_name;
+
+  const header_sel = document.getElementById('header-project-select');
+  if (header_sel) header_sel.value = project_id;
 
   switch_view('board');
   load_sprint_tasks();
@@ -1300,11 +1376,11 @@ function select_project_and_open_planning(project_id, project_name, sprint_id, s
   app_state.active_sprint_id = sprint_id || ('SPR-' + project_id.replace('PRJ-', ''));
   app_state.active_sprint_name = sprint_name || 'Sprint 1 (Planning)';
   
-  const header_prj = document.getElementById('header-project-name');
-  if (header_prj) header_prj.textContent = project_name;
-
   const header_sp = document.getElementById('header-sprint-name');
   if (header_sp) header_sp.textContent = app_state.active_sprint_name;
+
+  const header_sel = document.getElementById('header-project-select');
+  if (header_sel) header_sel.value = project_id;
 
   switch_view('scrum-planning');
 }
