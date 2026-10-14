@@ -1495,6 +1495,61 @@ function load_scrum_planning_data() {
 }
 
 /**
+ * Helper Mengurutkan Task Berdasarkan Hirarki (Inisiatif 1 -> Story/Task/Bug 0 -> Subtask -1)
+ * Memastikan Subtask selalu tampil menempel di bawah parent task-nya
+ */
+function sort_tasks_by_hierarchy(tasks) {
+  if (!tasks || tasks.length <= 1) return tasks || [];
+
+  const task_map = {};
+  const children_map = {};
+  const root_tasks = [];
+
+  tasks.forEach(t => {
+    task_map[t.id] = t;
+  });
+
+  tasks.forEach(t => {
+    if (t.parent_id && task_map[t.parent_id]) {
+      if (!children_map[t.parent_id]) children_map[t.parent_id] = [];
+      children_map[t.parent_id].push(t);
+    } else {
+      root_tasks.push(t);
+    }
+  });
+
+  // Urutkan root tasks: Level 1 (Inisiatif) dahulu, lalu Level 0
+  root_tasks.sort((a, b) => {
+    const lvl_a = Number(a.hierarchy_level !== undefined ? a.hierarchy_level : 0);
+    const lvl_b = Number(b.hierarchy_level !== undefined ? b.hierarchy_level : 0);
+    if (lvl_b !== lvl_a) return lvl_b - lvl_a;
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  const result = [];
+  function append_branch(item) {
+    result.push(item);
+    const children = children_map[item.id] || [];
+    children.sort((a, b) => {
+      const lvl_a = Number(a.hierarchy_level !== undefined ? a.hierarchy_level : 0);
+      const lvl_b = Number(b.hierarchy_level !== undefined ? b.hierarchy_level : 0);
+      if (lvl_b !== lvl_a) return lvl_b - lvl_a;
+      return String(a.id).localeCompare(String(b.id));
+    });
+    children.forEach(child => append_branch(child));
+  }
+
+  root_tasks.forEach(rt => append_branch(rt));
+
+  // Sertakan task sisa jika ada edge case
+  tasks.forEach(t => {
+    if (!result.includes(t)) result.push(t);
+  });
+
+  return result;
+}
+
+/**
  * Merender seluruh tampilan Scrum Planning (Wadah Backlog dan Sprints)
  */
 function render_scrum_planning_view() {
@@ -1503,12 +1558,33 @@ function render_scrum_planning_view() {
   const is_admin_or_pm = !current_user.role || current_user.role === 'ADMIN' || current_user.role === 'PM';
   const can_edit = is_admin_or_pm || perms.can_move_task !== false;
 
+  const backlog_tasks = app_state.backlog_tasks || [];
+  const sprints = app_state.sprints || [];
+
+  // Hitung relasi subtask di seluruh bucket Scrum
+  const all_planning_tasks = [...backlog_tasks];
+  sprints.forEach(sp => (sp.tasks || []).forEach(t => all_planning_tasks.push(t)));
+  const subtask_counts = {};
+  const subtask_done_counts = {};
+  all_planning_tasks.forEach(t => {
+    if (t.parent_id) {
+      subtask_counts[t.parent_id] = (subtask_counts[t.parent_id] || 0) + 1;
+      if (String(t.status || '').toUpperCase() === 'DONE') {
+        subtask_done_counts[t.parent_id] = (subtask_done_counts[t.parent_id] || 0) + 1;
+      }
+    }
+  });
+
+  all_planning_tasks.forEach(t => {
+    t.subtask_count = subtask_counts[t.id] || 0;
+    t.subtask_done_count = subtask_done_counts[t.id] || 0;
+  });
+
   // 1. Render Product Backlog Bucket
   const backlog_container = document.getElementById('bucket-product-backlog');
   const backlog_count_el = document.getElementById('scrum-backlog-count');
   const backlog_hours_el = document.getElementById('scrum-backlog-hours');
 
-  const backlog_tasks = app_state.backlog_tasks || [];
   let total_backlog_hours = 0;
   backlog_tasks.forEach(t => total_backlog_hours += (Number(t.estimate_hours) || 0));
 
@@ -1531,7 +1607,8 @@ function render_scrum_planning_view() {
         </div>
       `;
     } else {
-      backlog_tasks.forEach(task => {
+      const sorted_backlog = sort_tasks_by_hierarchy(backlog_tasks);
+      sorted_backlog.forEach(task => {
         const card = create_bucket_task_card_element(task, 'BACKLOG', can_edit);
         backlog_container.appendChild(card);
       });
@@ -1543,7 +1620,6 @@ function render_scrum_planning_view() {
   if (!sprints_container) return;
 
   sprints_container.innerHTML = '';
-  const sprints = app_state.sprints || [];
 
   if (sprints.length === 0) {
     sprints_container.innerHTML = `
@@ -1646,7 +1722,8 @@ function render_scrum_planning_view() {
           </div>
         `;
       } else {
-        sp.tasks.forEach(task => {
+        const sorted_sp_tasks = sort_tasks_by_hierarchy(sp.tasks);
+        sorted_sp_tasks.forEach(task => {
           const card = create_bucket_task_card_element(task, sp.id, can_edit && sp_status !== 'COMPLETED');
           task_list_container.appendChild(card);
         });
@@ -1657,47 +1734,79 @@ function render_scrum_planning_view() {
 
 /**
  * Membuat elemen kartu task pada Bucket Scrum
- * Dilengkapi Drag Handle + Quick Move Selector (Solusi Anti-Macet Iframe)
+ * Tampilan Responsif 3-Baris Rapi (Header, Judul Bebas Bentrok, Footer Terstruktur)
+ * Mendukung visual indentasi untuk Subtask (-1) dan border tebal untuk Inisiatif (1)
  */
 function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
   const card = document.createElement('div');
   card.id = 'bucket-task-' + task.id;
-  card.className = 'p-3 bg-white rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-indigo-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5' + (can_edit ? ' cursor-grab active:cursor-grabbing' : '');
-  
+
+  const work_type = String(task.work_type || 'TASK').toUpperCase();
+  const is_subtask = (work_type === 'SUBTASK' || Number(task.hierarchy_level) === -1);
+  const is_initiative = (work_type === 'INITIATIVE' || Number(task.hierarchy_level) === 1);
+  const is_level_0 = (!is_subtask && !is_initiative);
+
+  // Styling kartu terstruktur tanpa tumpang tindih
+  let card_classes = 'p-3 bg-white rounded-xl border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative';
+  if (is_subtask) {
+    // Indentasi visual untuk subtask agar tampak bersarang di bawah parent
+    card_classes = 'p-2.5 bg-slate-50/80 rounded-xl border border-dashed border-slate-300 ml-4 sm:ml-6 border-l-4 border-l-indigo-400 hover:border-indigo-400 hover:bg-white shadow-none transition-all flex flex-col gap-2 relative';
+  } else if (is_initiative) {
+    // Kartu inisiatif makro
+    card_classes = 'p-3 bg-purple-50/20 rounded-xl border-2 border-purple-200 hover:border-purple-300 shadow-xs hover:shadow-md transition-all flex flex-col gap-2 relative';
+  }
+
   if (can_edit) {
+    card_classes += ' cursor-grab active:cursor-grabbing hover:border-indigo-300';
     card.draggable = true;
     card.ondragstart = (e) => handle_bucket_drag_start(e, task.id, source_bucket_id);
     card.ondragend = (e) => handle_bucket_drag_end(e);
   }
+  card.className = card_classes;
 
   // Work Type Badge
-  const work_type = String(task.work_type || 'TASK').toUpperCase();
   const work_type_badge_map = {
-    INITIATIVE: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">🟣 Inisiatif</span>',
-    USER_STORY: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">🔵 Story</span>',
-    TASK: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200">🔷 Task</span>',
-    BUG: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">🔴 Bug</span>',
-    SUBTASK: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">⚪ Subtask</span>'
+    INITIATIVE: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">🟣 Inisiatif</span>',
+    USER_STORY: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">🔵 Story</span>',
+    TASK: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200 flex-shrink-0">🔷 Task</span>',
+    BUG: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 flex-shrink-0">🔴 Bug</span>',
+    SUBTASK: '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 flex-shrink-0">⚪ Subtask</span>'
   };
   const work_type_badge = work_type_badge_map[work_type] || work_type_badge_map.TASK;
 
   // Parent Tag jika ini adalah subtask atau task bertaut
   let parent_tag_html = '';
   if (task.parent_id) {
-    parent_tag_html = `<span class="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded border border-slate-200" title="Parent Work Item">↳ ${escape_html(task.parent_id)}</span>`;
+    parent_tag_html = `
+      <span class="text-[9px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 flex items-center space-x-0.5 flex-shrink-0" title="Parent Work Item: ${escape_html(task.parent_id)}">
+        <span class="text-indigo-500 font-bold">↳</span>
+        <span>${escape_html(task.parent_id)}</span>
+      </span>
+    `;
   }
 
   // Quick "+ Subtask" button untuk item Level 0
   let quick_subtask_btn = '';
-  if (can_edit && (work_type === 'TASK' || work_type === 'USER_STORY' || work_type === 'BUG')) {
+  if (can_edit && is_level_0) {
     quick_subtask_btn = `
       <button 
         type="button" 
         onclick="event.stopPropagation(); open_subtask_modal('${escape_html(task.id)}', '${escape_html(task.title)}')" 
-        title="Tambah Subtask"
-        class="text-[10px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 font-semibold transition-colors cursor-pointer">
-        + Subtask
+        title="Tambah Subtask untuk ${escape_html(task.id)}"
+        class="text-[10px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 font-semibold transition-colors cursor-pointer flex items-center space-x-1 flex-shrink-0">
+        <span>+ Subtask</span>
       </button>
+    `;
+  }
+
+  // Subtask Progress Pill jika punya subtask
+  let subtask_progress_pill = '';
+  if (task.subtask_count && task.subtask_count > 0) {
+    subtask_progress_pill = `
+      <span class="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 flex items-center space-x-1 flex-shrink-0" title="${task.subtask_count} subtask terhubung (akan ikut berpindah otomatis)">
+        <span class="text-[9px]">📦</span>
+        <span>${task.subtask_count} Subtask</span>
+      </span>
     `;
   }
 
@@ -1705,7 +1814,7 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
   let move_options_html = '';
   if (can_edit) {
     const available_sprints = app_state.sprints || [];
-    let options = '<option value="" disabled selected>Pindahkan ke...</option>';
+    let options = '<option value="" disabled selected>Pindahkan...</option>';
     if (source_bucket_id !== 'BACKLOG') {
       options += '<option value="BACKLOG">↩ Ke Backlog</option>';
     }
@@ -1718,36 +1827,60 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
     move_options_html = `
       <div class="flex items-center space-x-1 flex-shrink-0" onclick="event.stopPropagation()">
         <select 
-          title="Pindahkan task ini secara instan"
+          title="Pindahkan task beserta subtask-nya"
           onchange="handle_quick_move_task('${task.id}', '${source_bucket_id}', this.value)"
-          class="text-[10px] bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-1.5 py-1 text-slate-700 font-medium focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer">
+          class="text-[10px] bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-slate-700 font-medium focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer">
           ${options}
         </select>
       </div>
     `;
   }
 
+  // Desain Kartu 3-Baris: Terisolasi, Lebar Bebas, Bersih dari Tumpang Tindih
   card.innerHTML = `
-    <div class="flex items-center space-x-3 min-w-0 select-none">
-      <div class="text-slate-400 flex-shrink-0 cursor-grab pointer-events-none">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
-      </div>
-      <div class="min-w-0">
-        <div class="flex items-center space-x-2 flex-wrap gap-1">
-          <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">${task.id}</span>
-          ${work_type_badge}
-          ${parent_tag_html}
-          <h5 class="text-xs font-bold text-slate-800 truncate">${escape_html(task.title)}</h5>
+    <!-- Baris 1: Header (Drag Icon, ID, Work Type, Parent Tag, Quick Move Dropdown) -->
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+        <div class="text-slate-400 hover:text-slate-600 cursor-grab pointer-events-none p-0.5 flex-shrink-0" title="Geser kartu">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
         </div>
-        <p class="text-[10px] text-slate-400 mt-0.5">PIC: <span class="font-medium text-slate-600">${escape_html(task.assignee_name || 'Belum Ditugaskan')}</span></p>
+        <span class="text-[10px] font-bold font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 flex-shrink-0">
+          ${task.id}
+        </span>
+        ${work_type_badge}
+        ${parent_tag_html}
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        ${move_options_html}
       </div>
     </div>
-    <div class="flex items-center space-x-2 flex-shrink-0 self-end sm:self-center">
-      ${quick_subtask_btn}
-      <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 select-none">
-        ${task.estimate_hours || 0} Jam
-      </span>
-      ${move_options_html}
+
+    <!-- Baris 2: Judul Tugas (Lebar penuh, mudah dibaca, tidak bertumpuk) -->
+    <div class="pl-4">
+      <h5 class="text-xs font-semibold text-slate-800 leading-snug line-clamp-2" title="${escape_html(task.title)}">
+        ${escape_html(task.title)}
+      </h5>
+    </div>
+
+    <!-- Baris 3: Footer (PIC, Subtask Pill, + Subtask, Estimasi Jam) -->
+    <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 pl-4 text-[11px]">
+      <div class="flex items-center space-x-1.5 min-w-0 text-slate-500">
+        <div class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+          ${(task.assignee_name || 'U').charAt(0).toUpperCase()}
+        </div>
+        <span class="truncate max-w-[120px] text-[10px] text-slate-600" title="${escape_html(task.assignee_name || '')}">
+          ${escape_html(task.assignee_name || 'Belum Ditugaskan')}
+        </span>
+      </div>
+
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        ${subtask_progress_pill}
+        ${quick_subtask_btn}
+        <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 select-none">
+          <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          ${task.estimate_hours || 0} Jam
+        </span>
+      </div>
     </div>
   `;
 
@@ -1765,13 +1898,22 @@ function handle_bucket_drag_start(e, task_id, source_bucket_id) {
   e.dataTransfer.effectAllowed = 'move';
   const target_card = document.getElementById('bucket-task-' + task_id);
   if (target_card) target_card.classList.add('opacity-40');
+
+  // Fade out juga kartu-kartu subtask yang bertaut agar user tahu mereka ikut dipindahkan
+  const all_tasks = [...(app_state.backlog_tasks || [])];
+  (app_state.sprints || []).forEach(sp => (sp.tasks || []).forEach(t => all_tasks.push(t)));
+  all_tasks.forEach(t => {
+    if (t.parent_id === task_id) {
+      const sub_card = document.getElementById('bucket-task-' + t.id);
+      if (sub_card) sub_card.classList.add('opacity-40');
+    }
+  });
 }
 
 function handle_bucket_drag_end(e) {
-  if (current_bucket_drag_data && current_bucket_drag_data.task_id) {
-    const target_card = document.getElementById('bucket-task-' + current_bucket_drag_data.task_id);
-    if (target_card) target_card.classList.remove('opacity-40');
-  }
+  document.querySelectorAll('[id^="bucket-task-"]').forEach(el => {
+    el.classList.remove('opacity-40');
+  });
   document.querySelectorAll('.bucket-droppable-area').forEach(el => {
     el.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-300');
   });
@@ -1823,6 +1965,8 @@ function handle_quick_move_task(task_id, source_bucket_id, target_bucket_id) {
 
 /**
  * Eksekutor Pemindahan Task antar Bucket (Digunakan oleh Drag-and-Drop & Quick Select)
+ * Mendukung Pemindahan Sepaket (Bundled Hierarchy Move):
+ * Saat memindahkan task Level 0 atau 1, seluruh subtask (-1) ikut dipindahkan ke bucket tujuan
  */
 function execute_move_task(task_id, source_bucket_id, target_bucket_id) {
   if (!task_id || !target_bucket_id || source_bucket_id === target_bucket_id) return;
@@ -1832,45 +1976,80 @@ function execute_move_task(task_id, source_bucket_id, target_bucket_id) {
     ? ('BACKLOG-' + app_state.active_project_id)
     : target_bucket_id;
 
-  // Cari objek task di source bucket
-  let moved_task = null;
-  if (source_bucket_id === 'BACKLOG') {
-    const idx = (app_state.backlog_tasks || []).findIndex(t => t.id === task_id);
-    if (idx !== -1) {
-      moved_task = app_state.backlog_tasks.splice(idx, 1)[0];
-    }
-  } else {
-    const sp = (app_state.sprints || []).find(s => s.id === source_bucket_id);
-    if (sp && sp.tasks) {
-      const idx = sp.tasks.findIndex(t => t.id === task_id);
-      if (idx !== -1) {
-        moved_task = sp.tasks.splice(idx, 1)[0];
-        sp.total_hours -= (Number(moved_task.estimate_hours) || 0);
-      }
-    }
+  // 1. Kumpulkan seluruh task dalam memori
+  const all_tasks_pool = [
+    ...(app_state.backlog_tasks || []),
+    ...((app_state.sprints || []).flatMap(sp => sp.tasks || []))
+  ];
+
+  const main_task = all_tasks_pool.find(t => t.id === task_id);
+  if (!main_task) return;
+
+  // 2. Kumpulkan task utama beserta seluruh subtask/turunannya (sepaket)
+  const tasks_to_move = [main_task];
+  const main_level = Number(main_task.hierarchy_level !== undefined ? main_task.hierarchy_level : 0);
+
+  if (main_level === 1) {
+    // Level 1 (Inisiatif): kumpulkan semua anak Level 0 dan subtask Level -1
+    const child_level_0 = all_tasks_pool.filter(t => t.parent_id === main_task.id);
+    const child_l0_ids = child_level_0.map(t => t.id);
+    const child_subtasks = all_tasks_pool.filter(t => t.parent_id && child_l0_ids.includes(t.parent_id));
+
+    child_level_0.forEach(c => { if (!tasks_to_move.includes(c)) tasks_to_move.push(c); });
+    child_subtasks.forEach(s => { if (!tasks_to_move.includes(s)) tasks_to_move.push(s); });
+  } else if (main_level === 0) {
+    // Level 0 (Story, Task, Bug): kumpulkan semua subtask (Level -1) yang bertaut padanya
+    const subtasks = all_tasks_pool.filter(t => t.parent_id === main_task.id);
+    subtasks.forEach(s => { if (!tasks_to_move.includes(s)) tasks_to_move.push(s); });
   }
 
-  if (!moved_task) return;
+  const moved_ids = tasks_to_move.map(t => t.id);
 
-  // Masukkan ke target bucket
-  moved_task.sprint_id = target_sprint_id;
+  // 3. Cabut semua tasks_to_move dari seluruh bucket asal (Backlog & Sprints)
+  if (app_state.backlog_tasks) {
+    app_state.backlog_tasks = app_state.backlog_tasks.filter(t => !moved_ids.includes(t.id));
+  }
+  (app_state.sprints || []).forEach(sp => {
+    if (sp.tasks) {
+      sp.tasks = sp.tasks.filter(t => !moved_ids.includes(t.id));
+    }
+  });
+
+  // 4. Masukkan seluruh tasks_to_move ke bucket tujuan
+  tasks_to_move.forEach(t => {
+    t.sprint_id = target_sprint_id;
+  });
+
   if (target_bucket_id === 'BACKLOG') {
     if (!app_state.backlog_tasks) app_state.backlog_tasks = [];
-    app_state.backlog_tasks.push(moved_task);
+    app_state.backlog_tasks.push(...tasks_to_move);
   } else {
-    const sp = (app_state.sprints || []).find(s => s.id === target_bucket_id);
-    if (sp) {
-      if (!sp.tasks) sp.tasks = [];
-      sp.tasks.push(moved_task);
-      sp.total_hours = (Number(sp.total_hours) || 0) + (Number(moved_task.estimate_hours) || 0);
+    const target_sp = (app_state.sprints || []).find(s => s.id === target_bucket_id);
+    if (target_sp) {
+      if (!target_sp.tasks) target_sp.tasks = [];
+      target_sp.tasks.push(...tasks_to_move);
     }
   }
 
-  // Render perubahan segera (optimistic update)
-  render_scrum_planning_view();
-  show_notification(`Task ${task_id} berhasil dipindahkan ke ${target_bucket_id}.`, 'success');
+  // 5. Hitung ulang total_hours untuk seluruh sprint
+  (app_state.sprints || []).forEach(sp => {
+    let hrs = 0;
+    (sp.tasks || []).forEach(t => hrs += (Number(t.estimate_hours) || 0));
+    sp.total_hours = hrs;
+  });
 
-  // Sync ke Backend GAS
+  // 6. Optimistic UI re-render
+  render_scrum_planning_view();
+
+  const subtask_count = tasks_to_move.length - 1;
+  const target_name = target_bucket_id === 'BACKLOG' ? 'Product Backlog' : target_bucket_id;
+  if (subtask_count > 0) {
+    show_notification(`Task ${task_id} beserta ${subtask_count} subtask/turunan berhasil dipindahkan ke ${target_name}.`, 'success');
+  } else {
+    show_notification(`Task ${task_id} berhasil dipindahkan ke ${target_name}.`, 'success');
+  }
+
+  // 7. Sync ke Backend GAS
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(response => {

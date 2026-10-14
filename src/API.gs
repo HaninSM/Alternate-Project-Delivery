@@ -721,6 +721,26 @@ function get_project_backlog_and_sprints(project_id) {
       }
     }
 
+    // Hitung agregasi subtask untuk seluruh task dalam project ini
+    const subtask_counts = {};
+    const subtask_done_counts = {};
+    const all_project_tasks = [...backlog_tasks];
+    sprints.forEach(sp => (sp.tasks || []).forEach(t => all_project_tasks.push(t)));
+
+    all_project_tasks.forEach(t => {
+      if (t.parent_id) {
+        subtask_counts[t.parent_id] = (subtask_counts[t.parent_id] || 0) + 1;
+        if (t.status === 'DONE') {
+          subtask_done_counts[t.parent_id] = (subtask_done_counts[t.parent_id] || 0) + 1;
+        }
+      }
+    });
+
+    all_project_tasks.forEach(t => {
+      t.subtask_count = subtask_counts[t.id] || 0;
+      t.subtask_done_count = subtask_done_counts[t.id] || 0;
+    });
+
     return {
       success: true,
       data: {
@@ -804,6 +824,9 @@ function create_new_sprint_bucket(project_id, sprint_name) {
 
 /**
  * Memindahkan task antar bucket (Backlog ke Sprint, atau sebaliknya)
+ * Mendukung Pemindahan Sepaket (Bundled Hierarchy Move):
+ * - Jika memindahkan item Level 0 (Story, Task, Bug), seluruh subtask (Level -1) ikut dipindahkan ke bucket tujuan
+ * - Jika memindahkan item Level 1 (Inisiatif), seluruh anak Level 0 dan subtask Level -1 ikut dipindahkan
  *
  * @param {string} task_id - ID task yang dipindahkan
  * @param {string} target_sprint_id - ID sprint tujuan (atau 'BACKLOG-PRJ-xxx')
@@ -831,27 +854,87 @@ function move_task_to_sprint(task_id, target_sprint_id) {
     const id_idx = header.indexOf('id');
     const sp_idx = header.indexOf('sprint_id');
     const updated_idx = header.indexOf('updated_at');
+    const type_idx = header.indexOf('work_type');
+    const level_idx = header.indexOf('hierarchy_level');
+    const parent_idx = header.indexOf('parent_id');
 
-    let target_row_index = -1;
+    // 1. Temukan baris task utama
+    let main_row_index = -1;
+    let main_task_level = 0;
+    let main_task_type = 'TASK';
+
     for (let r = 1; r < task_values.length; r++) {
       if (String(task_values[r][id_idx]).trim() === String(task_id).trim()) {
-        target_row_index = r + 1;
+        main_row_index = r + 1;
+        main_task_type = type_idx !== -1 ? String(task_values[r][type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+        main_task_level = level_idx !== -1 && task_values[r][level_idx] !== '' ? Number(task_values[r][level_idx]) : get_work_type_level(main_task_type);
         break;
       }
     }
 
-    if (target_row_index === -1) {
+    if (main_row_index === -1) {
       return { success: false, message: 'Task tidak ditemukan.' };
     }
 
+    // 2. Kumpulkan baris-baris task yang harus ikut dipindahkan (sepaket)
+    const rows_to_update = [main_row_index];
+    const moved_task_ids = [String(task_id).trim()];
+
+    if (parent_idx !== -1) {
+      if (main_task_level === 1) {
+        // Level 1 (Inisiatif): Temukan semua anak Level 0
+        const child_l0_ids = [];
+        for (let r = 1; r < task_values.length; r++) {
+          const p_id = String(task_values[r][parent_idx] || '').trim();
+          if (p_id === String(task_id).trim()) {
+            rows_to_update.push(r + 1);
+            const cid = String(task_values[r][id_idx]).trim();
+            child_l0_ids.push(cid);
+            moved_task_ids.push(cid);
+          }
+        }
+        // Temukan subtask dari anak-anak Level 0 tersebut
+        if (child_l0_ids.length > 0) {
+          for (let r = 1; r < task_values.length; r++) {
+            const p_id = String(task_values[r][parent_idx] || '').trim();
+            if (child_l0_ids.includes(p_id)) {
+              rows_to_update.push(r + 1);
+              moved_task_ids.push(String(task_values[r][id_idx]).trim());
+            }
+          }
+        }
+      } else if (main_task_level === 0) {
+        // Level 0: Temukan semua subtask langsung (Level -1)
+        for (let r = 1; r < task_values.length; r++) {
+          const p_id = String(task_values[r][parent_idx] || '').trim();
+          if (p_id === String(task_id).trim()) {
+            rows_to_update.push(r + 1);
+            moved_task_ids.push(String(task_values[r][id_idx]).trim());
+          }
+        }
+      }
+    }
+
+    // 3. Update sprint_id dan updated_at pada semua baris yang relevan
     const now_ts = new Date().toISOString();
-    sheet_tasks.getRange(target_row_index, sp_idx + 1).setValue(target_sprint_id);
-    sheet_tasks.getRange(target_row_index, updated_idx + 1).setValue(now_ts);
+    rows_to_update.forEach(rowIndex => {
+      sheet_tasks.getRange(rowIndex, sp_idx + 1).setValue(target_sprint_id);
+      sheet_tasks.getRange(rowIndex, updated_idx + 1).setValue(now_ts);
+    });
+
+    const sub_count = moved_task_ids.length - 1;
+    const msg = sub_count > 0
+      ? `Task ${task_id} beserta ${sub_count} subtask/turunan berhasil dialokasikan ke bucket.`
+      : `Task ${task_id} berhasil dialokasikan ke bucket.`;
 
     return {
       success: true,
-      message: 'Task berhasil dialokasikan ke bucket.',
-      data: { task_id, target_sprint_id }
+      message: msg,
+      data: {
+        task_id: task_id,
+        moved_task_ids: moved_task_ids,
+        target_sprint_id: target_sprint_id
+      }
     };
   } catch (e) {
     return { success: false, message: 'Gagal memindahkan task: ' + e.message };
