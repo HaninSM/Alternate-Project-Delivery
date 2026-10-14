@@ -1,11 +1,11 @@
 # Execution Tasks: Agile Workflow Roadmap
 
-Roadmap implementasi dilakukan secara bertahap (*incremental development*). Setiap tahap wajib diuji coba secara fungsional sebelum melangkah ke tahap selanjutnya.
+Roadmap implementasi dilakukan secara bertahap (*incremental development*). Setiap tahap wajib diuji coba secara fungsional melalui automated test suite sebelum melangkah ke tahap selanjutnya.
 
 ---
 
 ## Tahap 1 - Setup Lingkungan & Pondasi Backend
-- [x] Buat 5 sheet/tab di Google Sheets (`Users`, `Projects`, `Sprints`, `Tasks`, `Task_History`) beserta header baris 1 (tersedia otomatis via `setup_database_schema()` di `Setup.gs`).
+- [x] Buat 5 sheet/tab awal di Google Sheets (`Users`, `Projects`, `Sprints`, `Tasks`, `Task_History`) beserta header baris 1 (tersedia otomatis via `setup_database_schema()` di `Setup.gs`).
 - [x] Buat struktur proyek awal di GAS:
   - `Code.gs`: Inisialisasi `doGet(e)` untuk merender `Index.html` dan fungsi helper `include(filename)`.
   - `Index.html`: Shell HTML dasar.
@@ -72,7 +72,7 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
 
 ---
 
-## Tahap 6 - Scrum Backlog & Sprint Planning Engine (Baru)
+## Tahap 6 - Scrum Backlog & Sprint Planning Engine
 - [x] Buat API backend pendukung Scrum di `API.gs`:
   - `get_project_backlog_and_sprints(project_id)`: Membaca task backlog dan task per bucket sprint.
   - `create_new_sprint_bucket(project_id, sprint_name)`: Membuat wadah Sprint 2, 3, dst.
@@ -110,7 +110,7 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
 - [x] Bangun antarmuka UI di `UI.html` & controller di `js_main.html`:
   - Navigasi sidebar: Menu `Manajemen Pengguna` (hanya tampil jika `can_manage_users: true`).
   - View `view-users`: Tabel pengguna dengan badge role, tag pill izin modular, dan aksi Edit/Hapus.
-  - Modal `#modal-user-form`: Form Tambah/Edit dengan dropdown Role preset autofill & 6 checkbox izin granular.
+  - Modal `#modal-user-form`: Form Tambah/Edit dengan dropdown Role preset autofill & checkbox izin granular.
   - Modal `#modal-delete-user`: Dialog konfirmasi penghapusan pengguna yang aman.
 - [x] **Quality Gate / Uji Coba Tahap 7:**
   - Uji coba resolusi izin default dan custom override.
@@ -157,3 +157,94 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba struktur sub-tab pada ruang kerja proyek.
   - Uji coba fungsionalitas pergantian tab aktif. (Diverifikasi lulus 100% via `tests/test_stage9_project_tabs.js`).
 
+---
+
+## Tahap 10 - Cycle Time & Time-in-Status Reporting (Opsi 2 Dual-Channel API)
+- [x] Bangun Dual-Channel API di `Insights.gs`:
+  - `get_cycle_time_metadata()`: Mengambil daftar proyek, sprint, dan ringkasan audit log.
+  - `get_cycle_time_report(options)`: Menghitung durasi per status (`TODO`, `IN_PROGRESS`, `REVIEW`), penanganan siklus *re-entry*, dan konversi human-readable (`Xd Xh Xm`).
+- [x] Penegakan izin granular: `can_view_cycle_time` (didistribusikan ke ADMIN, PM, MEMBER, dan CLIENT).
+- [x] Rancang antarmuka UI di `UI.html` (`#view-cycle-time`):
+  - Kartu KPI: Rata-rata Lead Time, Cycle Time, Waktu Review, dan Total Task Tuntas.
+  - Filter interaktif: Dropdown Proyek, Dropdown Sprint, dan Pencarian Judul/PIC.
+  - Tabel rincian transisi task dengan badge status dan visualisasi durasi per kolom.
+- [x] **Quality Gate / Uji Coba Tahap 10:**
+  - Uji coba kalkulasi durasi per status dan akumulasi re-entry.
+  - Uji coba otorisasi izin `can_view_cycle_time`.
+  - Uji coba rendering aman tanggal GAS. (Diverifikasi lulus 100% via `tests/test_stage10_cycle_time.js`).
+
+---
+
+## Tahap 11 - AI Product Challenger (Gemini API) & Demand Management Pipeline
+- [x] Tambahkan sheet `Initiative_Tests` dan `Demands` di `Setup.gs`.
+- [x] Bangun controller Gemini API di `ChallengerAI.gs`:
+  - System prompt rahasia ex-CPO / Head of Product spesialis finansial/multifinance.
+  - Multi-turn conversation history & attempt tracking counter.
+  - Parser keputusan AI (`APPROVED` vs `REJECTED`) dengan pembersihan tag otomatis.
+  - Auto-routing inisiatif disetujui langsung ke tab `Demands`.
+- [x] Bangun modul Demand Management di `ChallengerAI.gs`:
+  - `get_demands_list()`, `update_demand_capacity()`, `convert_demand_to_project()`.
+- [x] Bangun UI di `UI.html` (`#view-initiative-test` & `#view-demand-management`):
+  - Interface chat interaktif dengan balon percakapan, typing indicator, dan status card.
+  - Dashboard Demand Management dengan indikator kapasitas dan modal alokasi insinyur.
+- [x] **Quality Gate / Uji Coba Tahap 11:**
+  - Uji coba parser evaluasi AI, attempt tracking, dan demand auto-routing.
+  - Uji coba alokasi kapasitas dan konversi demand ke project. (Diverifikasi lulus 100% via `tests/test_stage11_challenger_demand.js`).
+
+---
+
+## Tahap 12 - Work Type Hierarchy Engine (Level 1, Level 0, Level -1)
+- [x] Perbarui skema sheet `Tasks` dengan kolom `work_type`, `hierarchy_level`, dan `parent_id`.
+- [x] Implementasikan pemetaan level hirarki numerik di `API.gs` & `Setup.gs`:
+  - Inisiatif: Level 1 (Tanpa parent)
+  - User Story, Task, Bug: Level 0 (Opsional parent Inisiatif)
+  - Subtask: Level -1 (Wajib parent Level 0)
+- [x] Bangun aturan validasi relasi parent-child di `create_new_task` dan `get_eligible_parents_for_task`.
+- [x] Hindari double-counting estimasi jam kerja pada grafik Burndown & Scope baris Sprint (*leaf-nodes only aggregation*).
+- [x] Agregasi progres subtask pada kartu parent (`subtask_count` & `subtask_done_count`).
+- [x] **Quality Gate / Uji Coba Tahap 12:**
+  - Uji coba penentuan level angka hirarki (-1, 0, 1).
+  - Uji coba validasi relasi legal vs ilegal.
+  - Uji coba pencegahan double-counting estimasi jam. (Diverifikasi lulus 100% via `tests/test_stage12_work_type_hierarchy.js`).
+
+---
+
+## Tahap 13 - Bundled Hierarchy Move & Indented Subtask UI Alignment
+- [x] Implementasikan fungsi pengurutan hierarkis `sort_tasks_by_hierarchy` di `js_main.html`:
+  - Memastikan Subtask (-1) selalu bersarang tepat di bawah kartu parent Level 0-nya.
+- [x] Bangun mesin pemindahan sepaket (*bundled move engine*) di `API.gs` (`move_task_to_sprint`):
+  - Memindahkan item Level 0 otomatis membawa seluruh Subtask (-1) ke sprint tujuan.
+  - Memindahkan Inisiatif Level 1 otomatis membawa seluruh anak Level 0 dan Subtask (-1).
+  - Subtask mandiri tetap dapat dipindahkan secara independen.
+- [x] Perbarui tata letak UI kartu task di `UI.html` dan `js_main.html`:
+  - Tampilan terstruktur 3-baris rapi bebas bentrok visual.
+  - Indentasi visual untuk Subtask (`ml-4 sm:ml-6 border-l-4 border-l-indigo-400`).
+  - Badge work type warna-warni dan pill indikator progres subtask.
+- [x] **Quality Gate / Uji Coba Tahap 13:**
+  - Uji coba pengurutan hirarki tampilan.
+  - Uji coba pemindahan sepaket Kasus A (Level 0 + Subtask), Kasus B (Inisiatif + Pohon Hirarki), dan Kasus C (Subtask mandiri). (Diverifikasi lulus 100% via `tests/test_stage13_subtask_bundle_move.js`).
+
+---
+
+## Tahap 14 - WYSIWYG Description Editor with Excel Table Paste & Task Detail Modal
+- [x] Tambahkan kolom ke-12: `description` pada skema tabel `Tasks` di `Setup.gs`.
+- [x] Bangun API backend pendukung deskripsi di `API.gs`:
+  - `create_new_task`: Menerima dan menyimpan field `description`.
+  - `get_sprint_tasks` & `get_project_backlog_and_sprints`: Mengembalikan kolom `description`.
+  - `update_task_details`: Endpoint untuk memperbarui judul, deskripsi, estimasi jam, work type, parent, dan assignee secara bersamaan.
+- [x] Bangun Toolbar & Editor WYSIWYG pada dialog form task di `UI.html`:
+  - Format teks: Bold, Italic, Underline, Strikethrough, Heading 2, Heading 3, Paragraph, Bullet/Numbered List.
+  - Generator tabel instan: Tombol **+ Tabel** (3x3 grid) dan kontrol **+ Baris**, **+ Kolom**, **- Baris**, **- Kolom**.
+  - Styling responsif dengan class `.wysiwyg-table` dan wrap `overflow-x-auto`.
+- [x] Implementasikan Mesin Interceptor Clipboard Excel & Spreadsheet di `js_main.html`:
+  - `sanitize_and_format_excel_html`: Membersihkan tag dan namespace bawaan Microsoft Office MSO, fixed pixel width, dan inline fonts.
+  - `convert_tsv_to_html_table`: Mengonversi teks tab-delimited (<kbd>Ctrl+V</kbd>) dari Excel / Google Sheets menjadi tabel HTML terstruktur rapi.
+- [x] Bangun Modal Detail Work Item (`#modal-task-detail`) di `UI.html` & `js_main.html`:
+  - Menampilkan informasi rincian lengkap tugas, badge hirarki, dan merender HTML deskripsi secara utuh.
+  - Tombol **Edit Work Item** untuk langsung membuka form edit terisi data lengkap.
+  - Indikator visual `📝` pada kartu tugas di Kanban Board dan Product Backlog.
+- [x] **Quality Gate / Uji Coba Tahap 14:**
+  - Uji coba pembersihan HTML tabel dari Microsoft Excel.
+  - Uji coba konversi data TSV Excel ke tabel HTML.
+  - Uji coba CRUD deskripsi pada backend database.
+  - Uji coba integritas berkas sumber. (Diverifikasi lulus 100% via `tests/test_stage14_wysiwyg_excel_paste.js`).

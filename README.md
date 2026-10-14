@@ -1,54 +1,80 @@
 # Alternate Project Delivery (LITE)
 
-Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketegasan Jira) dengan fokus utama menyajikan **Actionable Insights** (Burndown Chart, Lead Time, Cycle Time, Blocker Highlights) untuk Project Manager serta memberikan transparansi real-time bagi klien eksternal.
+Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketegasan Jira) dengan fokus utama menyajikan **Actionable Insights** (Burndown Chart, Lead Time, Cycle Time, Blocker Highlights, dan Time-in-Status Reporting) untuk Project Manager, transparansi real-time bagi klien eksternal, dilengkapi asisten evaluasi **AI Product Challenger**, serta editor spesifikasi **WYSIWYG** yang mendukung integrasi copy-paste tabel dari Microsoft Excel & Google Sheets.
 
 ---
 
 ## 🛠 Tech Stack (LITE Version)
 - **Backend & Web Hosting:** [Google Apps Script (GAS)](https://developers.google.com/apps-script)
-- **Database:** [Google Sheets](https://www.google.com/sheets/about/) (sebagai database relasional terstruktur)
+- **Database:** [Google Sheets](https://www.google.com/sheets/about/) (sebagai database relasional terstruktur 7 tab)
 - **Frontend:** Vanilla JavaScript (ES6+), HTML5, [Tailwind CSS](https://tailwindcss.com/) (via CDN)
 - **Data Visualization:** [Chart.js](https://www.chartjs.org/) (via CDN)
-- **Authentication & RBAC:** Google Identity bawaan (mencocokkan sesi email akun Google aktif dengan data pengguna)
+- **Generative AI:** [Google Gemini API](https://ai.google.dev/) (via REST API di Apps Script)
+- **Authentication & RBAC:** Google Identity bawaan dengan resolusi sesi email akun Google aktif
 
 ---
 
 ## 🌟 Fitur Utama & Alur Kerja
 
-### 1. Inisiasi Proyek (Kanban vs Scrum)
-- **Mode Kanban:** Alur kerja kontinu langsung ke papan 4 kolom.
-- **Mode Scrum:** 
-  - **Bucket Product Backlog:** Wadah menampung seluruh ide & tiket pekerjaan yang belum dijadwalkan.
-  - **Bucket Sprints (Sprint 1, Sprint 2, dst.):** PM dapat membuat bucket iterasi baru kapan saja.
-  - **Drag and Drop Planning:** Pindahkan task dari wadah Backlog ke wadah Sprint target secara intuitif.
-  - **Start Sprint Action:** Tombol aktivasi sprint yang meminta durasi (1-4 minggu) dan *Sprint Goal*, lalu mengarahkan tim langsung ke Active Board.
+### 1. Inisiasi Proyek & Selector Proyek Aktif (Navbar)
+- **Mode Kanban & Scrum:** Inisiasi proyek baru dengan alur kontinu Kanban atau siklus iterasi Scrum ber-bucket.
+- **Header Project Dropdown:** Berpindah ruang kerja antar proyek secara instan langsung dari dropdown di navbar atas tanpa harus kembali ke dasbor.
 
-### 2. Active Kanban Board (Drag & Drop Murni)
-- 4 Kolom status standar: `TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`.
-- Interaksi murni HTML5 Drag & Drop kartu antar kolom (tanpa combobox/dropdown).
-- *Optimistic UI Updates* untuk transisi kartu secepat kilat.
-- Perlindungan *Read-Only* bagi External Client.
+### 2. Unified Project Workspace (Sub-Navbar Tabs)
+- Navigasi proyek disatukan dalam satu menu utama **Project** dengan sub-tab:
+  - **Tab Kanban Board:** Papan eksekusi sprint aktif dengan alur 4 status: `TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`.
+  - **Tab Sprint Planning:** Ruang perencanaan Product Backlog dan pengelolaan bucket Sprint (Planning, Start Sprint, Complete Sprint dengan rollover).
 
-### 3. Actionable Insights Engine
-- **Burndown Chart:** Pelacakan sisa jam estimasi harian vs garis Ideal linier.
-- **Lead Time & Cycle Time:** Mengukur kecepatan aktual delivery tim.
-- **Deteksi Blocker Otomatis:** Menyorot task yang macet di status `IN_PROGRESS` atau `REVIEW` lebih dari 48 jam.
+### 3. Hirarki Tipe Pekerjaan (Work Type Hierarchy) & Pemindahan Sepaket
+- **Struktur Hirarki 3 Level:**
+  - **Level 1 (`INITIATIVE`):** Sasaran strategis makro (tanpa parent).
+  - **Level 0 (`USER_STORY`, `TASK`, `BUG`):** Pekerjaan fungsional standar (opsional memiliki parent Inisiatif).
+  - **Level -1 (`SUBTASK`):** Pecahan teknis terkecil (**wajib** memiliki parent Level 0).
+- **Bundled Hierarchy Move Engine:**
+  - Menggeser kartu Level 0 (Story/Task/Bug) otomatis memindahkan seluruh Subtask (-1) yang bertaut ke sprint tujuan dalam satu paket.
+  - Menggeser Inisiatif Level 1 otomatis memindahkan seluruh pohon anak (Level 0 & Subtask -1).
+  - Subtask mandiri tetap dapat dialokasikan secara independen jika diperlukan.
+- **Visual Indentasi Rapi:** Kartu subtask tampil menempel dan bersarang rapi di bawah kartu parent dengan border penanda khusus.
 
-### 4. Manajemen Pengguna & Granular RBAC Permissions (Opsi 2)
-- **Role Presets:** `ADMIN`, `PM`, `MEMBER`, `CLIENT` dengan konfigurasi izin bawaan otomatis.
-- **Modular Checkbox Permissions:** Administrator dapat menyesuaikan izin per pengguna secara independen:
+### 4. Field Deskripsi WYSIWYG & Copy-Paste Tabel Excel
+- **Toolbar Pemformatan Lengkap:**
+  - Gaya huruf: Bold, Italic, Underline, Strikethrough.
+  - Hirarki: Heading 2, Heading 3, Paragraf Normal.
+  - Daftar: Bullet List, Numbered List.
+  - Generator Tabel Instan: Tombol **+ Tabel** (3x3 grid) dan kontrol baris/kolom (**+ Baris**, **+ Kolom**, **- Baris**, **- Kolom**).
+  - Clear formatting.
+- **Mesin Interceptor Clipboard Excel & Spreadsheet:**
+  - **HTML Paste:** Menyaring tag asing bawaan Microsoft Office (`mso-*`, fixed pixel width, font inline) dan mengonversinya menjadi tabel HTML bersih dengan styling Tailwind CSS terintegrasi.
+  - **TSV Paste:** Mengonversi data plaintext berpemisah tab (`\t`) dan baris baru (`\n`) menjadi tabel HTML ber-header lengkap secara otomatis.
+  - **Scroll Responsif:** Tabel dibungkus kontainer `overflow-x-auto` ber-border halus sehingga tabel lebar tidak merusak tampilan.
+
+### 5. Modal Detail Work Item (`#modal-task-detail`) & Quick Edit
+- **Klik Kartu untuk Buka Detail:** Mengklik kartu tugas pada Kanban Board atau Backlog memunculkan dialog modal detail lengkap yang menampilkan status, assignee, estimasi, dan rendering HTML deskripsi secara utuh.
+- **Tombol Edit Cepat:** Tombol *Edit Work Item* membuka form edit modal terisi data lengkap untuk pembaruan cepat.
+- **Indikator Visual `📝`:** Kartu di Kanban dan Backlog otomatis menampilkan ikon `📝` jika task telah dilengkapi deskripsi atau tabel rincian.
+
+### 6. Time-in-Status & Cycle Time Reporting
+- **Pelacakan Durasi Per Kolom:** Mengukur durasi aktual sebuah task berada di kolom `TODO`, `IN_PROGRESS`, dan `REVIEW`, termasuk penanganan akumulasi durasi pada kasus *re-entry* (misal dikembalikan dari Review ke In Progress).
+- **Dual-Channel API:** Menjamin pemrosesan tanggal GAS yang aman dan serialisasi data yang akurat.
+- **Deteksi Blocker Otomatis:** Menyorot task non-DONE yang macet di status tertentu melampaui 48 jam.
+
+### 7. Manajemen Pengguna & Granular RBAC Permissions
+- **Role Presets:** `ADMIN`, `PM`, `MEMBER`, `CLIENT`.
+- **Modular Permissions:** Administrator dapat menyesuaikan izin per pengguna secara mandiri:
   - `can_create_project`: Inisiasi / buat project baru.
-  - `can_manage_sprint`: Buat bucket sprint & mulai sprint (Planning).
-  - `can_create_task`: Buat task baru di Backlog & Active Board.
-  - `can_move_task`: Geser status task di Kanban & alokasi bucket.
-  - `can_view_insights`: Akses analitik metrik & burndown.
+  - `can_manage_sprint`: Buat bucket sprint, start sprint, dan complete sprint.
+  - `can_create_task`: Buat work item di Backlog & Board.
+  - `can_move_task`: Geser kartu di Kanban & alokasi bucket sprint.
+  - `can_view_insights`: Akses metrik burndown & analitik.
+  - `can_view_cycle_time`: Akses pelaporan Time-in-Status & Cycle Time.
+  - `can_test_initiative`: Akses pengujian inisiatif bersama AI Challenger.
+  - `can_manage_demand`: Akses modul Demand Management & alokasi kapasitas.
   - `can_manage_users`: Akses menu CRUD User Management (Admin only).
-### 5. AI Product Challenger (Gemini API) & Demand Management
-- **Senior Product Challenger Session:** PO dapat menguji inisiatif produk secara interaktif melawan AI ex-CPO/Head of Product spesialis finansial/multifinance.
-- **Kerahasiaan Prompt Server-Side:** System prompt diinjeksi secara rahasia di backend GAS tanpa kebocoran ke browser klien.
-- **Natural AI Initiation:** AI menyapa dan menantang terlebih dahulu: *"Silakan jelaskan inisiatif produk yang ingin kamu ajukan. Ringkas dan konkret."*
-- **Pelacakan Attempt & Status Evaluasi:** Sistem melacak jumlah percobaan (*attempts*), catatan evaluasi AI, dan timestamp untuk monitoring Admin.
-- **Demand Pipeline & Alokasi Kapasitas:** Inisiatif yang disetujui (*Approved*) otomatis masuk ke tabel `Demands` untuk dihitung kapasitas jam kerjanya oleh Admin/PM dan dapat dikonversi langsung menjadi Proyek aktif.
+
+### 8. Senior AI Product Challenger (Gemini API) & Demand Management
+- **Evaluasi Kritis ex-CPO AI:** Sesi tanya-jawab interaktif untuk menantang inisiatif produk baru dari sisi ROI, urgensi, regulasi OJK/BI, dan kelayakan teknis.
+- **Auto-Routing ke Demand:** Inisiatif yang disetujui (`APPROVED`) otomatis masuk ke pipeline `Demands`.
+- **Alokasi Kapasitas & Konversi Proyek:** Estimasi kebutuhan insinyur dan durasi pengerjaan pada demand dapat dikonversi langsung menjadi Proyek aktif di sistem.
 
 ---
 
@@ -56,21 +82,37 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
 
 ```text
 Alternate Project Delivery/
-├── spec.md              # Spesifikasi produk, roles, core mechanics & Scrum workflow
-├── plan.md              # Arsitektur sistem, alur Backlog/Sprint engine & Time-in-Status
-├── data-model.md        # Skema dan relasi tabel Google Sheets (termasuk status sprint)
-├── tasks.md             # Rencana tahapan eksekusi agile
-├── README.md            # Dokumentasi panduan setup, alur kerja dan coding style
+├── spec.md              # Spesifikasi produk, roles, core mechanics & work type hierarchy
+├── plan.md              # Arsitektur sistem, alur Backlog/Sprint engine & WYSIWYG paste
+├── data-model.md        # Skema 7 sheet Google Sheets dan diagram relasi data
+├── tasks.md             # Catatan tahapan eksekusi agile (Tahap 1 s.d. Tahap 14)
+├── README.md            # Dokumentasi panduan setup, fitur, dan pedoman teknis
 │
-├── src/                 # File sumber aplikasi Google Apps Script
+├── src/                 # Berkas sumber aplikasi Google Apps Script
 │   ├── Code.gs          # Entry point utama (doGet, include helper, routing RBAC)
-│   ├── Setup.gs         # Skema database Google Sheets & data simulator
-│   ├── API.gs           # Endpoint Projects, Sprints, Backlog, dan Tasks CRUD
+│   ├── Setup.gs         # Skema database 7 sheet Google Sheets & data simulator
+│   ├── API.gs           # Endpoint Projects, Sprints, Backlog, Tasks, & User Management
 │   ├── Insights.gs      # Mesin kalkulasi Lead Time, Cycle Time, Burndown, Blocker
 │   ├── ChallengerAI.gs  # Controller Gemini API Product Challenger & Demand Management
-│   ├── Index.html       # Shell HTML utama
-│   ├── UI.html          # Komponen layout modular (Navbar, Sidebar, Dashboard, Board, Demand)
-│   └── js_main.html     # Client-side controller, SPA logic, Drag-Drop, Chat & Chart.js
+│   ├── Index.html       # Shell HTML utama & global CSS styling (.wysiwyg-table)
+│   ├── UI.html          # Komponen layout modular (Navbar, Sidebar, Board, Modals, Detail)
+│   └── js_main.html     # Client-side controller, Drag-Drop, WYSIWYG, Chat & Chart.js
+│
+└── tests/               # Automated Unit Test Suites (Node.js)
+    ├── test_stage1.js   # Setup & Pondasi Backend
+    ├── test_stage2.js   # Frontend UI & SPA Shell
+    ├── test_stage3.js   # Core Mechanics & Time-in-Status
+    ├── test_stage4.js   # Insight Engine (Metrics & Burndown)
+    ├── test_stage5_e2e.js # End-to-End Validation
+    ├── test_stage6_scrum.js # Scrum Backlog & Sprint Planning
+    ├── test_stage7_rbac.js # RBAC & User Management CRUD
+    ├── test_stage8_complete_sprint.js # Complete Sprint & Rollover
+    ├── test_stage9_project_tabs.js # Unified Project Tabs Navigation
+    ├── test_stage10_cycle_time.js # Cycle Time Analytics Reporting
+    ├── test_stage11_challenger_demand.js # AI Challenger & Demand Pipeline
+    ├── test_stage12_work_type_hierarchy.js # Work Type Hierarchy Engine
+    ├── test_stage13_subtask_bundle_move.js # Bundled Move & Subtask UI Alignment
+    └── test_stage14_wysiwyg_excel_paste.js # WYSIWYG Description & Excel Paste
 ```
 
 ---
@@ -79,14 +121,6 @@ Alternate Project Delivery/
 
 1. **Siapkan Google Spreadsheet:**
    - Buat Google Spreadsheet baru di Google Drive Anda.
-   - Buat 7 sheet/tab (atau biarkan fungsi `setup_database_schema` membuatnya otomatis):
-     - `Users`
-     - `Projects`
-     - `Sprints`
-     - `Tasks`
-     - `Task_History`
-     - `Initiative_Tests`
-     - `Demands`
    - Salin ID Spreadsheet dari URL (contoh: `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`).
 
 2. **Buka Script Editor:**
@@ -95,10 +129,10 @@ Alternate Project Delivery/
 3. **Deploy File Kode:**
    - Salin seluruh file dari folder `src/` (`Code.gs`, `Setup.gs`, `API.gs`, `Insights.gs`, `ChallengerAI.gs`, `Index.html`, `UI.html`, `js_main.html`).
    - Tempelkan `SPREADSHEET_ID` Anda di baris atas file `Code.gs`.
-   - Jalankan fungsi `seed_dummy_data` di file `Setup.gs` satu kali untuk menginjeksi struktur data awal.
+   - Jalankan fungsi `seed_dummy_data` di file `Setup.gs` satu kali untuk menginjeksi 7 tab skema dan data awal.
 
 4. **Konfigurasi Gemini API Key (Aman via Script Properties):**
-   - Di panel kiri Apps Script editor, klik **Project Settings** (ikon roda gigi ⚙️).
+   - Di panel kiri editor Apps Script, klik **Project Settings** (ikon roda gigi ⚙️).
    - Gulir ke bagian **Script Properties**, lalu klik **Add script property**.
    - Masukkan Property: `GEMINI_API_KEY` dan Value: `<API_KEY_GEMINI_ANDA>`.
    - Simpan Script Property. API key Anda terlindungi dengan aman di backend environment Google tanpa pernah terekspos ke repositori git atau klien browser.
@@ -112,8 +146,10 @@ Alternate Project Delivery/
 
 ---
 
-## 📐 Coding Style & Guidelines
-- **Variabel & Fungsi:** Gunakan format `snake_case` (contoh: `get_user_role()`, `create_new_task()`).
-- **Class:** Gunakan format `CamelCase` (contoh: `TaskController`).
-- **Comments & Docstrings:** Wajib menggunakan format JSDoc pada setiap fungsi.
-- **Agile Quality Gate:** Pastikan setiap fitur diuji menyeluruh sebelum diselesaikan.
+## 🧪 Pengujian Otomatis (Quality Gate)
+Seluruh modul dan logika bisnis dilindungi oleh 14 automated test suite berbasis Node.js:
+```bash
+# Menjalankan seluruh test suite tahap 1 sampai 14
+Get-ChildItem -Path tests -Filter *.js | ForEach-Object { node $_.FullName }
+```
+Hasil uji coba: **14 Test Suites PASS (100% Green)** tanpa error.
