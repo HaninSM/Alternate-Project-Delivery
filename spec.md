@@ -143,6 +143,33 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - **Sprint Selector:**
   - Dropdown interaktif pada header dasbor memungkinkan pergantian konteks sprint untuk meninjau sprint mana pun dalam proyek.
 
+### 3.8 Redesain UI Google Stitch: Modern Jira Detail Modal & Executive Health Dashboard
+- **Modern Jira-Style Work Item Detail Modal (Screens 1 & 3):**
+  - **Navigasi Breadcrumb:** Jalur navigasi terstruktur `[Project] > [Sprint] > Stories & Tasks > [Task ID]` pada header modal.
+  - **Status Dropdown Pill Interaktif:** Status pill dengan titik indikator warna (`● IN PROGRESS v`, `● TODO v`, dsb) memungkinkan pembaruan status langsung dari modal dengan sinkronisasi ke Kanban Board dan evaluasi auto-parent done.
+  - **Spesifikasi & Kriteria (Kolom Kiri 65%):** Rincian deskripsi WYSIWYG, tabel dictionary otomatis, dan checklist Acceptance Criteria terverifikasi.
+  - **Konfigurasi Penugasan (Kolom Kanan 35%):**
+    - Kartu Assignee PIC dengan avatar inisial 2 huruf (`RD`) dan perannya.
+    - Kartu Reporter PM dengan avatar inisial 2 huruf (`BH`) dan peran Product Lead.
+    - Rincian Sprint aktif, Parent inisiatif, estimasi jam kerja, Story Points, dan timestamp update.
+  - **Time-in-Status Audit (Kolom Kanan 35%):**
+    - Header total durasi pengerjaan (`Total: 24 Jam`).
+    - Segmented progress bar horizontal 3 segmen warna (Antrian TODO, Eksekusi IN PROGRESS, Validasi REVIEW).
+    - Status box per siklus (`In TODO`, `In PROG`, `In REV`).
+    - Riwayat mutasi audit trail dengan timestamp dan user mutasi.
+- **Actionable Insights / Executive Health Dashboard (Screen 2):**
+  - **Transparency Banner:** Banner klien perbankan `External Client Transparency Mode`, `Audit ID: #OJK-2024-S4`, dan `Live Synced`.
+  - **4 Executive KPI Cards:**
+    1. *Burndown Progress:* Indikator gauge % On Track, status tag (*On Track* / *Behind Track*), dan rincian sisa vs selesai.
+    2. *Average Lead Time:* Waktu total dalam hari (`X.X Hari`) dan jam (`X.X Jam`) beserta tren komparasi sprint.
+    3. *Average Cycle Time:* Waktu aktif dalam hari (`X.X Hari`) dan jam (`X.X Jam`) dengan evaluasi ambang batas SLA (< 2.5 Hari).
+    4. *Active Blockers:* Jumlah pekerjaan macet > 48 jam dengan tag bahaya berkedip.
+  - **Baris Tengah (2 Kolom):**
+    - Kolom kiri: Grafik kurva *Sprint Burndown Velocity* (remaining work vs guideline) dilengkapi banner proyeksi tanggal selesai dan daily burn rate.
+    - Kolom kanan: *Time-in-Status Donut Chart* dengan center text overlay (`X.Xd Avg Total`) dan 3 legend breakdown (TODO Queue, IN PROG Dev, REVIEW QA).
+  - **Escalation Alert Table:**
+    - Tabel pekerjaan macet > 48 jam yang merinci work item, tipe & parent, PIC assignee lengkap dengan inisial avatar, status aktif, durasi macet vs target SLA 48h, serta tombol intervensi PM (*Eskalasi ke Lead QA* dan *Minta Update Status*).
+
 ---
 
 ## 4. Acceptance Criteria
@@ -162,12 +189,10 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Dropdown pemilih sprint di Actionable Insights mendukung peninjauan berbagai sprint dalam proyek.
 - [x] Editor WYSIWYG pada form task mendukung formatting kaya (Bold, Italic, Headings, Lists, Insert Table).
 - [x] Paste tabel dari Microsoft Excel / Google Sheets otomatis dibersihkan dan dirender rapi sebagai tabel HTML responsif.
-- [x] Mengklik kartu task pada Kanban Board atau Backlog memunculkan Modal Detail Work Item lengkap dengan deskripsi dan tombol edit.
-- [x] Kartu tugas menampilkan indikator `📝` jika memiliki deskripsi rincian dan badge `pts` jika memiliki Story Point.
-- [x] Start Sprint dan Complete Sprint dengan post-sprint rollover berjalan akurat.
-- [x] AI Product Challenger mengevaluasi inisiatif produk dan merouting inisiatif yang disetujui ke Demand Management.
-- [x] Pelaporan Time-in-Status & Cycle Time akurat dengan deteksi blocker otomatis.
-- [x] Seluruh 17 stage test suites lulus 100% (Green).
+- [x] Modern Jira-Style Task Detail Modal menampilkan breadcrumb interaktif, badges lengkap, dan interactive status dropdown pill.
+- [x] Modal detail membagi area 2 kolom: deskripsi WYSIWYG/kriteria penerimaan di kiri, konfigurasi PIC/reporter dan Time-in-Status audit di kanan.
+- [x] Executive Health Dashboard menyajikan header transparansi OJK, 4 KPI cards, Sprint Burndown Velocity chart, Time-in-Status Donut Chart, dan Escalation Alert table.
+- [x] Seluruh 18 stage test suites lulus 100% (Green).
 
 
 

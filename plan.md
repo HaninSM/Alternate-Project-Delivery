@@ -197,5 +197,31 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
    - Dropdown pemilih sprint memungkinkan penelusuran metrik sprint historis maupun sprint aktif.
    - Kartu widget collapsible untuk kenyamanan tampilan pengguna.
 
+---
+
+## 10. Redesain UI Google Stitch: Modern Jira Detail Modal & Executive Health Dashboard
+
+1. **Modern Jira-Style Work Item Detail Modal (Screens 1 & 3):**
+   - **Breadcrumb Navigation Interaktif:** `[Project Name] > [Sprint Name] > Stories & Tasks > [Task ID]`.
+   - **Status Dropdown Pill Langsung:** Indikator visual berwarna (`● IN PROGRESS v`, `● TODO v`, `● REVIEW v`, `● DONE v`) yang memungkinkan transisi status langsung dari modal.
+   - **Kolom Kiri (65%):** Area spesifikasi deskripsi WYSIWYG yang mendukung pemformatan tebal, miring, list, tabel terstruktur, serta card Acceptance Criteria terverifikasi.
+   - **Kolom Kanan (35%):**
+     - *Konfigurasi Penugasan:* Kartu Assignee PIC lengkap dengan avatar inisial (`RD`) dan role, kartu Reporter PM (`BH`) dan role, sprint aktif, inisiatif parent, estimasi jam, dan story points.
+     - *Time-in-Status Audit:* Badge total jam pengerjaan (`Total: 24 Jam`), segmented progress bar (antrian TODO, eksekusi IN PROGRESS, validasi REVIEW), 3 box durasi status, dan log mutasi riwayat audit trail.
+
+2. **Actionable Insights / Executive Health Dashboard (Screen 2):**
+   - **Header Transparansi Eksternal:** Mode transparansi perbankan dengan audit token `Audit ID: #OJK-2024-S4` dan status `Live Synced`.
+   - **4 Executive KPI Cards:**
+     1. *Burndown Progress:* Gauge visual % On Track dengan perbandingan sisa poin vs poin selesai.
+     2. *Average Lead Time:* Durasi total dalam hari (`X.X Hari`) dengan jam ekuivalen dan tren vs sprint lalu.
+     3. *Average Cycle Time:* Durasi pengerjaan aktif dalam hari (`X.X Hari`) dengan evaluasi target SLA (< 2.5 Hari).
+     4. *Active Blockers:* Jumlah task macet > 48 jam dengan tag peringatan aktif.
+   - **Baris Tengah (2 Kolom):**
+     - Kolom kiri: Grafik kurva *Sprint Burndown Velocity* dilengkapi banner proyeksi tanggal selesai dan daily burn rate.
+     - Kolom kanan: *Time-in-Status Donut Chart* dengan teks tengah (`X.Xd Avg Total`) dan breakdown durasi antrian TODO, dev IN PROGRESS, dan QA REVIEW.
+   - **Tabel Escalation Alert:**
+     - Menampilkan daftar task yang mengalami macet > 48 jam beserta PIC, tipe/parent, durasi macet vs target SLA, serta tombol intervensi PM (*Eskalasi ke Lead QA* [merah] dan *Minta Update Status* [biru]).
+
+
 
 

@@ -521,214 +521,314 @@
       </section>
       <!-- End of VIEW 1: PROJECT WORKSPACE -->
 
-      <!-- VIEW 2: ACTIONABLE INSIGHTS -->
-      <section id="view-insights" class="spa-view hidden">
-        <!-- Header & Sprint Context -->
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
-          <div>
-            <h2 class="text-xl font-bold text-slate-900 tracking-tight flex items-center space-x-2">
-              <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span>Dasbor Actionable Insights</span>
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Informasi Sprint Progress, Sprint Burndown (Story Points), dan deteksi hambatan tim.</p>
+      <!-- VIEW 2: ACTIONABLE INSIGHTS (EXECUTIVE HEALTH DASHBOARD & TRANSPARENCY) -->
+      <section id="view-insights" class="spa-view hidden space-y-6">
+        
+        <!-- TOP BANNER: EXTERNAL CLIENT TRANSPARENCY MODE -->
+        <div class="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl text-white shadow-md border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-3">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="text-xs sm:text-sm font-bold tracking-wide uppercase text-indigo-200">External Client Transparency Mode</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-900/80 text-indigo-300 border border-indigo-700/60">
+                  Audit ID: #OJK-2024-S4
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Live Synced with Core Sprint Database • OJK & Banking Compliance Ready</p>
+            </div>
           </div>
-
-          <!-- Sprint Selector Dropdown -->
-          <div class="flex items-center space-x-2 self-start sm:self-auto bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
-            <span class="text-xs font-medium text-slate-400">Pilih Sprint:</span>
-            <select 
-              id="insight-sprint-select" 
-              onchange="handle_insight_sprint_change(this.value)" 
-              class="text-xs font-bold text-indigo-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-1">
-              <option value="SPR-001">Sprint 1 - Foundations</option>
-            </select>
+          <div class="flex items-center space-x-2 self-start sm:self-auto text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-lg border border-emerald-800/50">
+            <span>● Live Synced</span>
           </div>
         </div>
 
-        <!-- ROW 1: SPRINT PROGRESS & SPRINT BURNDOWN (JIRA STYLE) -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          
-          <!-- Card 1: Sprint Progress -->
-          <div id="card-sprint-progress" class="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 flex flex-col justify-between">
-            <div>
-              <!-- Header with toggle & tooltip -->
-              <div class="flex items-center justify-between mb-4">
-                <button 
-                  type="button" 
-                  onclick="toggle_insight_widget_collapse('sprint-progress-body')"
-                  class="flex items-center space-x-2 text-slate-800 hover:text-indigo-600 transition-colors text-left group">
-                  <svg id="chevron-sprint-progress-body" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  <span class="text-base font-bold text-slate-900">Sprint progress</span>
-                </button>
-                <div class="relative group/help cursor-pointer" title="Progress dihitung berdasarkan Story Points pada work item Level 0 saat seluruh subtask-nya berstatus DONE">
-                  <svg class="w-4 h-4 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
+        <!-- HEADER & SPRINT CONTROLS -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Sprint Executive Overview & Health Metrics
+              </h2>
+              <span id="insight-sprint-active-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Sprint 4 (Active)
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Metrik kesehatan tim, estimasi lead/cycle time, burn velocity, dan deteksi dini hambatan kerja.</p>
+          </div>
 
-              <!-- Collapsible Content Body -->
-              <div id="sprint-progress-body" class="space-y-5">
-                <!-- Segmented Progress Bar & Percent Label -->
-                <div class="flex items-center space-x-3">
-                  <div class="flex-1 h-3.5 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
-                    <div id="progress-bar-done" class="bg-[#65a30d] h-full transition-all duration-500" style="width: 0%;" title="Done"></div>
-                    <div id="progress-bar-inprogress" class="bg-[#2563eb] h-full transition-all duration-500" style="width: 0%;" title="In Progress"></div>
-                    <div id="progress-bar-todo" class="bg-slate-200 h-full transition-all duration-500" style="width: 100%;" title="Not Started"></div>
-                  </div>
-                  <span id="progress-percent-done-label" class="text-xs font-bold text-slate-700 whitespace-nowrap">
-                    0% done
-                  </span>
-                </div>
-
-                <!-- 3 Columns Metric Summary -->
-                <div class="grid grid-cols-3 gap-3 pt-2">
-                  <!-- Done -->
-                  <div>
-                    <span class="text-xs text-slate-500 block mb-0.5">Done</span>
-                    <span id="progress-stat-done" class="text-2xl font-black text-[#4d7c0f] block">0%</span>
-                    <span id="progress-pts-done" class="text-[11px] text-slate-400 font-medium">0 pts</span>
-                  </div>
-                  <!-- In progress -->
-                  <div>
-                    <span class="text-xs text-slate-500 block mb-0.5">In progress</span>
-                    <span id="progress-stat-inprogress" class="text-2xl font-black text-[#2563eb] block">0%</span>
-                    <span id="progress-pts-inprogress" class="text-[11px] text-slate-400 font-medium">0 pts</span>
-                  </div>
-                  <!-- Not started -->
-                  <div>
-                    <span class="text-xs text-slate-500 block mb-0.5">Not started</span>
-                    <span id="progress-stat-todo" class="text-2xl font-black text-slate-700 block">0%</span>
-                    <span id="progress-pts-todo" class="text-[11px] text-slate-400 font-medium">0 pts</span>
-                  </div>
-                </div>
-              </div>
+          <div class="flex items-center space-x-2.5 flex-wrap gap-y-2">
+            <!-- Sprint Selector Dropdown -->
+            <div class="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+              <span class="text-xs font-medium text-slate-400">Pilih Sprint:</span>
+              <select 
+                id="insight-sprint-select" 
+                onchange="handle_insight_sprint_change(this.value)" 
+                class="text-xs font-bold text-indigo-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-1">
+                <option value="SPR-001">Sprint 1 - Foundations</option>
+              </select>
             </div>
 
-            <!-- Footer info -->
-            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Metrik: <strong class="text-slate-600">Story Points (Level 0)</strong></span>
+            <!-- PDF Download Button -->
+            <button 
+              type="button" 
+              onclick="handle_download_insight_pdf()" 
+              class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <span>Download PDF</span>
+            </button>
+
+            <!-- Share Report Button -->
+            <button 
+              type="button" 
+              onclick="handle_share_insight_report()" 
+              class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+              <span>Share Report</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 EXECUTIVE KPI CARDS (STITCH SCREEN 2) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- KPI 1: Burndown Progress Gauge -->
+          <div id="card-sprint-progress" class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Burndown Progress</span>
+              <span id="metric-burndown-status-tag" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                On Track
+              </span>
+            </div>
+            <div class="flex items-baseline space-x-2 my-1">
+              <span id="metric-burndown-gauge" class="text-3xl font-black text-slate-900">84%</span>
+              <span class="text-xs font-semibold text-slate-400">On Track</span>
+            </div>
+            <!-- Progress Segmented Mini Bar -->
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden flex my-1 shadow-inner">
+              <div id="progress-bar-done" class="bg-[#65a30d] h-full transition-all duration-500" style="width: 84%;" title="Done"></div>
+              <div id="progress-bar-inprogress" class="bg-[#2563eb] h-full transition-all duration-500" style="width: 16%;" title="In Progress"></div>
+              <div id="progress-bar-todo" class="bg-slate-200 h-full transition-all duration-500" style="width: 0%;" title="Not Started"></div>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+              <span id="metric-burndown-sub">0 pts remaining / 0 pts done</span>
+              <span id="progress-percent-done-label" class="text-[10px] font-bold text-slate-700">84% done</span>
+            </div>
+            <!-- Stats elements for compatibility -->
+            <div class="hidden">
+              <span id="progress-stat-done">84%</span>
+              <span id="progress-stat-inprogress">16%</span>
+              <span id="progress-stat-todo">0%</span>
+              <span id="progress-pts-done">0 pts</span>
+              <span id="progress-pts-inprogress">0 pts</span>
+              <span id="progress-pts-todo">0 pts</span>
               <span id="progress-total-scope">Total: 0 pts</span>
             </div>
           </div>
 
-          <!-- Card 2: Sprint Burndown -->
-          <div id="card-sprint-burndown" class="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 flex flex-col justify-between">
+          <!-- KPI 2: Average Lead Time -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Average Lead Time</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                Created ➔ Done
+              </span>
+            </div>
+            <div class="flex items-baseline space-x-2 my-1">
+              <span id="metric-lead-days" class="text-3xl font-black text-slate-900">3.4</span>
+              <span class="text-sm font-bold text-slate-600">Hari</span>
+              <span class="text-xs font-mono text-slate-400">(<span id="metric-lead-time">78.3</span> Jam)</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1 flex items-center space-x-1">
+              <span class="text-emerald-600 font-semibold">↓ -0.7h</span>
+              <span>vs sprint lalu</span>
+            </p>
+          </div>
+
+          <!-- KPI 3: Average Cycle Time -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Average Cycle Time</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                SLA &lt; 2.5 Hari
+              </span>
+            </div>
+            <div class="flex items-baseline space-x-2 my-1">
+              <span id="metric-cycle-days" class="text-3xl font-black text-indigo-600">1.9</span>
+              <span class="text-sm font-bold text-slate-600">Hari</span>
+              <span class="text-xs font-mono text-slate-400">(<span id="metric-cycle-time">45.6</span> Jam)</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">
+              Waktu aktif pengerjaan (In Progress ➔ Done)
+            </p>
+          </div>
+
+          <!-- KPI 4: Active Blockers -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Blockers</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
+                Macet &gt; 48 Jam
+              </span>
+            </div>
+            <div class="flex items-baseline space-x-2 my-1">
+              <span id="metric-blocker-count" class="text-3xl font-black text-rose-600">0</span>
+              <span class="text-sm font-bold text-slate-600">Tasks</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">
+              Memerlukan intervensi & eskalasi PM
+            </p>
+          </div>
+        </div>
+
+        <!-- MIDDLE ROW: SPRINT BURNDOWN VELOCITY & TIME-IN-STATUS DONUT (2 COLUMNS) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- LEFT: SPRINT BURNDOWN VELOCITY (7 Cols) -->
+          <div id="card-sprint-burndown" class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 flex flex-col justify-between">
             <div>
-              <!-- Header with toggle, title & tooltip -->
-              <div class="flex items-center justify-between mb-1">
-                <button 
-                  type="button" 
-                  onclick="toggle_insight_widget_collapse('sprint-burndown-body')"
-                  class="flex items-center space-x-2 text-slate-800 hover:text-indigo-600 transition-colors text-left group">
-                  <svg id="chevron-sprint-burndown-body" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  <span class="text-base font-bold text-slate-900">Sprint burndown</span>
-                </button>
-                <div class="relative group/help cursor-pointer" title="Garis Guideline turun bertahap ke 0%. Garis Remaining work mencatat sisa Story Points saat item Level 0 & subtask selesai.">
-                  <svg class="w-4 h-4 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Sprint Burndown Velocity</h3>
+                  <p id="burndown-points-summary" class="text-xs text-slate-500 font-medium">
+                    0 points done, 0 points to go
+                  </p>
+                </div>
+                <div class="flex items-center space-x-4 text-xs">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb]"></span>
+                    <span class="text-slate-600 font-medium">Remaining work</span>
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>
+                    <span class="text-slate-600 font-medium">Guideline</span>
+                  </div>
                 </div>
               </div>
 
-              <!-- Subtitle: X points done, Y points to go -->
-              <p id="burndown-points-summary" class="text-xs text-slate-500 font-medium mb-3">
-                0 points done, 0 points to go
-              </p>
-
-              <!-- Collapsible Chart Body -->
-              <div id="sprint-burndown-body" class="space-y-3">
-                <div class="h-48 relative flex items-center justify-center bg-white rounded-lg">
-                  <canvas id="burndownChart" class="w-full h-full"></canvas>
-                  <div id="burndown-placeholder" class="absolute text-xs text-slate-400 font-medium hidden">
-                    Memuat data grafik burndown...
-                  </div>
+              <!-- Canvas Burndown Chart -->
+              <div class="h-56 relative flex items-center justify-center bg-white rounded-xl my-3">
+                <canvas id="burndownChart" class="w-full h-full"></canvas>
+                <div id="burndown-placeholder" class="absolute text-xs text-slate-400 font-medium hidden">
+                  Memuat data grafik burndown...
                 </div>
+              </div>
 
-                <!-- Custom Legend matching Jira -->
-                <div class="flex items-center justify-center space-x-6 text-xs text-slate-600 pt-1">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] inline-block"></span>
-                    <span class="font-medium text-slate-600">Remaining work</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-[#64748b] inline-block"></span>
-                    <span class="font-medium text-slate-600">Guideline</span>
-                  </div>
-                </div>
+              <!-- Projection Notice Banner (Stitch Screen 2) -->
+              <div id="burndown-projection-banner" class="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center space-x-2.5">
+                <span class="text-blue-600 font-bold text-sm">ℹ️</span>
+                <span id="burndown-projection-text" class="font-medium">
+                  Proyeksi selesai: 26 November (2 Hari Lebih Cepat) • Daily Burn Rate: 1.2 pts/hari
+                </span>
               </div>
             </div>
 
-            <!-- Footer date range -->
-            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
               <span id="burndown-start-date">Mulai: -</span>
               <span id="burndown-end-date">Target Selesai: -</span>
             </div>
           </div>
 
-        </div>
+          <!-- RIGHT: TIME-IN-STATUS DONUT CHART (5 Cols) -->
+          <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Time-in-Status</h3>
+                  <p class="text-xs text-slate-500 font-medium">Distribusi durasi pengerjaan per siklus</p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                  Sprint Avg
+                </span>
+              </div>
 
-        <!-- ROW 2: METRIC KPI CARDS & BLOCKERS -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Left side 2-col or stacked KPI Cards -->
-          <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <!-- Card Lead Time -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Lead Time</span>
-                <div class="flex items-baseline space-x-2">
-                  <span id="metric-lead-time" class="text-3xl font-extrabold text-slate-800">0.0</span>
-                  <span class="text-sm font-medium text-slate-500">Jam</span>
+              <!-- Donut Chart with Center Text Overlay -->
+              <div class="relative flex items-center justify-center my-4 h-48">
+                <canvas id="timeInStatusChart" class="max-h-48"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span id="time-in-status-center-text" class="text-lg font-black text-slate-800">3.0d</span>
+                  <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Avg Total</span>
                 </div>
               </div>
-              <p class="text-[11px] text-slate-400 mt-2">Waktu total dari pembuatan task hingga selesai (DONE).</p>
-            </div>
 
-            <!-- Card Cycle Time -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Cycle Time</span>
-                <div class="flex items-baseline space-x-2">
-                  <span id="metric-cycle-time" class="text-3xl font-extrabold text-indigo-600">0.0</span>
-                  <span class="text-sm font-medium text-slate-500">Jam</span>
+              <!-- 3 Segmented Breakdown Legends -->
+              <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
+                <div class="p-2 rounded-xl bg-slate-50 border border-slate-200/60">
+                  <span class="w-2 h-2 rounded-full bg-slate-400 inline-block mb-1"></span>
+                  <p class="text-[11px] text-slate-500 font-medium">TODO Queue</p>
+                  <p id="donut-stat-todo" class="text-xs font-bold text-slate-800">0.8 Hari (25%)</p>
+                </div>
+                <div class="p-2 rounded-xl bg-blue-50 border border-blue-200/60">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 inline-block mb-1"></span>
+                  <p class="text-[11px] text-blue-700 font-medium">IN PROG Dev</p>
+                  <p id="donut-stat-inprogress" class="text-xs font-bold text-blue-900">1.6 Hari (55%)</p>
+                </div>
+                <div class="p-2 rounded-xl bg-amber-50 border border-amber-200/60">
+                  <span class="w-2 h-2 rounded-full bg-amber-500 inline-block mb-1"></span>
+                  <p class="text-[11px] text-amber-700 font-medium">REVIEW QA</p>
+                  <p id="donut-stat-review" class="text-xs font-bold text-amber-900">0.6 Hari (20%)</p>
                 </div>
               </div>
-              <p class="text-[11px] text-slate-400 mt-2">Waktu aktif pengerjaan (IN PROGRESS ke DONE).</p>
             </div>
 
-            <!-- Card Active Blockers Counter -->
-            <div class="sm:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Hambatan / Blocker Aktif</span>
-                <div class="flex items-baseline space-x-2">
-                  <span id="metric-blocker-count" class="text-3xl font-extrabold text-rose-600">0</span>
-                  <span class="text-sm font-medium text-slate-500">Task Macet</span>
-                </div>
-                <p class="text-[11px] text-slate-400 mt-1">Task aktif yang tidak berpindah status &gt; 48 jam.</p>
-              </div>
-              <div class="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 text-xl font-bold">
-                ⚠️
-              </div>
-            </div>
-          </div>
-
-          <!-- Blocker List Highlights -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-            <h3 class="text-sm font-bold text-slate-800 mb-1">Blocker Highlights</h3>
-            <p class="text-xs text-slate-400 mb-4">Task yang memerlukan eskalasi segera.</p>
-            <div id="blocker-list-container" class="flex-1 space-y-2 overflow-y-auto max-h-64">
-              <div class="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs text-center font-medium">
-                ✓ Tidak ada blocker terdeteksi saat ini.
-              </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Benchmark SLA: Maksimal 2.5 hari per siklus aktif</span>
             </div>
           </div>
         </div>
+
+        <!-- BOTTOM SECTION: ESCALATION ALERT TABLE (TASK MACET > 48 JAM) -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-rose-600 font-bold text-base">⚠️</span>
+                <h3 class="text-base font-bold text-slate-900">Escalation Alert: Task Macet &gt; 48 Jam</h3>
+                <span id="escalation-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                  0 Task
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Daftar pekerjaan aktif yang melebihi batas waktu SLA tanpa pergerakan dan butuh intervensi PM.</p>
+            </div>
+            
+            <button 
+              type="button" 
+              onclick="handle_notify_pm_blockers()" 
+              class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer self-start sm:self-auto">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              <span>Notifikasi PIC Sekarang</span>
+            </button>
+          </div>
+
+          <!-- Escalation Table -->
+          <div class="overflow-x-auto">
+            <table id="escalation-table" class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                  <th class="py-3 px-4">Work Item</th>
+                  <th class="py-3 px-4">Tipe &amp; Parent</th>
+                  <th class="py-3 px-4">PIC Assignee</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4">Durasi Macet</th>
+                  <th class="py-3 px-4 text-center">Aksi Rekomendasi PM</th>
+                </tr>
+              </thead>
+              <tbody id="escalation-table-body" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    <div class="flex items-center justify-center space-x-2">
+                      <span class="text-emerald-600 font-bold">✓</span>
+                      <span>Tidak ada blocker terdeteksi saat ini. Seluruh task berjalan lancar.</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Legacy compatibility container (hidden) -->
+          <div id="blocker-list-container" class="hidden"></div>
+        </div>
+
       </section>
 
       <!-- VIEW: CYCLE TIME REPORT (Jira-style Search & Time-in-Status Metrics) -->
@@ -1544,82 +1644,257 @@
   </div>
 </div>
 
-<!-- Modal Dialog Detail Work Item (Read / View WYSIWYG & Full Details) -->
-<div id="modal-task-detail" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden p-4">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 transform transition-all overflow-hidden">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
-      <div class="flex items-center space-x-2.5 flex-wrap">
-        <span id="detail-task-id-badge" class="px-2 py-0.5 text-xs font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 rounded">
+<!-- Modal Dialog Detail Work Item (Modern Jira-Style 2-Column Stitch Layout) -->
+<div id="modal-task-detail" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden p-2 sm:p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col border border-slate-200 transform transition-all overflow-hidden">
+    
+    <!-- TOP HEADER: BREADCRUMB & ACTION BUTTONS -->
+    <div class="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-slate-50/70 flex-shrink-0">
+      <!-- Interactive Breadcrumb -->
+      <nav id="detail-breadcrumb" class="flex items-center space-x-2 text-xs font-medium text-slate-500 overflow-x-auto py-0.5">
+        <span id="detail-breadcrumb-project" class="hover:text-indigo-600 cursor-pointer whitespace-nowrap">Enterprise Banking Core</span>
+        <span class="text-slate-300">/</span>
+        <span id="detail-breadcrumb-sprint" class="hover:text-indigo-600 cursor-pointer whitespace-nowrap">Sprint 4</span>
+        <span class="text-slate-300">/</span>
+        <span class="text-slate-400 whitespace-nowrap">Stories &amp; Tasks</span>
+        <span class="text-slate-300">/</span>
+        <span id="detail-task-id-badge" class="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded whitespace-nowrap">
           TSK-XXX
         </span>
-        <span id="detail-task-type-badge"></span>
-        <span id="detail-task-parent-badge"></span>
-        <span id="detail-task-status-badge"></span>
-      </div>
-      <button onclick="close_task_detail_modal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none cursor-pointer p-1">&times;</button>
-    </div>
+      </nav>
 
-    <!-- Body Scrollable -->
-    <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
-      <!-- Title -->
-      <div>
-        <h3 id="detail-task-title" class="text-lg font-bold text-slate-900 leading-snug"></h3>
-      </div>
-
-      <!-- Metadata Grid -->
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
-        <div>
-          <span class="block text-slate-400 font-medium text-[10px] uppercase">Assignee PIC</span>
-          <span id="detail-task-assignee" class="font-semibold text-slate-800"></span>
-        </div>
-        <div>
-          <span class="block text-slate-400 font-medium text-[10px] uppercase">Estimasi Waktu</span>
-          <span id="detail-task-estimate" class="font-semibold text-slate-800"></span>
-        </div>
-        <div id="detail-task-story-points-container" class="hidden">
-          <span class="block text-slate-400 font-medium text-[10px] uppercase">Story Point</span>
-          <span id="detail-task-story-points" class="font-semibold text-indigo-700"></span>
-        </div>
-        <div>
-          <span class="block text-slate-400 font-medium text-[10px] uppercase">Sprint / Bucket</span>
-          <span id="detail-task-sprint" class="font-semibold text-slate-800 truncate block"></span>
-        </div>
-        <div>
-          <span class="block text-slate-400 font-medium text-[10px] uppercase">Terakhir Diupdate</span>
-          <span id="detail-task-updated" class="font-semibold text-slate-800"></span>
-        </div>
-      </div>
-
-      <!-- Rendered Description Canvas with Tables & Styles -->
-      <div>
-        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Deskripsi & Catatan Spesifikasi</h4>
-        <div id="detail-task-description-rendered" class="p-4 bg-white border border-slate-200 rounded-xl min-h-[120px] text-sm text-slate-800 overflow-x-auto leading-relaxed">
-          <!-- Rendered HTML Description inserted here -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between flex-shrink-0">
-      <span class="text-[11px] text-slate-400">Alternate Project Delivery • Work Item Detail</span>
-      <div class="flex items-center space-x-2">
-        <button 
-          type="button" 
-          onclick="close_task_detail_modal()" 
-          class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-white transition-colors cursor-pointer">
-          Tutup
-        </button>
+      <!-- Top Action Buttons -->
+      <div class="flex items-center space-x-2 flex-shrink-0 ml-3">
         <button 
           type="button" 
           id="btn-edit-from-detail"
           onclick="handle_edit_from_detail()" 
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
+          class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           <span>Edit Work Item</span>
         </button>
+
+        <button 
+          type="button" 
+          id="btn-share-detail"
+          onclick="handle_share_task_detail()" 
+          title="Salin tautan work item" 
+          class="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+        </button>
+
+        <button 
+          type="button" 
+          id="btn-close-task-detail"
+          onclick="close_task_detail_modal()" 
+          class="text-slate-400 hover:text-slate-600 text-xl leading-none cursor-pointer p-1 rounded-lg hover:bg-slate-100 transition-colors">
+          &times;
+        </button>
       </div>
     </div>
+
+    <!-- TITLE & STATUS STRIP (INTERACTIVE STATUS DROPDOWN PILL) -->
+    <div class="px-6 py-4 border-b border-slate-100 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3 flex-shrink-0">
+      <div class="space-y-2">
+        <h3 id="detail-task-title" class="text-lg sm:text-xl font-black text-slate-900 leading-snug tracking-tight"></h3>
+        
+        <div class="flex items-center space-x-2 flex-wrap gap-y-1.5">
+          <span id="detail-task-type-badge"></span>
+          <span id="detail-task-hierarchy-badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+            Hierarchy: Level 0
+          </span>
+          <span id="detail-task-story-points-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+            0 pts
+          </span>
+          <span id="detail-task-parent-badge"></span>
+        </div>
+      </div>
+
+      <!-- Direct Status Dropdown Pill (Stitch Screens 1 & 3: ● IN PROGRESS v) -->
+      <div class="flex items-center space-x-2 self-start md:self-auto flex-shrink-0">
+        <div id="detail-status-pill" class="relative inline-flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 shadow-2xs hover:border-slate-400 transition-all">
+          <span id="detail-status-pill-dot" class="w-2.5 h-2.5 rounded-full bg-blue-600 mr-2 flex-shrink-0"></span>
+          <select 
+            id="detail-task-status-select" 
+            onchange="handle_detail_status_change(this.value)" 
+            class="text-xs font-bold text-slate-800 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-4 uppercase">
+            <option value="TODO">TODO</option>
+            <option value="IN_PROGRESS">IN PROGRESS</option>
+            <option value="REVIEW">REVIEW</option>
+            <option value="DONE">DONE</option>
+          </select>
+          <span id="detail-task-status-badge" class="hidden"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-COLUMN BODY (SCROLLABLE) -->
+    <div class="px-6 py-5 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-50/30">
+      
+      <!-- LEFT COLUMN (65%): DESKRIPSI WYSIWYG, ACCEPTANCE CRITERIA, TABLES -->
+      <div class="lg:col-span-7 xl:col-span-8 space-y-5">
+        
+        <!-- WYSIWYG Rendered Description -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+            <span>Deskripsi &amp; Spesifikasi Work Item</span>
+          </h4>
+          
+          <div id="detail-task-description-rendered" class="p-4 bg-white rounded-xl min-h-[140px] text-xs sm:text-sm text-slate-800 leading-relaxed border border-slate-100 space-y-2">
+            <!-- Rendered HTML Description inserted here -->
+          </div>
+        </div>
+
+        <!-- Acceptance Criteria (Checklist Box) -->
+        <div id="detail-acceptance-criteria" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Acceptance Criteria &amp; Validasi Kriteria</span>
+            </h4>
+            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Verified Specs
+            </span>
+          </div>
+
+          <div class="space-y-2 text-xs text-slate-700">
+            <div class="flex items-start space-x-2.5 p-2 rounded-lg bg-slate-50/60 border border-slate-100">
+              <span class="text-emerald-600 font-bold text-sm">✓</span>
+              <span>Validasi field mandatory pada payload JSON request dengan response code HTTP 200/400.</span>
+            </div>
+            <div class="flex items-start space-x-2.5 p-2 rounded-lg bg-slate-50/60 border border-slate-100">
+              <span class="text-emerald-600 font-bold text-sm">✓</span>
+              <span>Audit log pencatatan Time-in-Status tercatat akurat ke sheet Task_History.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN (35%): KONFIGURASI PENUGASAN & TIME-IN-STATUS AUDIT -->
+      <div class="lg:col-span-5 xl:col-span-4 space-y-5">
+        
+        <!-- CARD 1: KONFIGURASI PENUGASAN -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Konfigurasi Penugasan
+          </h4>
+
+          <!-- Assignee PIC Card -->
+          <div class="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+            <div id="detail-assignee-avatar" class="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-2xs">
+              RD
+            </div>
+            <div class="min-w-0 flex-1">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Assignee PIC</span>
+              <span id="detail-task-assignee" class="text-xs font-bold text-slate-900 truncate block"></span>
+              <span id="detail-assignee-role" class="text-[11px] text-slate-500 block truncate">Senior Software Engineer</span>
+            </div>
+          </div>
+
+          <!-- Reporter / PM Card -->
+          <div class="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+            <div class="w-10 h-10 rounded-full bg-slate-700 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-2xs">
+              BH
+            </div>
+            <div class="min-w-0 flex-1">
+              <span class="block text-[10px] font-bold uppercase text-slate-400">Reporter / Submitter</span>
+              <span id="detail-task-reporter" class="text-xs font-bold text-slate-900 block">Budi Hartono</span>
+              <span class="text-[11px] text-slate-500 block">Product Lead / PM</span>
+            </div>
+          </div>
+
+          <!-- Sprint & Scope Details -->
+          <div class="space-y-2.5 pt-2 border-t border-slate-100 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium">Sprint Aktif</span>
+              <span id="detail-task-sprint" class="font-bold text-slate-800"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium">Estimasi Waktu</span>
+              <span id="detail-task-estimate" class="font-bold text-slate-800"></span>
+            </div>
+            <div id="detail-task-story-points-container" class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium">Story Points</span>
+              <span id="detail-task-story-points" class="font-bold text-indigo-700"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium">Terakhir Diupdate</span>
+              <span id="detail-task-updated" class="font-semibold text-slate-600"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: TIME-IN-STATUS AUDIT (STITCH SCREENS 1 & 3) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Time-in-Status Audit
+            </h4>
+            <span id="detail-audit-total-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Total: 24 Jam
+            </span>
+          </div>
+
+          <!-- Segmented Duration Bar -->
+          <div class="space-y-1.5">
+            <div class="h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+              <div id="detail-audit-bar-todo" class="bg-slate-300 h-full transition-all duration-300" style="width: 25%;" title="In TODO"></div>
+              <div id="detail-audit-bar-inprogress" class="bg-blue-600 h-full transition-all duration-300" style="width: 55%;" title="In IN PROGRESS"></div>
+              <div id="detail-audit-bar-review" class="bg-amber-400 h-full transition-all duration-300" style="width: 20%;" title="In REVIEW"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+              <span>Antrian (Queue)</span>
+              <span>Eksekusi Aktif</span>
+              <span>Validasi QA</span>
+            </div>
+          </div>
+
+          <!-- Status Box Metric Breakdown -->
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200/70">
+              <span class="text-[10px] font-medium text-slate-400 block uppercase">In TODO</span>
+              <span id="detail-audit-todo-hours" class="text-sm font-bold text-slate-700 block mt-0.5">6 Jam</span>
+            </div>
+            <div class="p-2.5 bg-blue-50 rounded-xl border border-blue-200/70">
+              <span class="text-[10px] font-medium text-blue-600 block uppercase">In PROG</span>
+              <span id="detail-audit-inprogress-hours" class="text-sm font-bold text-blue-900 block mt-0.5">14 Jam</span>
+            </div>
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200/70">
+              <span class="text-[10px] font-medium text-amber-700 block uppercase">In REV</span>
+              <span id="detail-audit-review-hours" class="text-sm font-bold text-amber-900 block mt-0.5">4 Jam</span>
+            </div>
+          </div>
+
+          <!-- Audit Timeline Log List -->
+          <div class="pt-2 border-t border-slate-100">
+            <p class="text-[11px] font-semibold text-slate-500 mb-2">Riwayat Log Mutasi</p>
+            <div id="detail-audit-log-list" class="space-y-1.5 max-h-36 overflow-y-auto text-xs text-slate-600 pr-1">
+              <p class="text-[11px] text-slate-400 italic">Memuat log audit...</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
+      <span class="text-[11px] text-slate-400 flex items-center space-x-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+        <span>Alternate Project Delivery • Modern Jira-Style Task Audit</span>
+      </span>
+      <div class="flex items-center space-x-2">
+        <button 
+          type="button" 
+          onclick="close_task_detail_modal()" 
+          class="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-white transition-colors cursor-pointer">
+          Tutup
+        </button>
+      </div>
+    </div>
+
   </div>
 </div>
 

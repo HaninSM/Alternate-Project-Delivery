@@ -326,5 +326,47 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba pembentukan seri data Burndown (Guideline 100% -> 0%, Remaining work aktual).
   - Uji coba integritas DOM dan handler di `UI.html` & `js_main.html`. (Diverifikasi lulus 100% via `tests/test_stage17_sprint_progress_burndown.js`).
 
+---
+
+## Tahap 18 - Redesain UI Google Stitch: Modern Jira Detail Modal & Executive Health Dashboard
+- [x] Bangun endpoint rincian audit di `API.gs` (`get_task_audit_detail`, `get_user_initials`):
+  - Mengambil data komprehensif work item (parent, sprint, project, estimasi, story points, deskripsi).
+  - Menghitung durasi akurat per status (`TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`) dari log audit `Task_History`.
+  - Mengembalikan metadata PIC assignee dengan avatar inisial 2 huruf dan data reporter PM.
+- [x] Tingkatkan Insight Engine di `Insights.gs` (`compute_metrics`):
+  - Kalkulasi `time_in_status_summary` untuk Donut Chart (`avg_total_days`, `avg_todo_days`, `avg_in_prog_days`, `avg_review_days`, persentase share).
+  - Kalkulasi `velocity_projection` (`gauge_percent`, `burn_rate_daily`, `projected_date_str`, `projection_notice`).
+  - Memperkaya objek `blockers` dengan `assignee_initials`, `parent_title`, `work_type`, `target_sla_hours`, `recommended_action`, `action_type`.
+  - Mengonversi Lead Time dan Cycle Time rata-rata ke satuan hari (`avg_lead_time_days`, `avg_cycle_time_days`).
+- [x] Redesain Modern Jira-Style Task Detail Modal di `UI.html` (`#modal-task-detail`):
+  - Navigasi breadcrumb interaktif: `[Project] > [Sprint] > Stories & Tasks > [Task ID]`.
+  - Header actions: `btn-edit-from-detail`, `btn-share-detail`, `btn-close-task-detail`.
+  - Interactive Status Dropdown Pill: Dropdown seleksi langsung status (`● IN PROGRESS v`, `● TODO v`, dsb) dengan colored indicator dot.
+  - Kolom kiri (65%): Formatted description WYSIWYG, box Acceptance Criteria terverifikasi, dan auto-formatted tables.
+  - Kolom kanan (35%):
+    - *Konfigurasi Penugasan:* Kartu Assignee PIC dengan avatar inisial (`RD`), kartu Reporter PM (`BH`), Sprint aktif, Parent inisiatif, estimasi jam, story points, dan tanggal update.
+    - *Time-in-Status Audit:* Badge total durasi (`Total: 24 Jam`), segmented duration bar, 3 status metric box (`In TODO`, `In PROG`, `In REV`), dan log mutasi riwayat.
+- [x] Redesain Executive Health Dashboard di `UI.html` (`#view-insights`):
+  - Banner Transparansi: `External Client Transparency Mode`, `Audit ID: #OJK-2024-S4`, `Live Synced`.
+  - Header: Judul sprint overview, dropdown pilih sprint, tombol `Download PDF`, tombol `Share Report`.
+  - 4 Executive KPI Cards: Burndown Progress Gauge (% On Track), Average Lead Time (Hari & Jam), Average Cycle Time (Hari & Jam + SLA target), Active Blockers (> 48 Jam).
+  - Baris tengah (2 kolom):
+    - Kolom kiri: Sprint Burndown Velocity chart + notice banner proyeksi selesai & daily burn rate.
+    - Kolom kanan: Time-in-Status Donut Chart dengan center overlay (`3.0d Avg Total`) dan breakdown legend.
+  - Tabel Escalation Alert: Tabel task macet > 48 jam dengan PIC, parent, status, durasi macet vs target SLA, dan tombol interaktif PM (`Eskalasi ke Lead QA` & `Minta Update Status`).
+- [x] Implementasikan fungsi controller di `js_main.html`:
+  - `open_task_detail_modal`: Popolasi breadcrumb, badges, status pill, avatar inisial, audit segmented bar, dan async fetch backend audit.
+  - `handle_detail_status_change`: Mengubah status work item langsung dari pill modal, sinkronisasi Kanban board, dan evaluasi auto-parent done.
+  - `handle_share_task_detail`: Menyalin tautan / ID task ke clipboard.
+  - `render_insights_dashboard`: Rendering 4 KPI cards, burndown velocity, donut chart, banner proyeksi, dan escalation table.
+  - `render_time_in_status_donut`: Inisialisasi Chart.js Donut Chart dengan cutout 72% dan center overlay.
+  - Action handlers: `handle_notify_pm_blockers`, `handle_escalate_blocker`, `handle_download_insight_pdf`, `handle_share_insight_report`.
+- [x] **Quality Gate / Uji Coba Tahap 18:**
+  - Uji coba fungsi backend `API.gs` & `Insights.gs` (`get_task_audit_detail`, `calculate_time_in_status_summary`, `calculate_velocity_projection`).
+  - Uji coba elemen DOM Modal Task Detail Modern Jira-Style.
+  - Uji coba elemen DOM Executive Health Dashboard & Escalation Alert Table.
+  - Uji coba controller functions di `js_main.html`. (Diverifikasi lulus 100% via `tests/test_stage18_stitch_executive_dashboard_detail_modal.js`).
+
+
 
 

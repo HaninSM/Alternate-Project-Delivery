@@ -1710,3 +1710,241 @@ function delete_existing_user(user_id) {
     return { success: false, message: 'Gagal menghapus pengguna: ' + error.message };
   }
 }
+
+/**
+ * Mengambil rincian lengkap suatu work item beserta audit trail & kalkulasi Time-in-Status
+ * untuk kebutuhan Modern Jira-Style Task Detail Modal.
+ *
+ * @param {string} task_id - ID unik task (contoh: 'TSK-001')
+ * @return {Object} Payload { success: boolean, data?: Object, message?: string }
+ */
+function get_task_audit_detail(task_id) {
+  try {
+    if (!task_id || !String(task_id).trim()) {
+      return { success: false, message: 'ID task tidak valid.' };
+    }
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_tasks = spreadsheet.getSheetByName('Tasks');
+    const sheet_history = spreadsheet.getSheetByName('Task_History');
+    const sheet_users = spreadsheet.getSheetByName('Users');
+    const sheet_sprints = spreadsheet.getSheetByName('Sprints');
+
+    if (!sheet_tasks) {
+      return { success: false, message: 'Sheet Tasks tidak ditemukan.' };
+    }
+
+    const task_values = sheet_tasks.getDataRange().getValues();
+    const t_hdr = task_values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = t_hdr.indexOf('id');
+    const sp_idx = t_hdr.indexOf('sprint_id');
+    const title_idx = t_hdr.indexOf('title');
+    const status_idx = t_hdr.indexOf('status');
+    const assignee_idx = t_hdr.indexOf('assignee_id');
+    const est_idx = t_hdr.indexOf('estimate_hours');
+    const created_idx = t_hdr.indexOf('created_at');
+    const updated_idx = t_hdr.indexOf('updated_at');
+    const type_idx = t_hdr.indexOf('work_type');
+    const lvl_idx = t_hdr.indexOf('hierarchy_level');
+    const parent_idx = t_hdr.indexOf('parent_id');
+    const desc_idx = t_hdr.indexOf('description');
+    const pts_idx = t_hdr.indexOf('story_points');
+
+    let found_row = null;
+    for (let r = 1; r < task_values.length; r++) {
+      if (String(task_values[r][id_idx]).trim() === String(task_id).trim()) {
+        found_row = task_values[r];
+        break;
+      }
+    }
+
+    if (!found_row) {
+      return { success: false, message: 'Task dengan ID ' + task_id + ' tidak ditemukan.' };
+    }
+
+    // Lookup users map
+    const user_map = {};
+    if (sheet_users && sheet_users.getLastRow() > 1) {
+      const u_vals = sheet_users.getDataRange().getValues();
+      for (let u = 1; u < u_vals.length; u++) {
+        user_map[String(u_vals[u][0]).trim()] = {
+          id: u_vals[u][0],
+          name: u_vals[u][1],
+          role: u_vals[u][3] || 'MEMBER',
+          email: u_vals[u][2]
+        };
+      }
+    }
+
+    // Lookup sprint name & project
+    const sprint_id = String(found_row[sp_idx] || '').trim();
+    let sprint_name = sprint_id;
+    let project_name = 'Enterprise Banking Core';
+    if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
+      const sp_vals = sheet_sprints.getDataRange().getValues();
+      const sp_h = sp_vals[0].map(h => String(h).trim().toLowerCase());
+      const s_id_idx = sp_h.indexOf('id');
+      const s_name_idx = sp_h.indexOf('name');
+      const s_prj_idx = sp_h.indexOf('project_id');
+      for (let s = 1; s < sp_vals.length; s++) {
+        if (String(sp_vals[s][s_id_idx]).trim() === sprint_id) {
+          sprint_name = sp_vals[s][s_name_idx] || sprint_id;
+          if (s_prj_idx !== -1 && sp_vals[s][s_prj_idx]) {
+            project_name = sp_vals[s][s_prj_idx];
+          }
+          break;
+        }
+      }
+    }
+
+    const assignee_id = String(found_row[assignee_idx] || '').trim();
+    const assignee_user = user_map[assignee_id] || { name: assignee_id || 'Unassigned', role: 'ENGINEERING' };
+    
+    // Parent info
+    const parent_id = parent_idx !== -1 && found_row[parent_idx] ? String(found_row[parent_idx]).trim() : '';
+    let parent_title = '';
+    let parent_type = '';
+    if (parent_id) {
+      for (let r = 1; r < task_values.length; r++) {
+        if (String(task_values[r][id_idx]).trim() === parent_id) {
+          parent_title = task_values[r][title_idx];
+          parent_type = type_idx !== -1 ? task_values[r][type_idx] : 'TASK';
+          break;
+        }
+      }
+    }
+
+    // Audit logs from Task_History
+    const task_histories = [];
+    if (sheet_history && sheet_history.getLastRow() > 1) {
+      const h_vals = sheet_history.getDataRange().getValues();
+      const h_hdr = h_vals[0].map(h => String(h).trim().toLowerCase());
+      const h_t_idx = h_hdr.indexOf('task_id');
+      const h_old_idx = h_hdr.indexOf('old_status');
+      const h_new_idx = h_hdr.indexOf('new_status');
+      const h_by_idx = h_hdr.indexOf('changed_by');
+      const h_time_idx = h_hdr.indexOf('timestamp');
+
+      for (let h = 1; h < h_vals.length; h++) {
+        if (String(h_vals[h][h_t_idx]).trim() === String(task_id).trim()) {
+          task_histories.push({
+            old_status: String(h_vals[h][h_old_idx]).toUpperCase().trim(),
+            new_status: String(h_vals[h][h_new_idx]).toUpperCase().trim(),
+            changed_by: h_vals[h][h_by_idx],
+            timestamp: h_vals[h][h_time_idx]
+          });
+        }
+      }
+    }
+
+    // Sort histories ascending
+    task_histories.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Calculate time in each status
+    const created_at_str = found_row[created_idx] || new Date().toISOString();
+    const created_time = new Date(created_at_str);
+    const now = new Date();
+
+    const durations = {
+      TODO: 0,
+      IN_PROGRESS: 0,
+      REVIEW: 0,
+      DONE: 0
+    };
+
+    let prev_status = 'TODO';
+    let prev_time = created_time;
+
+    for (let i = 0; i < task_histories.length; i++) {
+      const h = task_histories[i];
+      const h_time = new Date(h.timestamp);
+      const diff_hours = Math.max(0, (h_time.getTime() - prev_time.getTime()) / (1000 * 3600));
+      if (durations[prev_status] !== undefined) {
+        durations[prev_status] += diff_hours;
+      }
+      prev_status = h.new_status;
+      prev_time = h_time;
+    }
+
+    // Duration in final status until now (or if DONE, up to final update)
+    const current_status = String(found_row[status_idx]).toUpperCase().trim();
+    const final_end_time = current_status === 'DONE' ? prev_time : now;
+    const final_diff = Math.max(0, (final_end_time.getTime() - prev_time.getTime()) / (1000 * 3600));
+    if (durations[current_status] !== undefined) {
+      durations[current_status] += final_diff;
+    }
+
+    // Fallback if no history exists yet: entire duration since creation is in current status
+    const total_task_hours = Object.values(durations).reduce((a, b) => a + b, 0);
+    if (total_task_hours === 0) {
+      const diff_since_create = Math.max(0, (now.getTime() - created_time.getTime()) / (1000 * 3600));
+      durations[current_status] = diff_since_create;
+    }
+
+    const todo_h = Number(durations.TODO.toFixed(1));
+    const in_prog_h = Number(durations.IN_PROGRESS.toFixed(1));
+    const review_h = Number(durations.REVIEW.toFixed(1));
+    const done_h = Number(durations.DONE.toFixed(1));
+    const total_h = Number((todo_h + in_prog_h + review_h + done_h).toFixed(1));
+
+    const raw_type = type_idx !== -1 ? String(found_row[type_idx] || 'TASK').toUpperCase().trim() : 'TASK';
+    const raw_level = lvl_idx !== -1 && found_row[lvl_idx] !== '' ? Number(found_row[lvl_idx]) : get_work_type_level(raw_type);
+
+    return {
+      success: true,
+      data: {
+        task: {
+          id: String(found_row[id_idx]),
+          title: String(found_row[title_idx]),
+          status: current_status,
+          work_type: raw_type,
+          hierarchy_level: raw_level,
+          estimate_hours: Number(found_row[est_idx]) || 0,
+          story_points: pts_idx !== -1 && found_row[pts_idx] !== '' ? String(found_row[pts_idx]) : '',
+          description: desc_idx !== -1 ? String(found_row[desc_idx] || '') : '',
+          parent_id: parent_id,
+          parent_title: parent_title,
+          parent_type: parent_type,
+          sprint_id: sprint_id,
+          sprint_name: sprint_name,
+          project_name: project_name,
+          created_at: created_at_str,
+          updated_at: found_row[updated_idx] || created_at_str,
+          assignee: {
+            id: assignee_id,
+            name: assignee_user.name,
+            role: assignee_user.role || 'Senior Developer',
+            initials: get_user_initials(assignee_user.name)
+          },
+          reporter: {
+            name: 'Budi Hartono',
+            role: 'Product Lead / PM',
+            initials: 'BH'
+          }
+        },
+        audit: {
+          total_hours: total_h,
+          todo_hours: todo_h,
+          in_progress_hours: in_prog_h,
+          review_hours: review_h,
+          done_hours: done_h,
+          histories: task_histories
+        }
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal mengambil detail audit task: ' + error.message };
+  }
+}
+
+/**
+ * Helper untuk mendapatkan inisial 2 huruf dari nama user
+ * @param {string} name
+ * @return {string} Inisial 2 karakter kapital
+ */
+function get_user_initials(name) {
+  if (!name || typeof name !== 'string') return 'NA';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}

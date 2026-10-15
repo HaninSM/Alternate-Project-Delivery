@@ -86,10 +86,16 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - `can_manage_demand`: Akses modul Demand Management & alokasi kapasitas.
   - `can_manage_users`: Akses menu CRUD User Management (Admin only).
 
-### 9. Senior AI Product Challenger (Gemini API) & Demand Management
-- **Evaluasi Kritis ex-CPO AI:** Sesi tanya-jawab interaktif untuk menantang inisiatif produk baru dari sisi ROI, urgensi, regulasi OJK/BI, dan kelayakan teknis.
-- **Auto-Routing ke Demand:** Inisiatif yang disetujui (`APPROVED`) otomatis masuk ke pipeline `Demands`.
-- **Alokasi Kapasitas & Konversi Proyek:** Estimasi kebutuhan insinyur dan durasi pengerjaan pada demand dapat dikonversi langsung menjadi Proyek aktif di sistem.
+### 10. Redesain UI Google Stitch: Modern Jira Detail Modal & Executive Health Dashboard
+- **Modern Jira-Style Work Item Detail Modal (Screens 1 & 3):**
+  - **Navigasi Breadcrumb Interaktif:** Menampilkan hierarki kontekstual `[Project] > [Sprint] > Stories & Tasks > [Task ID]`.
+  - **Status Dropdown Pill Langsung:** Status pill interaktif (`● IN PROGRESS v`, `● TODO v`, dsb) untuk mengubah status work item langsung dari dalam modal.
+  - **Dua Kolom Responsif:** Kolom kiri (65%) untuk spesifikasi WYSIWYG, tabel dictionary, dan box Acceptance Criteria terverifikasi; kolom kanan (35%) untuk Konfigurasi Penugasan (Assignee avatar inisial `RD`, Reporter `BH`, sprint, parent inisiatif, estimasi jam, story points) serta Time-in-Status Audit (total durasi `Total: 24 Jam`, segmented horizontal bar, 3 box status durasi, dan log mutasi audit trail).
+- **Executive Health Dashboard / Transparency Mode (Screen 2):**
+  - **Header Transparansi Perbankan:** Header berstandar perbankan dengan `External Client Transparency Mode`, `Audit ID: #OJK-2024-S4`, dan status `Live Synced`.
+  - **4 Executive KPI Cards:** Burndown Progress Gauge (% On Track), Average Lead Time (Hari & Jam), Average Cycle Time (Hari & Jam + evaluasi SLA < 2.5 Hari), dan Active Blockers (> 48 Jam).
+  - **Sprint Burndown Velocity & Donut Chart:** Visualisasi kurva burndown dengan banner proyeksi selesai serta Time-in-Status Donut Chart dengan center overlay (`3.0d Avg Total`) dan breakdown legend.
+  - **Escalation Alert Table:** Tabel monitoring task macet > 48 jam dengan tombol aksi intervensi PM (*Eskalasi ke Lead QA* [merah] dan *Minta Update Status* [biru]).
 
 ---
 
@@ -100,18 +106,18 @@ Alternate Project Delivery/
 ├── spec.md              # Spesifikasi produk, roles, core mechanics & work type hierarchy
 ├── plan.md              # Arsitektur sistem, alur Backlog/Sprint engine & WYSIWYG paste
 ├── data-model.md        # Skema 7 sheet Google Sheets dan diagram relasi data
-├── tasks.md             # Catatan tahapan eksekusi agile (Tahap 1 s.d. Tahap 15)
+├── tasks.md             # Catatan tahapan eksekusi agile (Tahap 1 s.d. Tahap 18)
 ├── README.md            # Dokumentasi panduan setup, fitur, dan pedoman teknis
 │
 ├── src/                 # Berkas sumber aplikasi Google Apps Script
 │   ├── Code.gs          # Entry point utama (doGet, include helper, routing RBAC)
 │   ├── Setup.gs         # Skema database 7 sheet Google Sheets & data simulator
-│   ├── API.gs           # Endpoint Projects, Sprints, Backlog, Tasks, & User Management
-│   ├── Insights.gs      # Mesin kalkulasi Lead Time, Cycle Time, Burndown, Blocker
+│   ├── API.gs           # Endpoint Projects, Sprints, Backlog, Tasks, Audit Detail & Users
+│   ├── Insights.gs      # Mesin kalkulasi Lead Time, Cycle Time, Burndown, Time-in-Status Donut
 │   ├── ChallengerAI.gs  # Controller Gemini API Product Challenger & Demand Management
 │   ├── Index.html       # Shell HTML utama & global CSS styling (.wysiwyg-table)
-│   ├── UI.html          # Komponen layout modular (Navbar, Sidebar, Board, Modals, Detail)
-│   └── js_main.html     # Client-side controller, Drag-Drop, WYSIWYG, Chat & Chart.js
+│   ├── UI.html          # Layout modular (Navbar, Sidebar, Board, Stitch Modals & Executive Dashboard)
+│   └── js_main.html     # Client-side controller, Drag-Drop, WYSIWYG, Donut Chart & Chart.js
 │
 └── tests/               # Automated Unit Test Suites (Node.js)
     ├── test_stage1.js   # Setup & Pondasi Backend
@@ -130,7 +136,8 @@ Alternate Project Delivery/
     ├── test_stage14_wysiwyg_excel_paste.js # WYSIWYG Description & Excel Paste
     ├── test_stage15_kanban_grouping_parent_done.js # Kanban Swimlanes & Auto-Parent Done
     ├── test_stage16_story_points_level_0.js # Story Points Field (Khusus Level 0)
-    └── test_stage17_sprint_progress_burndown.js # Sprint Progress & Burndown (Story Points)
+    ├── test_stage17_sprint_progress_burndown.js # Sprint Progress & Burndown (Story Points)
+    └── test_stage18_stitch_executive_dashboard_detail_modal.js # Stitch UI Redesign
 ```
 
 ---
@@ -165,9 +172,9 @@ Alternate Project Delivery/
 ---
 
 ## 🧪 Pengujian Otomatis (Quality Gate)
-Seluruh modul dan logika bisnis dilindungi oleh 17 automated test suite berbasis Node.js:
+Seluruh modul dan logika bisnis dilindungi oleh 18 automated test suite berbasis Node.js:
 ```bash
-# Menjalankan seluruh test suite tahap 1 sampai 17
+# Menjalankan seluruh test suite tahap 1 sampai 18
 Get-ChildItem -Path tests -Filter *.js | ForEach-Object { node $_.FullName }
 ```
-Hasil uji coba: **17 Test Suites PASS (100% Green)** tanpa error.
+Hasil uji coba: **18 Test Suites PASS (100% Green)** tanpa error.
