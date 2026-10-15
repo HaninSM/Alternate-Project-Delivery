@@ -234,8 +234,10 @@ function load_sprint_tasks() {
 
 /**
  * Memuat ringkasan insight & metrik dari backend
+ * @param {string} [target_sprint_id]
  */
-function load_sprint_insights() {
+function load_sprint_insights(target_sprint_id) {
+  const sprint_id = target_sprint_id || app_state.selected_insight_sprint_id || app_state.active_sprint_id;
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run
       .withSuccessHandler(response => {
@@ -249,18 +251,116 @@ function load_sprint_insights() {
       .withFailureHandler(err => {
         show_notification('Error koneksi insight: ' + err.message, 'error');
       })
-      .get_sprint_insights(app_state.active_sprint_id);
+      .get_sprint_insights(sprint_id);
+  } else {
+    // Mode offline / mock
+    init_mock_insights();
   }
 }
 
 /**
- * Render Dasbor Insight: KPI Cards, Blocker List, dan Burndown Chart
+ * Handler pergantian sprint pada dropdown Actionable Insights
+ * @param {string} sprint_id
+ */
+function handle_insight_sprint_change(sprint_id) {
+  if (!sprint_id) return;
+  app_state.selected_insight_sprint_id = sprint_id;
+  load_sprint_insights(sprint_id);
+}
+
+/**
+ * Toggle collapse/expand widget pada dasbor insight (Sprint Progress & Sprint Burndown)
+ * @param {string} body_id
+ */
+function toggle_insight_widget_collapse(body_id) {
+  const body_el = document.getElementById(body_id);
+  const chevron_el = document.getElementById('chevron-' + body_id);
+  if (!body_el) return;
+
+  const is_collapsed = body_el.classList.contains('hidden');
+  if (is_collapsed) {
+    body_el.classList.remove('hidden');
+    if (chevron_el) chevron_el.classList.remove('-rotate-90');
+  } else {
+    body_el.classList.add('hidden');
+    if (chevron_el) chevron_el.classList.add('-rotate-90');
+  }
+}
+
+/**
+ * Render Dasbor Insight: Sprint Progress, Sprint Burndown, KPI Cards, dan Blocker List
  * @param {Object} data - Payload metrik
  */
 function render_insights_dashboard(data) {
   if (!data) return;
 
-  // 1. KPI Cards
+  // 1. Populate Sprint Selector Dropdown
+  const sprint_select = document.getElementById('insight-sprint-select');
+  if (sprint_select && data.sprints && data.sprints.length > 0) {
+    const cur_val = (data.sprint && data.sprint.id) || app_state.selected_insight_sprint_id || sprint_select.value;
+    sprint_select.innerHTML = '';
+    data.sprints.forEach(sp => {
+      const opt = document.createElement('option');
+      opt.value = sp.id;
+      opt.textContent = `${sp.name} (${sp.id})` + (sp.status === 'ACTIVE' ? ' ★ Aktif' : (sp.status === 'COMPLETED' ? ' ✓ Selesai' : ''));
+      if (sp.id === cur_val) opt.selected = true;
+      sprint_select.appendChild(opt);
+    });
+  }
+
+  // 2. Render Sprint Progress Card (Story Points)
+  const sp_data = data.sprint_progress || {
+    total_points: 0,
+    done_points: 0,
+    in_progress_points: 0,
+    todo_points: 0,
+    done_percent: 0,
+    in_progress_percent: 0,
+    todo_percent: 0,
+    points_done_text: '0 points done, 0 points to go'
+  };
+
+  const bar_done = document.getElementById('progress-bar-done');
+  const bar_inprogress = document.getElementById('progress-bar-inprogress');
+  const bar_todo = document.getElementById('progress-bar-todo');
+  const lbl_done = document.getElementById('progress-percent-done-label');
+
+  if (bar_done) bar_done.style.width = sp_data.done_percent + '%';
+  if (bar_inprogress) bar_inprogress.style.width = sp_data.in_progress_percent + '%';
+  if (bar_todo) bar_todo.style.width = sp_data.todo_percent + '%';
+  if (lbl_done) lbl_done.textContent = sp_data.done_percent + '% done';
+
+  const stat_done = document.getElementById('progress-stat-done');
+  const stat_inprogress = document.getElementById('progress-stat-inprogress');
+  const stat_todo = document.getElementById('progress-stat-todo');
+  const pts_done = document.getElementById('progress-pts-done');
+  const pts_inprogress = document.getElementById('progress-pts-inprogress');
+  const pts_todo = document.getElementById('progress-pts-todo');
+  const total_scope = document.getElementById('progress-total-scope');
+
+  if (stat_done) stat_done.textContent = sp_data.done_percent + '%';
+  if (stat_inprogress) stat_inprogress.textContent = sp_data.in_progress_percent + '%';
+  if (stat_todo) stat_todo.textContent = sp_data.todo_percent + '%';
+
+  if (pts_done) pts_done.textContent = sp_data.done_points + ' pts';
+  if (pts_inprogress) pts_inprogress.textContent = sp_data.in_progress_points + ' pts';
+  if (pts_todo) pts_todo.textContent = sp_data.todo_points + ' pts';
+  if (total_scope) total_scope.textContent = 'Total Scope: ' + sp_data.total_points + ' pts';
+
+  // 3. Render Sprint Burndown Subtitle & Date range
+  const burndown_summary = document.getElementById('burndown-points-summary');
+  if (burndown_summary) {
+    burndown_summary.textContent = (data.burndown && data.burndown.points_done_text) || (sp_data.points_done_text || '0 points done, 0 points to go');
+  }
+  const start_lbl = document.getElementById('burndown-start-date');
+  const end_lbl = document.getElementById('burndown-end-date');
+  if (start_lbl && data.sprint) start_lbl.textContent = 'Mulai: ' + (data.sprint.start_date || '-');
+  if (end_lbl && data.sprint) end_lbl.textContent = 'Target Selesai: ' + (data.sprint.end_date || '-');
+
+  // 4. Render Burndown Chart via Chart.js
+  render_burndown_chart(data.burndown);
+
+  // 5. KPI Cards
   const el_lead = document.getElementById('metric-lead-time');
   const el_cycle = document.getElementById('metric-cycle-time');
   const el_blocker = document.getElementById('metric-blocker-count');
@@ -269,7 +369,7 @@ function render_insights_dashboard(data) {
   if (el_cycle && data.summary) el_cycle.textContent = data.summary.avg_cycle_time_hours;
   if (el_blocker && data.summary) el_blocker.textContent = data.summary.blocker_count;
 
-  // 2. Blocker Highlights List
+  // 6. Blocker Highlights List
   const blocker_container = document.getElementById('blocker-list-container');
   if (blocker_container) {
     blocker_container.innerHTML = '';
@@ -300,14 +400,11 @@ function render_insights_dashboard(data) {
       });
     }
   }
-
-  // 3. Render Burndown Chart via Chart.js
-  render_burndown_chart(data.burndown);
 }
 
 /**
- * Merender grafik garis Burndown Chart dengan Chart.js
- * @param {Object} burndown - { labels, ideal_hours, actual_hours }
+ * Merender grafik garis Burndown Chart dengan Chart.js (Persis bergaya Jira)
+ * @param {Object} burndown
  */
 function render_burndown_chart(burndown) {
   if (!burndown) return;
@@ -323,32 +420,50 @@ function render_burndown_chart(burndown) {
     app_state.burndown_chart_instance.destroy();
   }
 
+  const labels = (burndown.date_labels && burndown.date_labels.length > 0)
+    ? burndown.date_labels
+    : (burndown.labels || []);
+
+  const actual_data = burndown.actual_percent !== undefined
+    ? burndown.actual_percent
+    : (burndown.actual_hours || []);
+
+  const ideal_data = burndown.ideal_percent !== undefined
+    ? burndown.ideal_percent
+    : (burndown.ideal_hours || []);
+
   const ctx = canvas.getContext('2d');
   app_state.burndown_chart_instance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: burndown.labels,
+      labels: labels,
       datasets: [
         {
-          label: 'Ideal Burndown (Jam)',
-          data: burndown.ideal_hours,
-          borderColor: '#94a3b8',
-          borderDash: [5, 5],
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          pointRadius: 3,
-          tension: 0.1
+          label: 'Remaining work',
+          data: actual_data,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.08)',
+          fill: true,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#2563eb',
+          pointBorderWidth: 2.5,
+          tension: 0.1,
+          spanGaps: false
         },
         {
-          label: 'Aktual Tersisa (Jam)',
-          data: burndown.actual_hours,
-          borderColor: '#4f46e5',
-          backgroundColor: 'rgba(79, 70, 229, 0.08)',
-          fill: true,
-          borderWidth: 3,
-          pointRadius: 4,
-          pointBackgroundColor: '#4f46e5',
-          tension: 0.2
+          label: 'Guideline',
+          data: ideal_data,
+          borderColor: '#64748b',
+          backgroundColor: 'transparent',
+          fill: false,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.0,
+          spanGaps: true
         }
       ]
     },
@@ -361,31 +476,69 @@ function render_burndown_chart(burndown) {
       },
       plugins: {
         legend: {
-          position: 'top',
-          labels: {
-            boxWidth: 12,
-            font: { size: 11 }
-          }
+          display: false // Menggunakan custom legend HTML yang persis Jira
         },
         tooltip: {
-          padding: 8
+          backgroundColor: '#1e293b',
+          titleColor: '#ffffff',
+          bodyColor: '#e2e8f0',
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            title: function(items) {
+              return items.length > 0 ? items[0].label : '';
+            },
+            label: function(context) {
+              const val = context.raw;
+              if (val === null || val === undefined) return null;
+              const idx = context.dataIndex;
+              if (context.dataset.label === 'Remaining work') {
+                const pts = burndown.actual_points && burndown.actual_points[idx] !== undefined
+                  ? burndown.actual_points[idx]
+                  : (burndown.actual_hours ? burndown.actual_hours[idx] : val);
+                return `Remaining: ${pts} pts (${val}%)`;
+              } else {
+                const pts = burndown.ideal_points && burndown.ideal_points[idx] !== undefined
+                  ? burndown.ideal_points[idx]
+                  : (burndown.ideal_hours ? burndown.ideal_hours[idx] : val);
+                return `Guideline: ${pts} pts (${val}%)`;
+              }
+            }
+          }
         }
       },
       scales: {
         y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Estimasi Jam Tersisa',
-            font: { size: 11 }
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 20,
+            callback: function(value) {
+              return value + '%';
+            },
+            font: { size: 10, weight: '500' },
+            color: '#64748b'
           },
           grid: {
             color: '#f1f5f9'
+          },
+          border: {
+            display: false
           }
         },
         x: {
           grid: {
             display: false
+          },
+          ticks: {
+            font: { size: 10, weight: '500' },
+            color: '#64748b',
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8
+          },
+          border: {
+            color: '#cbd5e1'
           }
         }
       }
@@ -447,16 +600,47 @@ function init_mock_tasks() {
  */
 function init_mock_insights() {
   const mock_data = {
+    sprint: {
+      id: 'SPR-001',
+      name: 'Sprint 1 - Foundations',
+      status: 'ACTIVE',
+      start_date: '2026-10-15',
+      end_date: '2026-10-29'
+    },
+    sprints: [
+      { id: 'SPR-001', name: 'Sprint 1 - Foundations', status: 'ACTIVE' },
+      { id: 'SPR-002', name: 'Sprint 2 - Payment Gateway', status: 'PLANNING' }
+    ],
+    sprint_progress: {
+      total_points: 16,
+      done_points: 3,
+      in_progress_points: 13,
+      todo_points: 0,
+      remaining_points: 13,
+      done_percent: 19,
+      in_progress_percent: 81,
+      todo_percent: 0,
+      points_done_text: '3 points done, 13 points to go'
+    },
+    burndown: {
+      labels: ['Hari 1', 'Hari 2', 'Hari 3', 'Hari 4', 'Hari 5', 'Hari 6', 'Hari 7', 'Hari 8', 'Hari 9', 'Hari 10', 'Hari 11', 'Hari 12', 'Hari 13', 'Hari 14', 'Hari 15'],
+      date_labels: ['Oct 15', 'Oct 16', 'Oct 17', 'Oct 18', 'Oct 19', 'Oct 20', 'Oct 21', 'Oct 22', 'Oct 23', 'Oct 24', 'Oct 25', 'Oct 26', 'Oct 27', 'Oct 28', 'Oct 29'],
+      ideal_percent: [100, 92.8, 85.7, 78.5, 71.4, 64.2, 57.1, 50.0, 42.8, 35.7, 28.5, 21.4, 14.2, 7.1, 0],
+      actual_percent: [100, 81.2, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      ideal_points: [16, 14.8, 13.7, 12.5, 11.4, 10.2, 9.1, 8.0, 6.8, 5.7, 4.5, 3.4, 2.2, 1.1, 0],
+      actual_points: [16, 13, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      ideal_hours: [42, 39, 36, 33, 30, 27, 24, 21, 18, 15, 12, 9, 6, 3, 0],
+      actual_hours: [42, 34, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      total_points: 16,
+      done_points: 3,
+      remaining_points: 13,
+      points_done_text: '3 points done, 13 points to go'
+    },
     summary: {
       total_tasks: 4,
       avg_lead_time_hours: 32.0,
       avg_cycle_time_hours: 16.5,
       blocker_count: 1
-    },
-    burndown: {
-      labels: ['Hari 1', 'Hari 2', 'Hari 3', 'Hari 4', 'Hari 5', 'Hari 6', 'Hari 7'],
-      ideal_hours: [42, 35, 28, 21, 14, 7, 0],
-      actual_hours: [42, 36, 28, 28, null, null, null]
     },
     blockers: [
       {
@@ -1371,9 +1555,11 @@ function switch_view(target_view) {
       if (view_name === normalized_view) {
         section_el.classList.remove('hidden');
         section_el.classList.add('block');
-        // Render ulang chart jika beralih ke view insights agar responsive
-        if (view_name === 'insights' && app_state.insights) {
-          render_insights_dashboard(app_state.insights);
+        if (view_name === 'insights') {
+          if (app_state.insights) {
+            render_insights_dashboard(app_state.insights);
+          }
+          load_sprint_insights();
         }
         if (view_name === 'cycle-time') {
           load_cycle_time_report();

@@ -124,6 +124,25 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
   - Kartu Kanban Board dan kartu Product Backlog menampilkan pill badge `[N] pts` untuk work item Level 0 yang memiliki Story Point.
   - Modal Detail Work Item (`#modal-task-detail`) menampilkan section Story Point jika item berlevel 0.
 
+### 3.10 Dasbor Actionable Insights: Sprint Progress & Sprint Burndown
+- **Sprint Progress Widget (Jira-style):**
+  - Segmented progress bar multi-warna (Hijau: Done, Biru: In Progress, Abu-abu: Not Started).
+  - Label persentase penyelesaian (`XX% done`).
+  - 3 Kolom metrik ringkasan: Done (% & pts), In progress (% & pts), Not started (% & pts).
+  - Teks deskriptif ringkasan: `X points done, Y points to go`.
+- **Sprint Burndown Chart (Story Points):**
+  - Sumbu X: Timeline tanggal dari `start_date` sampai `end_date` sprint aktif.
+  - Sumbu Y: Persentase (0% - 100%) dan Story Points.
+  - Garis Guideline (Abu-abu): Penurunan ideal linear dari 100% pada start date ke 0% pada target selesai.
+  - Garis Remaining work (Biru): Sisa Story Points aktual harian dengan kurva terisi bayangan lembut (*shaded area*), berhenti tepat pada hari ini.
+  - Custom Legend: Lingkaran biru (*Remaining work*) dan lingkaran abu-abu (*Guideline*).
+- **Aturan Pembakaran Poin (Opsi A):**
+  - Story Points berada di Level 0 (`USER_STORY`, `TASK`, `BUG`).
+  - Poin dianggap terbakar (*burned*) saat seluruh subtask (-1) terafiliasi telah berstatus `DONE` dan item Level 0 itu sendiri berstatus `DONE`.
+  - Jika item Level 0 mandiri (tanpa subtask), poin terbakar saat item berstatus `DONE`.
+- **Sprint Selector:**
+  - Dropdown interaktif pada header dasbor memungkinkan pergantian konteks sprint untuk meninjau sprint mana pun dalam proyek.
+
 ---
 
 ## 4. Acceptance Criteria
@@ -137,6 +156,10 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Penyelesaian seluruh subtask memicu pop-up konfirmasi `Update [Type] [ID]` untuk menyelaraskan status parent menjadi `DONE`.
 - [x] Field Story Point berupa text box saat create/edit task hanya muncul dan berlaku pada work item hirarki Level 0 (`USER_STORY`, `TASK`, `BUG`).
 - [x] Field Story Point tersembunyi dan tidak disimpan pada Inisiatif (Level 1) dan Subtask (Level -1).
+- [x] Menu Actionable Insights menyajikan widget Sprint Progress dengan progress bar bersegmen 3 warna (Done, In Progress, Not Started).
+- [x] Menu Actionable Insights menyajikan grafik Sprint Burndown (Guideline linear vs Remaining work aktual berbasis Story Points).
+- [x] Penegakan aturan Opsi A: Story Points hanya ter-burn saat seluruh subtask (-1) selesai dan item Level 0 berstatus `DONE`.
+- [x] Dropdown pemilih sprint di Actionable Insights mendukung peninjauan berbagai sprint dalam proyek.
 - [x] Editor WYSIWYG pada form task mendukung formatting kaya (Bold, Italic, Headings, Lists, Insert Table).
 - [x] Paste tabel dari Microsoft Excel / Google Sheets otomatis dibersihkan dan dirender rapi sebagai tabel HTML responsif.
 - [x] Mengklik kartu task pada Kanban Board atau Backlog memunculkan Modal Detail Work Item lengkap dengan deskripsi dan tombol edit.
@@ -144,6 +167,7 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Start Sprint dan Complete Sprint dengan post-sprint rollover berjalan akurat.
 - [x] AI Product Challenger mengevaluasi inisiatif produk dan merouting inisiatif yang disetujui ke Demand Management.
 - [x] Pelaporan Time-in-Status & Cycle Time akurat dengan deteksi blocker otomatis.
-- [x] Seluruh 16 stage test suites lulus 100% (Green).
+- [x] Seluruh 17 stage test suites lulus 100% (Green).
+
 
 

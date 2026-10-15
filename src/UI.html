@@ -523,54 +523,197 @@
 
       <!-- VIEW 2: ACTIONABLE INSIGHTS -->
       <section id="view-insights" class="spa-view hidden">
-        <div class="mb-6">
-          <h2 class="text-xl font-bold text-slate-900 tracking-tight">Dasbor Actionable Insights</h2>
-          <p class="text-xs text-slate-500">Metrik durasi dan deteksi hambatan untuk eskalasi cepat oleh Project Manager & Klien.</p>
-        </div>
-
-        <!-- Metric KPI Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-          <!-- Card Lead Time -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Lead Time</span>
-            <div class="flex items-baseline space-x-2">
-              <span id="metric-lead-time" class="text-3xl font-extrabold text-slate-800">0.0</span>
-              <span class="text-sm font-medium text-slate-500">Jam</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-2">Waktu total dari pembuatan task hingga selesai (DONE).</p>
+        <!-- Header & Sprint Context -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 tracking-tight flex items-center space-x-2">
+              <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>Dasbor Actionable Insights</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Informasi Sprint Progress, Sprint Burndown (Story Points), dan deteksi hambatan tim.</p>
           </div>
 
-          <!-- Card Cycle Time -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Cycle Time</span>
-            <div class="flex items-baseline space-x-2">
-              <span id="metric-cycle-time" class="text-3xl font-extrabold text-indigo-600">0.0</span>
-              <span class="text-sm font-medium text-slate-500">Jam</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-2">Waktu aktif pengerjaan (IN PROGRESS ke DONE).</p>
-          </div>
-
-          <!-- Card Active Blockers -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Hambatan / Blocker Aktif</span>
-            <div class="flex items-baseline space-x-2">
-              <span id="metric-blocker-count" class="text-3xl font-extrabold text-rose-600">0</span>
-              <span class="text-sm font-medium text-slate-500">Task Macet</span>
-            </div>
-            <p class="text-[11px] text-slate-400 mt-2">Task tidak bergerak melebihi ambang batas wajar.</p>
+          <!-- Sprint Selector Dropdown -->
+          <div class="flex items-center space-x-2 self-start sm:self-auto bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+            <span class="text-xs font-medium text-slate-400">Pilih Sprint:</span>
+            <select 
+              id="insight-sprint-select" 
+              onchange="handle_insight_sprint_change(this.value)" 
+              class="text-xs font-bold text-indigo-700 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer pr-1">
+              <option value="SPR-001">Sprint 1 - Foundations</option>
+            </select>
           </div>
         </div>
 
-        <!-- Insights Visualisation Grid -->
+        <!-- ROW 1: SPRINT PROGRESS & SPRINT BURNDOWN (JIRA STYLE) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          
+          <!-- Card 1: Sprint Progress -->
+          <div id="card-sprint-progress" class="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 flex flex-col justify-between">
+            <div>
+              <!-- Header with toggle & tooltip -->
+              <div class="flex items-center justify-between mb-4">
+                <button 
+                  type="button" 
+                  onclick="toggle_insight_widget_collapse('sprint-progress-body')"
+                  class="flex items-center space-x-2 text-slate-800 hover:text-indigo-600 transition-colors text-left group">
+                  <svg id="chevron-sprint-progress-body" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  <span class="text-base font-bold text-slate-900">Sprint progress</span>
+                </button>
+                <div class="relative group/help cursor-pointer" title="Progress dihitung berdasarkan Story Points pada work item Level 0 saat seluruh subtask-nya berstatus DONE">
+                  <svg class="w-4 h-4 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Collapsible Content Body -->
+              <div id="sprint-progress-body" class="space-y-5">
+                <!-- Segmented Progress Bar & Percent Label -->
+                <div class="flex items-center space-x-3">
+                  <div class="flex-1 h-3.5 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
+                    <div id="progress-bar-done" class="bg-[#65a30d] h-full transition-all duration-500" style="width: 0%;" title="Done"></div>
+                    <div id="progress-bar-inprogress" class="bg-[#2563eb] h-full transition-all duration-500" style="width: 0%;" title="In Progress"></div>
+                    <div id="progress-bar-todo" class="bg-slate-200 h-full transition-all duration-500" style="width: 100%;" title="Not Started"></div>
+                  </div>
+                  <span id="progress-percent-done-label" class="text-xs font-bold text-slate-700 whitespace-nowrap">
+                    0% done
+                  </span>
+                </div>
+
+                <!-- 3 Columns Metric Summary -->
+                <div class="grid grid-cols-3 gap-3 pt-2">
+                  <!-- Done -->
+                  <div>
+                    <span class="text-xs text-slate-500 block mb-0.5">Done</span>
+                    <span id="progress-stat-done" class="text-2xl font-black text-[#4d7c0f] block">0%</span>
+                    <span id="progress-pts-done" class="text-[11px] text-slate-400 font-medium">0 pts</span>
+                  </div>
+                  <!-- In progress -->
+                  <div>
+                    <span class="text-xs text-slate-500 block mb-0.5">In progress</span>
+                    <span id="progress-stat-inprogress" class="text-2xl font-black text-[#2563eb] block">0%</span>
+                    <span id="progress-pts-inprogress" class="text-[11px] text-slate-400 font-medium">0 pts</span>
+                  </div>
+                  <!-- Not started -->
+                  <div>
+                    <span class="text-xs text-slate-500 block mb-0.5">Not started</span>
+                    <span id="progress-stat-todo" class="text-2xl font-black text-slate-700 block">0%</span>
+                    <span id="progress-pts-todo" class="text-[11px] text-slate-400 font-medium">0 pts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer info -->
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Metrik: <strong class="text-slate-600">Story Points (Level 0)</strong></span>
+              <span id="progress-total-scope">Total: 0 pts</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Sprint Burndown -->
+          <div id="card-sprint-burndown" class="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 flex flex-col justify-between">
+            <div>
+              <!-- Header with toggle, title & tooltip -->
+              <div class="flex items-center justify-between mb-1">
+                <button 
+                  type="button" 
+                  onclick="toggle_insight_widget_collapse('sprint-burndown-body')"
+                  class="flex items-center space-x-2 text-slate-800 hover:text-indigo-600 transition-colors text-left group">
+                  <svg id="chevron-sprint-burndown-body" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  <span class="text-base font-bold text-slate-900">Sprint burndown</span>
+                </button>
+                <div class="relative group/help cursor-pointer" title="Garis Guideline turun bertahap ke 0%. Garis Remaining work mencatat sisa Story Points saat item Level 0 & subtask selesai.">
+                  <svg class="w-4 h-4 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Subtitle: X points done, Y points to go -->
+              <p id="burndown-points-summary" class="text-xs text-slate-500 font-medium mb-3">
+                0 points done, 0 points to go
+              </p>
+
+              <!-- Collapsible Chart Body -->
+              <div id="sprint-burndown-body" class="space-y-3">
+                <div class="h-48 relative flex items-center justify-center bg-white rounded-lg">
+                  <canvas id="burndownChart" class="w-full h-full"></canvas>
+                  <div id="burndown-placeholder" class="absolute text-xs text-slate-400 font-medium hidden">
+                    Memuat data grafik burndown...
+                  </div>
+                </div>
+
+                <!-- Custom Legend matching Jira -->
+                <div class="flex items-center justify-center space-x-6 text-xs text-slate-600 pt-1">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] inline-block"></span>
+                    <span class="font-medium text-slate-600">Remaining work</span>
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#64748b] inline-block"></span>
+                    <span class="font-medium text-slate-600">Guideline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer date range -->
+            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <span id="burndown-start-date">Mulai: -</span>
+              <span id="burndown-end-date">Target Selesai: -</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ROW 2: METRIC KPI CARDS & BLOCKERS -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Burndown Chart Container (Siap untuk Tahap 4) -->
-          <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-sm font-bold text-slate-800 mb-1">Burndown Chart (Ideal vs Aktual)</h3>
-            <p class="text-xs text-slate-400 mb-4">Tren sisa estimasi jam kerja sprint harian.</p>
-            <div class="h-64 relative flex items-center justify-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-              <canvas id="burndownChart" class="w-full h-full"></canvas>
-              <div id="burndown-placeholder" class="absolute text-xs text-slate-400 font-medium">
-                Grafik Burndown akan diinisialisasi pada Tahap 4
+          <!-- Left side 2-col or stacked KPI Cards -->
+          <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Card Lead Time -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Lead Time</span>
+                <div class="flex items-baseline space-x-2">
+                  <span id="metric-lead-time" class="text-3xl font-extrabold text-slate-800">0.0</span>
+                  <span class="text-sm font-medium text-slate-500">Jam</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-2">Waktu total dari pembuatan task hingga selesai (DONE).</p>
+            </div>
+
+            <!-- Card Cycle Time -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Rata-rata Cycle Time</span>
+                <div class="flex items-baseline space-x-2">
+                  <span id="metric-cycle-time" class="text-3xl font-extrabold text-indigo-600">0.0</span>
+                  <span class="text-sm font-medium text-slate-500">Jam</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-2">Waktu aktif pengerjaan (IN PROGRESS ke DONE).</p>
+            </div>
+
+            <!-- Card Active Blockers Counter -->
+            <div class="sm:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Hambatan / Blocker Aktif</span>
+                <div class="flex items-baseline space-x-2">
+                  <span id="metric-blocker-count" class="text-3xl font-extrabold text-rose-600">0</span>
+                  <span class="text-sm font-medium text-slate-500">Task Macet</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">Task aktif yang tidak berpindah status &gt; 48 jam.</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 text-xl font-bold">
+                ⚠️
               </div>
             </div>
           </div>
@@ -580,7 +723,7 @@
             <h3 class="text-sm font-bold text-slate-800 mb-1">Blocker Highlights</h3>
             <p class="text-xs text-slate-400 mb-4">Task yang memerlukan eskalasi segera.</p>
             <div id="blocker-list-container" class="flex-1 space-y-2 overflow-y-auto max-h-64">
-              <div class="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs text-center">
+              <div class="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs text-center font-medium">
                 ✓ Tidak ada blocker terdeteksi saat ini.
               </div>
             </div>

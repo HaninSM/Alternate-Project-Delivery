@@ -179,4 +179,23 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
 3. **Pondasi Actionable Insights:**
    - Menjadi basis agregasi untuk fitur *Sprint Progress* dan *Sprint Burndown* berbasis Story Points dan Jam Kerja di Actionable Insight.
 
+---
+
+## 9. Sprint Progress & Sprint Burndown Engine (Actionable Insights)
+
+1. **Aturan Pembakaran Story Points (Opsi A):**
+   - Story point berada di Level 0 (`USER_STORY`, `TASK`, `BUG`).
+   - Poin hanya dihitung selesai (*burned*) ketika item Level 0 berstatus `DONE` DAN seluruh subtask terafiliasi (-1) juga berstatus `DONE`.
+   - Menjamin bahwa *velocity* dan *burn progress* mencerminkan penyelesaian fitur secara utuh tanpa premature burn.
+2. **Kalkulasi Sprint Progress:**
+   - Segmented bar visual dengan rasio Done (Hijau), In Progress (Biru), dan Not Started (Abu-abu).
+   - Teks ringkasan dinamis: `X points done, Y points to go`.
+3. **Kalkulasi Timeline Burndown:**
+   - Garis Guideline Ideal: Penurunan linear dari total komitmen poin ke 0 pada tanggal berakhir sprint.
+   - Garis Remaining Work: Menghitung akumulasi sisa Story Points harian dari data `Tasks` dan log `Task_History`, berhenti pada tanggal hari ini.
+4. **Interaktivitas:**
+   - Dropdown pemilih sprint memungkinkan penelusuran metrik sprint historis maupun sprint aktif.
+   - Kartu widget collapsible untuk kenyamanan tampilan pengguna.
+
+
 

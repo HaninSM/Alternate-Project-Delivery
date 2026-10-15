@@ -297,4 +297,34 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba logika seleksi hirarki level 0 di `js_main.html`.
   - Uji coba simulasi persistensi backend dan penolakan pada Level 1 & Level -1. (Diverifikasi lulus 100% via `tests/test_stage16_story_points_level_0.js`).
 
+---
+
+## Tahap 17 - Sprint Progress & Sprint Burndown (Menu Actionable Insights)
+- [x] Bangun mesin kalkulasi Sprint Progress di `Insights.gs` (`calculate_sprint_progress_metrics`):
+  - Penegakan **Aturan Opsi A**: Story point Level 0 hanya dianggap selesai (*burned*) apabila seluruh subtask (-1) terafiliasi telah berstatus `DONE` dan item Level 0 itu sendiri berstatus `DONE`.
+  - Menghitung segmentasi poin: `done_points`, `in_progress_points`, `todo_points`, serta persentase proporsionalnya.
+  - Membentuk label ringkasan persis Jira: `X points done, Y points to go`.
+- [x] Bangun mesin grafik Sprint Burndown di `Insights.gs` (`build_burndown_series`):
+  - Sumbu X: Timeline harian dari `start_date` hingga `end_date` sprint aktif.
+  - Garis **Guideline**: Penurunan linear bertahap dari total komitmen poin ke 0% pada akhir sprint.
+  - Garis **Remaining work**: Mengalkulasikan sisa Story Points aktual harian berdasarkan audit log di `Task_History`, berhenti tepat pada hari ini (*null* untuk hari mendatang).
+  - Mengembalikan daftar seluruh sprint dalam proyek untuk dropdown pemilih sprint interaktif.
+- [x] Perbarui antarmuka Dasbor Actionable Insights di `UI.html`:
+  - Kartu **Sprint progress** bergaya Jira: Collapsible card dengan toggle chevron, segmented progress bar (Hijau: Done, Biru: In progress, Abu-abu: Not started), label `XX% done`, dan 3 kolom ringkasan persentase serta poin.
+  - Kartu **Sprint burndown** bergaya Jira: Subtitle `X points done, Y points to go`, canvas Chart.js responsif, dan legend visual lingkaran biru (*Remaining work*) & abu-abu (*Guideline*).
+  - Dropdown **Pilih Sprint** (`#insight-sprint-select`) pada header untuk melihat insight sprint mana pun dalam proyek.
+  - Penataan rapi KPI Cards (Lead Time, Cycle Time, Blocker) dan Blocker Highlights di baris kedua.
+- [x] Implementasikan fungsi controller di `js_main.html`:
+  - `load_sprint_insights`: Memuat data metrik untuk sprint yang dipilih atau sprint aktif.
+  - `handle_insight_sprint_change`: Listener perubahan dropdown sprint untuk me-refresh data secara dinamis.
+  - `toggle_insight_widget_collapse`: Fungsi toggle ciut/buka widget kartu Sprint Progress & Burndown.
+  - `render_insights_dashboard` & `render_burndown_chart`: Konfigurasi Chart.js v4 dengan kurva biru berbayang (*shaded area*), guideline solid, dan custom tooltip.
+  - Perbarui mock data `init_mock_insights` untuk simulasi lokal.
+- [x] **Quality Gate / Uji Coba Tahap 17:**
+  - Uji coba aturan Opsi A pembakaran Story Points pada relasi parent Level 0 & subtask.
+  - Uji coba skenario attachment Jira (3 points done, 13 points to go -> 19% Done, 81% In Progress).
+  - Uji coba pembentukan seri data Burndown (Guideline 100% -> 0%, Remaining work aktual).
+  - Uji coba integritas DOM dan handler di `UI.html` & `js_main.html`. (Diverifikasi lulus 100% via `tests/test_stage17_sprint_progress_burndown.js`).
+
+
 
