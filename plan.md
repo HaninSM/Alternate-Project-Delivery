@@ -148,3 +148,20 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
    - PM / Admin membuka tab **Demand Management**.
    - Menginput estimasi insinyur, durasi pengerjaan, dan alokasi jam kerja.
    - Menekan tombol **Konversi ke Proyek** untuk secara instan melahirkan Project baru di sistem.
+
+---
+
+## 7. Kanban Swimlane Grouping & Auto-Parent Done Engine
+
+1. **Multi-Mode Grouping Controller:**
+   - Menyediakan 4 mode grouping visual pada papan Kanban: `parent` (Default), `initiative`, `assignee`, dan `none` (flat).
+   - Pengguna dapat mengganti mode melalui dropdown `#select-kanban-group-by` tanpa refresh halaman.
+2. **Dynamic Swimlane Board Rendering:**
+   - Baris swimlane parent horizontal yang interaktif dan dapat diciutkan (*collapsible*).
+   - Memisahkan subtask anak ke dalam sub-grid 4 kolom drag-and-drop di bawah parent masing-masing.
+   - Mengelompokkan item tanpa subtask ke dalam swimlane mandiri khusus.
+3. **Auto-Parent Done Confirmation Modal:**
+   - Listener pergeseran status mendeteksi penyelesaian seluruh subtask di bawah parent non-DONE.
+   - Menampilkan modal konfirmasi bergaya Jira (`Update Story TES-3`, `All subtasks are now complete. Do you want to update this parent work item to match?`).
+   - Eksekusi konfirmasi memperbarui status parent menjadi `DONE` secara atomik di UI dan backend.
+

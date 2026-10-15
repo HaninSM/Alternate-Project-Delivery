@@ -141,3 +141,32 @@ Users (1) --------< Initiative_Tests (N) [attempt_count, status: TESTING/APPROVE
                          v
                       Projects (Konversi Demand menjadi Proyek Baru)
 ```
+
+---
+
+## 7. Model State Sisi Klien (Frontend SPA State)
+
+Pada `js_main.html`, objek global `app_state` mengelola state aplikasi reaktif:
+
+```javascript
+const app_state = {
+  current_user: null,               // Objek profil pengguna yang login
+  active_project_id: 'PRJ-001',      // ID proyek aktif
+  active_sprint_id: 'SPR-001',       // ID sprint aktif
+  current_view: 'dashboard',         // Tampilan aktif ('dashboard' | 'projects' | 'users' | dst.)
+  projects: [],                      // Daftar seluruh proyek terdaftar
+  tasks: [],                         // Daftar tugas pada sprint aktif (termasuk parent & subtask)
+  backlog_tasks: [],                 // Daftar tugas di bucket Backlog proyek
+  sprints: [],                       // Daftar seluruh bucket sprint proyek
+  insights: null,                    // Metrik lead/cycle time & burndown
+  users_list: [],                    // Daftar user untuk RBAC management
+  is_loading: false,                 // Indikator loading
+  burndown_chart_instance: null,     // Objek instance Chart.js
+  
+  // State Swimlane Grouping & Konfirmasi Auto-Done (Tahap 15):
+  kanban_group_by: 'parent',         // Mode pengelompokan ('parent' | 'initiative' | 'assignee' | 'none')
+  collapsed_swimlanes: {},           // Dictionary boolean status collapse baris swimlane { [group_id]: true/false }
+  pending_parent_done: null          // Objek parent sementara yang menunggu konfirmasi modal auto-done
+};
+```
+

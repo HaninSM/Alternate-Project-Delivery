@@ -248,3 +248,31 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba konversi data TSV Excel ke tabel HTML.
   - Uji coba CRUD deskripsi pada backend database.
   - Uji coba integritas berkas sumber. (Diverifikasi lulus 100% via `tests/test_stage14_wysiwyg_excel_paste.js`).
+
+---
+
+## Tahap 15 - Kanban Swimlane Grouping & Auto-Parent Done Confirmation
+- [x] Tambahkan Grouping Selector pada Toolbar Kanban Board (`#select-kanban-group-by`):
+  - Opsi: `Subtask / Parent` (Default), `Inisiatif`, `Assignee`, `None (Tanpa Grouping)`.
+- [x] Bangun Arsitektur Papan Kanban Dinamis (`#kanban-board-container`):
+  - Global Sticky Header Row untuk 4 Kolom (`TO DO`, `IN PROGRESS`, `REVIEW`, `DONE`) dengan total counter.
+  - Baris Swimlane Parent horizontal yang dapat di-collapse / expand:
+    - Tombol panah toggle (`v` / `>`).
+    - Ikon dan Badge Work Type (`Story`, `Task`, `Bug`, `Inisiatif`).
+    - Key Parent, Judul tugas, Indikator jumlah subtask (`X of Y subtasks`), Status Badge, dan Tombol Cepat `+` Subtask.
+  - Sub-grid 4 Kolom di bawah setiap swimlane parent berisi kartu subtask anak dengan drag-and-drop mandiri.
+  - Swimlane khusus untuk `Work Item Mandiri (Tanpa Subtask)` untuk menampung item Level 0 yang belum memiliki subtask.
+- [x] Bangun Modal Konfirmasi Auto-Parent Done (`#modal-parent-done-confirm`):
+  - Mendeteksi saat subtask terakhir dari sebuah parent dipindahkan ke status `DONE`.
+  - Jika parent belum `DONE`, memunculkan dialog konfirmasi persis seperti Jira:
+    - Judul: `Update [Work Type] [Parent ID]` (contoh: `Update Story TES-3`).
+    - Pesan: `All subtasks are now complete. Do you want to update this parent work item to match?`
+    - Radio Selector: `🔘 Done`.
+    - Tombol `Cancel` dan `Update`.
+  - Menangani aksi `Update`: Memanggil `update_task_status(parent_id, 'DONE')`, memperbarui status parent di memori, me-render ulang papan, dan menampilkan notifikasi.
+- [x] **Quality Gate / Uji Coba Tahap 15:**
+  - Uji coba elemen UI Grouping Selector dan Modal Dialog Konfirmasi di `UI.html`.
+  - Uji coba definisi handler dan fungsi-fungsi swimlane di `js_main.html`.
+  - Uji coba algoritma grouping parent swimlane dan item mandiri.
+  - Uji coba simulasi trigger konfirmasi saat seluruh subtask berstatus `DONE`. (Diverifikasi lulus 100% via `tests/test_stage15_kanban_grouping_parent_done.js`).
+

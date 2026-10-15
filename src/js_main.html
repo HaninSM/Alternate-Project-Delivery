@@ -15,7 +15,10 @@ const app_state = {
   insights: null,
   users_list: [],
   is_loading: false,
-  burndown_chart_instance: null
+  burndown_chart_instance: null,
+  kanban_group_by: 'parent',
+  collapsed_swimlanes: {},
+  pending_parent_done: null
 };
 
 /**
@@ -470,9 +473,190 @@ function init_mock_insights() {
 }
 
 /**
- * Merender kartu-kartu task ke dalam 4 kolom Kanban Board
+ * Mengubah mode grouping Kanban Board ('parent' | 'initiative' | 'assignee' | 'none')
+ * @param {string} group_by
+ */
+function handle_change_kanban_grouping(group_by) {
+  app_state.kanban_group_by = group_by || 'parent';
+  render_kanban_board();
+}
+
+/**
+ * Toggle collapse / expand baris swimlane
+ * @param {string} group_id
+ */
+function toggle_swimlane_collapse(group_id) {
+  if (!group_id) return;
+  app_state.collapsed_swimlanes[group_id] = !app_state.collapsed_swimlanes[group_id];
+  render_kanban_board();
+}
+
+/**
+ * Membuka Modal Konfirmasi saat semua subtask parent berstatus DONE (Tahap 15)
+ * @param {Object} parent
+ */
+function open_parent_done_modal(parent) {
+  if (!parent) return;
+  app_state.pending_parent_done = parent;
+
+  const title_el = document.getElementById('parent-done-modal-title');
+  if (title_el) {
+    let type_name = 'Work Item';
+    const wt = String(parent.work_type || '').toUpperCase();
+    if (wt === 'USER_STORY') type_name = 'Story';
+    else if (wt === 'TASK') type_name = 'Task';
+    else if (wt === 'BUG') type_name = 'Bug';
+    else if (wt === 'INITIATIVE') type_name = 'Inisiatif';
+
+    title_el.innerHTML = `Update ${type_name} ${escape_html(parent.id)}`;
+  }
+
+  const modal = document.getElementById('modal-parent-done-confirm');
+  if (modal) {
+    modal.classList.remove('hidden');
+  }
+}
+
+/**
+ * Menutup Modal Konfirmasi Parent Done
+ */
+function close_parent_done_modal() {
+  app_state.pending_parent_done = null;
+  const modal = document.getElementById('modal-parent-done-confirm');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+/**
+ * Menangani klik tombol "Update" pada modal konfirmasi parent done
+ */
+function handle_confirm_parent_done() {
+  const parent = app_state.pending_parent_done;
+  if (!parent) {
+    close_parent_done_modal();
+    return;
+  }
+  const parent_id = parent.id;
+  close_parent_done_modal();
+  handle_task_status_change(parent_id, 'DONE');
+}
+
+/**
+ * Memeriksa apakah seluruh subtask dari parent tertentu berstatus DONE
+ * dan jika ya, membuka dialog konfirmasi update parent
+ * @param {string} parent_id
+ */
+function check_and_prompt_parent_completion(parent_id) {
+  if (!parent_id) return;
+  const parent = app_state.tasks.find(t => t.id === parent_id);
+  if (!parent || parent.status === 'DONE') return;
+
+  const child_subtasks = app_state.tasks.filter(t => t.parent_id === parent_id);
+  if (child_subtasks.length === 0) return;
+
+  const all_done = child_subtasks.every(s => s.status === 'DONE');
+  if (all_done) {
+    open_parent_done_modal(parent);
+  }
+}
+
+/**
+ * Merender kartu-kartu task ke dalam Kanban Board (mendukung swimlane grouping & flat)
  */
 function render_kanban_board() {
+  const board_container = document.getElementById('kanban-board-container') || document.getElementById('kanban-columns-container');
+  if (!board_container) return;
+
+  const group_by = app_state.kanban_group_by || 'parent';
+  const can_edit = app_state.current_user && app_state.current_user.role !== 'CLIENT';
+  const statuses = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+
+  // Sinkronkan elemen select bila ada
+  const select_el = document.getElementById('select-kanban-group-by');
+  if (select_el && select_el.value !== group_by) {
+    select_el.value = group_by;
+  }
+
+  if (group_by === 'none') {
+    render_flat_kanban_board(board_container, can_edit, statuses);
+  } else {
+    render_swimlane_kanban_board(board_container, group_by, can_edit, statuses);
+  }
+}
+
+/**
+ * Merender mode Flat klasik 4 kolom Kanban
+ */
+function render_flat_kanban_board(container, can_edit, statuses) {
+  container.innerHTML = `
+    <div id="kanban-columns-container" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- TODO -->
+      <div class="bg-slate-100 rounded-xl p-3 border border-slate-200/80 flex flex-col min-h-[420px] transition-colors">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-600">TODO</span>
+          <span id="count-todo" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">0</span>
+        </div>
+        <div 
+          id="column-todo" 
+          data-status="TODO"
+          ondragover="handle_drag_over(event)" 
+          ondragleave="handle_drag_leave(event)" 
+          ondrop="handle_drop(event, 'TODO')" 
+          class="kanban-drop-column task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+        </div>
+      </div>
+
+      <!-- IN PROGRESS -->
+      <div class="bg-blue-50/50 rounded-xl p-3 border border-blue-200/80 flex flex-col min-h-[420px] transition-colors">
+        <div class="flex items-center justify-between pb-3 border-b border-blue-200">
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-700">IN PROGRESS</span>
+          <span id="count-in_progress" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">0</span>
+        </div>
+        <div 
+          id="column-in_progress" 
+          data-status="IN_PROGRESS"
+          ondragover="handle_drag_over(event)" 
+          ondragleave="handle_drag_leave(event)" 
+          ondrop="handle_drop(event, 'IN_PROGRESS')" 
+          class="kanban-drop-column task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+        </div>
+      </div>
+
+      <!-- REVIEW -->
+      <div class="bg-amber-50/50 rounded-xl p-3 border border-amber-200/80 flex flex-col min-h-[420px] transition-colors">
+        <div class="flex items-center justify-between pb-3 border-b border-amber-200">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-700">REVIEW</span>
+          <span id="count-review" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">0</span>
+        </div>
+        <div 
+          id="column-review" 
+          data-status="REVIEW"
+          ondragover="handle_drag_over(event)" 
+          ondragleave="handle_drag_leave(event)" 
+          ondrop="handle_drop(event, 'REVIEW')" 
+          class="kanban-drop-column task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+        </div>
+      </div>
+
+      <!-- DONE -->
+      <div class="bg-emerald-50/50 rounded-xl p-3 border border-emerald-200/80 flex flex-col min-h-[420px] transition-colors">
+        <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-700">DONE</span>
+          <span id="count-done" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">0</span>
+        </div>
+        <div 
+          id="column-done" 
+          data-status="DONE"
+          ondragover="handle_drag_over(event)" 
+          ondragleave="handle_drag_leave(event)" 
+          ondrop="handle_drop(event, 'DONE')" 
+          class="kanban-drop-column task-column-list flex-1 pt-3 space-y-3 transition-colors rounded-lg">
+        </div>
+      </div>
+    </div>
+  `;
+
   const columns = {
     TODO: document.getElementById('column-todo'),
     IN_PROGRESS: document.getElementById('column-in_progress'),
@@ -487,13 +671,7 @@ function render_kanban_board() {
     DONE: document.getElementById('count-done')
   };
 
-  Object.keys(columns).forEach(status => {
-    if (columns[status]) columns[status].innerHTML = '';
-    if (counters[status]) counters[status].textContent = '0';
-  });
-
   const column_counts = { TODO: 0, IN_PROGRESS: 0, REVIEW: 0, DONE: 0 };
-  const can_edit = app_state.current_user && app_state.current_user.role !== 'CLIENT';
 
   app_state.tasks.forEach(task => {
     const status = task.status;
@@ -514,6 +692,390 @@ function render_kanban_board() {
       `;
     }
   });
+}
+
+/**
+ * Merender papan Kanban dalam struktur Swimlanes (Parent / Inisiatif / Assignee)
+ */
+function render_swimlane_kanban_board(container, group_by, can_edit, statuses) {
+  container.innerHTML = '';
+
+  // 1. Baris Header Kolom Global di bagian atas
+  const header_bar = document.createElement('div');
+  header_bar.className = 'grid grid-cols-1 md:grid-cols-4 gap-4 px-1 pb-1';
+
+  const status_counts = { TODO: 0, IN_PROGRESS: 0, REVIEW: 0, DONE: 0 };
+  app_state.tasks.forEach(t => {
+    if (status_counts[t.status] !== undefined) status_counts[t.status]++;
+  });
+
+  const header_configs = [
+    { status: 'TODO', label: 'TO DO', count: status_counts.TODO, bg: 'bg-slate-100', border: 'border-slate-200', text: 'text-slate-600', badge_bg: 'bg-slate-200 text-slate-700' },
+    { status: 'IN_PROGRESS', label: 'IN PROGRESS', count: status_counts.IN_PROGRESS, bg: 'bg-blue-50/70', border: 'border-blue-200', text: 'text-blue-700', badge_bg: 'bg-blue-100 text-blue-800' },
+    { status: 'REVIEW', label: 'REVIEW', count: status_counts.REVIEW, bg: 'bg-amber-50/70', border: 'border-amber-200', text: 'text-amber-700', badge_bg: 'bg-amber-100 text-amber-800' },
+    { status: 'DONE', label: 'DONE', count: status_counts.DONE, bg: 'bg-emerald-50/70', border: 'border-emerald-200', text: 'text-emerald-700', badge_bg: 'bg-emerald-100 text-emerald-800' }
+  ];
+
+  header_configs.forEach(cfg => {
+    const col_header = document.createElement('div');
+    col_header.className = `flex items-center justify-between px-3 py-2 ${cfg.bg} rounded-xl border ${cfg.border}`;
+    col_header.innerHTML = `
+      <span class="text-xs font-bold uppercase tracking-wider ${cfg.text}">${cfg.label}</span>
+      <span id="count-${cfg.status.toLowerCase()}" class="px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.badge_bg}">${cfg.count}</span>
+    `;
+    header_bar.appendChild(col_header);
+  });
+  container.appendChild(header_bar);
+
+  // 2. Render Baris-Baris Swimlane
+  if (group_by === 'parent') {
+    render_parent_swimlanes(container, can_edit, statuses);
+  } else if (group_by === 'initiative') {
+    render_initiative_swimlanes(container, can_edit, statuses);
+  } else if (group_by === 'assignee') {
+    render_assignee_swimlanes(container, can_edit, statuses);
+  }
+}
+
+/**
+ * Merender Swimlanes berdasarkan Parent & Subtask (Default Sesuai Screenshot Lampiran)
+ */
+function render_parent_swimlanes(container, can_edit, statuses) {
+  const subtasks = app_state.tasks.filter(t => Boolean(t.parent_id));
+  const subtask_parent_ids = new Set(subtasks.map(s => s.parent_id));
+
+  const parent_items = [];
+  const standalone_items = [];
+
+  app_state.tasks.forEach(t => {
+    if (!t.parent_id) {
+      if (subtask_parent_ids.has(t.id) || (t.subtask_count && t.subtask_count > 0)) {
+        parent_items.push(t);
+      } else {
+        standalone_items.push(t);
+      }
+    }
+  });
+
+  // Sintesis data jika ada subtask dengan parent di luar sprint
+  subtask_parent_ids.forEach(pid => {
+    if (!parent_items.some(p => p.id === pid)) {
+      parent_items.push({
+        id: pid,
+        title: 'Parent ' + pid,
+        work_type: 'TASK',
+        status: 'IN_PROGRESS',
+        is_synthetic: true
+      });
+    }
+  });
+
+  if (parent_items.length === 0 && standalone_items.length === 0) {
+    const empty_msg = document.createElement('div');
+    empty_msg.className = 'p-8 text-center text-slate-400 text-sm bg-white rounded-xl border border-dashed border-slate-200';
+    empty_msg.textContent = 'Belum ada work item di dalam Sprint ini.';
+    container.appendChild(empty_msg);
+    return;
+  }
+
+  // Render Setiap Baris Swimlane Parent
+  parent_items.forEach(parent => {
+    const child_subtasks = subtasks.filter(s => s.parent_id === parent.id);
+    const total = child_subtasks.length;
+    const done = child_subtasks.filter(s => s.status === 'DONE').length;
+    const is_collapsed = Boolean(app_state.collapsed_swimlanes[parent.id]);
+
+    const swimlane_card = document.createElement('div');
+    swimlane_card.className = 'bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all';
+    swimlane_card.id = 'swimlane-' + parent.id;
+
+    // Work type icon
+    const wt = String(parent.work_type || 'TASK').toUpperCase();
+    let wt_icon = '🔷';
+    if (wt === 'USER_STORY') wt_icon = '🔵';
+    else if (wt === 'BUG') wt_icon = '🔴';
+    else if (wt === 'INITIATIVE') wt_icon = '🟣';
+
+    const status_color_map = {
+      TODO: 'bg-slate-100 text-slate-700 border border-slate-200',
+      IN_PROGRESS: 'bg-blue-50 text-blue-700 border border-blue-200',
+      REVIEW: 'bg-amber-50 text-amber-700 border border-amber-200',
+      DONE: 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+    };
+    const parent_status_badge = `<span class="text-[11px] font-bold px-2 py-0.5 rounded ${status_color_map[parent.status] || 'bg-slate-100 text-slate-700'}">${parent.status}</span>`;
+
+    // Header baris swimlane parent
+    const header_el = document.createElement('div');
+    header_el.className = 'px-4 py-2.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3';
+    header_el.innerHTML = `
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <button 
+          type="button" 
+          onclick="toggle_swimlane_collapse('${escape_html(parent.id)}')" 
+          class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-transform ${is_collapsed ? '-rotate-90' : ''} cursor-pointer"
+          title="${is_collapsed ? 'Buka swimlane' : 'Tutup swimlane'}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <span class="text-xs font-bold font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded flex items-center space-x-1 flex-shrink-0">
+          <span>${wt_icon}</span>
+          <span>${escape_html(parent.id)}</span>
+        </span>
+        <h3 
+          onclick="open_task_detail_modal('${escape_html(parent.id)}')" 
+          class="text-sm font-bold text-slate-800 truncate hover:text-indigo-600 transition-colors cursor-pointer" 
+          title="${escape_html(parent.title)} (Klik untuk detail)">
+          ${escape_html(parent.title)}
+        </h3>
+        <span class="text-xs text-slate-500 font-medium flex-shrink-0">
+          (${done}/${total} subtask${total > 1 ? 's' : ''})
+        </span>
+        ${parent_status_badge}
+      </div>
+      <div class="flex items-center space-x-2 flex-shrink-0">
+        ${can_edit ? `
+          <button 
+            type="button" 
+            onclick="open_subtask_modal('${escape_html(parent.id)}', '${escape_html(parent.title)}')" 
+            title="Tambah Subtask Baru ke ${escape_html(parent.id)}" 
+            class="w-7 h-7 rounded-lg border border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 flex items-center justify-center text-base font-bold shadow-2xs transition-colors cursor-pointer">
+            +
+          </button>
+        ` : ''}
+      </div>
+    `;
+    swimlane_card.appendChild(header_el);
+
+    // Grid 4 Kolom di dalam Swimlane (jika tidak di-collapse)
+    if (!is_collapsed) {
+      const grid_el = document.createElement('div');
+      grid_el.className = 'p-3 grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50/40';
+
+      statuses.forEach(st => {
+        const col_div = document.createElement('div');
+        col_div.setAttribute('data-status', st);
+        col_div.setAttribute('data-group-id', parent.id);
+        col_div.ondragover = handle_drag_over;
+        col_div.ondragleave = handle_drag_leave;
+        col_div.ondrop = (e) => handle_drop(e, st);
+        col_div.className = 'kanban-drop-column bg-white rounded-lg p-2.5 border border-slate-200/80 min-h-[110px] space-y-2.5 transition-colors';
+
+        const subtasks_in_status = child_subtasks.filter(s => s.status === st);
+        if (subtasks_in_status.length > 0) {
+          subtasks_in_status.forEach(sub => {
+            col_div.appendChild(create_task_card_element(sub, can_edit));
+          });
+        } else if (st === 'TODO' && can_edit) {
+          const create_btn = document.createElement('button');
+          create_btn.type = 'button';
+          create_btn.className = 'w-full py-2 border border-dashed border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 rounded-lg text-xs text-slate-400 hover:text-indigo-600 font-medium transition-colors flex items-center justify-center space-x-1 cursor-pointer';
+          create_btn.innerHTML = '<span>+ Create</span>';
+          create_btn.onclick = () => open_subtask_modal(parent.id, parent.title);
+          col_div.appendChild(create_btn);
+        } else {
+          const empty_text = document.createElement('div');
+          empty_text.className = 'py-3 text-center text-[11px] text-slate-300 italic';
+          empty_text.textContent = 'Belum ada subtask';
+          col_div.appendChild(empty_text);
+        }
+
+        grid_el.appendChild(col_div);
+      });
+      swimlane_card.appendChild(grid_el);
+    }
+
+    container.appendChild(swimlane_card);
+  });
+
+  // Render Swimlane Item Mandiri (Tanpa Subtask)
+  if (standalone_items.length > 0) {
+    const is_collapsed = Boolean(app_state.collapsed_swimlanes['standalone']);
+    const standalone_card = document.createElement('div');
+    standalone_card.className = 'bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all';
+    standalone_card.id = 'swimlane-standalone';
+
+    const header_el = document.createElement('div');
+    header_el.className = 'px-4 py-2.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3';
+    header_el.innerHTML = `
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <button 
+          type="button" 
+          onclick="toggle_swimlane_collapse('standalone')" 
+          class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-transform ${is_collapsed ? '-rotate-90' : ''} cursor-pointer"
+          title="${is_collapsed ? 'Buka swimlane' : 'Tutup swimlane'}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <span class="text-sm">📦</span>
+        <h3 class="text-sm font-bold text-slate-800">
+          Work Item Mandiri (Tanpa Subtask)
+        </h3>
+        <span class="text-xs text-slate-500 font-medium">
+          (${standalone_items.length} item)
+        </span>
+      </div>
+    `;
+    standalone_card.appendChild(header_el);
+
+    if (!is_collapsed) {
+      const grid_el = document.createElement('div');
+      grid_el.className = 'p-3 grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50/40';
+
+      statuses.forEach(st => {
+        const col_div = document.createElement('div');
+        col_div.setAttribute('data-status', st);
+        col_div.setAttribute('data-group-id', 'standalone');
+        col_div.ondragover = handle_drag_over;
+        col_div.ondragleave = handle_drag_leave;
+        col_div.ondrop = (e) => handle_drop(e, st);
+        col_div.className = 'kanban-drop-column bg-white rounded-lg p-2.5 border border-slate-200/80 min-h-[110px] space-y-2.5 transition-colors';
+
+        const items_in_status = standalone_items.filter(s => s.status === st);
+        if (items_in_status.length > 0) {
+          items_in_status.forEach(item => {
+            col_div.appendChild(create_task_card_element(item, can_edit));
+          });
+        } else {
+          const empty_text = document.createElement('div');
+          empty_text.className = 'py-3 text-center text-[11px] text-slate-300 italic';
+          empty_text.textContent = 'Belum ada task';
+          col_div.appendChild(empty_text);
+        }
+
+        grid_el.appendChild(col_div);
+      });
+      standalone_card.appendChild(grid_el);
+    }
+
+    container.appendChild(standalone_card);
+  }
+}
+
+/**
+ * Merender Swimlanes berdasarkan Inisiatif (Level 1)
+ */
+function render_initiative_swimlanes(container, can_edit, statuses) {
+  const initiatives = app_state.tasks.filter(t => t.work_type === 'INITIATIVE' || t.hierarchy_level === 1);
+  const initiative_ids = new Set(initiatives.map(i => i.id));
+
+  const items_by_initiative = {};
+  initiatives.forEach(i => { items_by_initiative[i.id] = []; });
+  const unlinked_items = [];
+
+  app_state.tasks.forEach(t => {
+    if (t.work_type === 'INITIATIVE') return;
+    if (t.parent_id && initiative_ids.has(t.parent_id)) {
+      items_by_initiative[t.parent_id].push(t);
+    } else {
+      const parent = app_state.tasks.find(p => p.id === t.parent_id);
+      if (parent && parent.parent_id && initiative_ids.has(parent.parent_id)) {
+        items_by_initiative[parent.parent_id].push(t);
+      } else {
+        unlinked_items.push(t);
+      }
+    }
+  });
+
+  initiatives.forEach(init => {
+    const items = items_by_initiative[init.id] || [];
+    render_generic_swimlane(container, init.id, '🟣 ' + init.id + ' ' + init.title, items, can_edit, statuses, init.status);
+  });
+
+  if (unlinked_items.length > 0) {
+    render_generic_swimlane(container, 'unlinked-initiative', 'Item Tanpa Inisiatif', unlinked_items, can_edit, statuses);
+  }
+}
+
+/**
+ * Merender Swimlanes berdasarkan Assignee (PIC)
+ */
+function render_assignee_swimlanes(container, can_edit, statuses) {
+  const assignees_map = {};
+  const unassigned_items = [];
+
+  app_state.tasks.forEach(t => {
+    if (t.assignee_id || t.assignee_name) {
+      const key = t.assignee_id || t.assignee_name;
+      const name = t.assignee_name || t.assignee_id;
+      if (!assignees_map[key]) {
+        assignees_map[key] = { name: name, items: [] };
+      }
+      assignees_map[key].items.push(t);
+    } else {
+      unassigned_items.push(t);
+    }
+  });
+
+  Object.keys(assignees_map).forEach(key => {
+    const group = assignees_map[key];
+    render_generic_swimlane(container, key, '👤 ' + group.name, group.items, can_edit, statuses);
+  });
+
+  if (unassigned_items.length > 0) {
+    render_generic_swimlane(container, 'unassigned', '👤 Unassigned / Belum Ditugaskan', unassigned_items, can_edit, statuses);
+  }
+}
+
+/**
+ * Merender baris swimlane generik
+ */
+function render_generic_swimlane(container, group_key, title, items, can_edit, statuses, status_badge_text) {
+  const is_collapsed = Boolean(app_state.collapsed_swimlanes[group_key]);
+  const card = document.createElement('div');
+  card.className = 'bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all';
+  card.id = 'swimlane-' + group_key;
+
+  const header_el = document.createElement('div');
+  header_el.className = 'px-4 py-2.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between gap-3';
+  header_el.innerHTML = `
+    <div class="flex items-center space-x-2.5 min-w-0">
+      <button 
+        type="button" 
+        onclick="toggle_swimlane_collapse('${escape_html(group_key)}')" 
+        class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-transform ${is_collapsed ? '-rotate-90' : ''} cursor-pointer"
+        title="${is_collapsed ? 'Buka swimlane' : 'Tutup swimlane'}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <h3 class="text-sm font-bold text-slate-800 truncate">
+        ${escape_html(title)}
+      </h3>
+      <span class="text-xs text-slate-500 font-medium">
+        (${items.length} items)
+      </span>
+      ${status_badge_text ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">${status_badge_text}</span>` : ''}
+    </div>
+  `;
+  card.appendChild(header_el);
+
+  if (!is_collapsed) {
+    const grid_el = document.createElement('div');
+    grid_el.className = 'p-3 grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50/40';
+
+    statuses.forEach(st => {
+      const col_div = document.createElement('div');
+      col_div.setAttribute('data-status', st);
+      col_div.setAttribute('data-group-id', group_key);
+      col_div.ondragover = handle_drag_over;
+      col_div.ondragleave = handle_drag_leave;
+      col_div.ondrop = (e) => handle_drop(e, st);
+      col_div.className = 'kanban-drop-column bg-white rounded-lg p-2.5 border border-slate-200/80 min-h-[110px] space-y-2.5 transition-colors';
+
+      const items_in_status = items.filter(s => s.status === st);
+      if (items_in_status.length > 0) {
+        items_in_status.forEach(item => {
+          col_div.appendChild(create_task_card_element(item, can_edit));
+        });
+      } else {
+        const empty_text = document.createElement('div');
+        empty_text.className = 'py-3 text-center text-[11px] text-slate-300 italic';
+        empty_text.textContent = 'Belum ada task';
+        col_div.appendChild(empty_text);
+      }
+
+      grid_el.appendChild(col_div);
+    });
+    card.appendChild(grid_el);
+  }
+
+  container.appendChild(card);
 }
 
 /**
@@ -653,12 +1215,17 @@ function handle_drag_start(e, task_id) {
 
 function handle_drag_end(e) {
   const target = e.target;
-  target.classList.remove('opacity-40', 'scale-95');
+  if (target && target.classList) {
+    target.classList.remove('opacity-40', 'scale-95');
+  }
   dragged_task_id = null;
   // Bersihkan highlight dari semua kolom
   ['column-todo', 'column-in_progress', 'column-review', 'column-done'].forEach(col_id => {
     const el = document.getElementById(col_id);
     if (el) el.classList.remove('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
+  });
+  document.querySelectorAll('.kanban-drop-column').forEach(el => {
+    el.classList.remove('bg-indigo-50/70', 'ring-2', 'ring-indigo-400');
   });
 }
 
@@ -699,6 +1266,11 @@ function handle_task_status_change(task_id, new_status) {
   target_task.status = new_status;
   target_task.updated_at = new Date().toISOString();
   render_kanban_board();
+
+  // Jika subtask dipindahkan ke DONE, periksa apakah seluruh subtask dari parent telah selesai (Tahap 15)
+  if (new_status === 'DONE' && target_task.parent_id) {
+    check_and_prompt_parent_completion(target_task.parent_id);
+  }
 
   if (typeof google !== 'undefined' && google.script && google.script.run) {
     google.script.run

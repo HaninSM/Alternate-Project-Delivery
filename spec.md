@@ -93,6 +93,26 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - Navbar dilengkapi dropdown interaktif **Proyek Aktif** (`#header-project-select`).
 - Pengguna dapat berpindah ruang kerja antar proyek secara instan dari layar mana pun tanpa harus kembali ke dasbor utama.
 
+### 3.9 Kanban Swimlane Grouping & Auto-Parent Done Confirmation
+- **Selector Group by Kanban:** Dropdown di toolbar Kanban Board (`#select-kanban-group-by`) dengan 4 opsi tampilan:
+  - `Subtask / Parent` (Default): Mengelompokkan subtask (Level -1) di bawah baris swimlane parent Level 0 (User Story, Task, Bug) masing-masing.
+  - `Inisiatif`: Mengelompokkan work item di bawah payung Inisiatif (Level 1).
+  - `Assignee`: Mengelompokkan work item berdasarkan PIC penanggung jawab.
+  - `None (Tanpa Grouping)`: Tampilan 4 kolom Kanban datar (*flat*).
+- **Desain Baris Swimlane Parent:**
+  - Collapsible horizontal row dengan tombol toggle panah (`v` / `>`).
+  - Ikon Work Type, Parent ID, Parent Title, Indikator progres Subtask (`X/Y subtasks`), dan Status Badge parent.
+  - Tombol cepat `+` pada ujung kanan baris untuk langsung menambahkan subtask baru ke parent tersebut.
+  - Sub-grid 4 kolom (`TODO`, `IN PROGRESS`, `REVIEW`, `DONE`) berisi kartu-kartu subtask anak dengan drag-and-drop mandiri.
+  - Swimlane khusus `Work Item Mandiri (Tanpa Subtask)` untuk menampung item Level 0 yang belum memiliki subtask.
+- **Modal Konfirmasi Auto-Parent Done:**
+  - Ketika seluruh subtask dari sebuah parent berstatus `DONE` (misal saat subtask terakhir digeser ke kolom DONE), sistem mendeteksi apakah parent belum berstatus `DONE`.
+  - Jika parent belum `DONE`, modal konfirmasi (`#modal-parent-done-confirm`) muncul secara otomatis:
+    - Judul: `Update [Work Type] [Parent ID]` (contoh: `Update Story TES-3`).
+    - Pertanyaan: `All subtasks are now complete. Do you want to update this parent work item to match?`
+    - Opsi status: `🔘 Done`.
+    - Tombol: `Cancel` (membatalkan tanpa mutasi parent) dan `Update` (mengubah status parent ke `DONE`).
+
 ---
 
 ## 4. Acceptance Criteria
@@ -101,6 +121,9 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Mendukung Hirarki Work Type: Inisiatif (Level 1), User Story/Task/Bug (Level 0), dan Subtask (Level -1).
 - [x] Validasi ketat parent-child: Subtask wajib memilih parent Level 0; Inisiatif tidak boleh ber-parent.
 - [x] Pemindahan sepaket (*bundled move*): Menggeser parent Level 0 atau Level 1 otomatis membawa seluruh subtask bertaut ke sprint/backlog tujuan.
+- [x] Papan Kanban mendukung pengelompokan Swimlane berdasarkan Subtask/Parent (Default), Inisiatif, Assignee, dan None.
+- [x] Baris swimlane parent memiliki tombol collapse/expand, status badge, counter subtask, tombol cepat `+`, dan 4 sub-kolom drag-and-drop.
+- [x] Penyelesaian seluruh subtask memicu pop-up konfirmasi `Update [Type] [ID]` untuk menyelaraskan status parent menjadi `DONE`.
 - [x] Editor WYSIWYG pada form task mendukung formatting kaya (Bold, Italic, Headings, Lists, Insert Table).
 - [x] Paste tabel dari Microsoft Excel / Google Sheets otomatis dibersihkan dan dirender rapi sebagai tabel HTML responsif.
 - [x] Mengklik kartu task pada Kanban Board atau Backlog memunculkan Modal Detail Work Item lengkap dengan deskripsi dan tombol edit.
@@ -108,4 +131,5 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Start Sprint dan Complete Sprint dengan post-sprint rollover berjalan akurat.
 - [x] AI Product Challenger mengevaluasi inisiatif produk dan merouting inisiatif yang disetujui ke Demand Management.
 - [x] Pelaporan Time-in-Status & Cycle Time akurat dengan deteksi blocker otomatis.
-- [x] Seluruh 14 stage test suites lulus 100% (Green).
+- [x] Seluruh 15 stage test suites lulus 100% (Green).
+

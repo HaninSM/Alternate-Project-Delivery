@@ -25,7 +25,22 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - **Tab Kanban Board:** Papan eksekusi sprint aktif dengan alur 4 status: `TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   - **Tab Sprint Planning:** Ruang perencanaan Product Backlog dan pengelolaan bucket Sprint (Planning, Start Sprint, Complete Sprint dengan rollover).
 
-### 3. Hirarki Tipe Pekerjaan (Work Type Hierarchy) & Pemindahan Sepaket
+### 3. Kanban Swimlane Grouping & Konfirmasi Auto-Parent Done
+- **Opsi Grouping Papan Kanban:** Selector di toolbar board (`#select-kanban-group-by`) dengan 4 opsi:
+  - `Subtask / Parent` (Default): Mengelompokkan subtask (Level -1) di bawah baris horizontal parent Level 0 (Story, Task, Bug) masing-masing.
+  - `Inisiatif`: Mengelompokkan pekerjaan di bawah inisiatif Level 1.
+  - `Assignee`: Mengelompokkan pekerjaan per PIC pelaksana.
+  - `None (Tanpa Grouping)`: Tampilan datar (*flat*) 4 kolom klasik.
+- **Baris Swimlane Parent Interaktif:**
+  - Baris horizontal collapsible dengan panah toggle (`v` / `>`).
+  - Ikon work type, Parent ID, judul, counter subtask (`X of Y subtasks`), status badge, dan tombol cepat `+` Subtask.
+  - Sub-grid 4 kolom mandiri untuk drag-and-drop subtask antar status.
+  - Swimlane khusus `Work Item Mandiri (Tanpa Subtask)` untuk menampung item Level 0 yang belum memiliki subtask.
+- **Modal Konfirmasi Auto-Parent Done:**
+  - Saat subtask terakhir dari sebuah parent digeser ke status `DONE`, jika parent belum `DONE`, modal konfirmasi bergaya Jira otomatis muncul (`Update Story TES-3`, `All subtasks are now complete. Do you want to update this parent work item to match?`).
+  - Mengklik `Update` otomatis memutasi status parent menjadi `DONE` secara atomik di UI dan backend.
+
+### 4. Hirarki Tipe Pekerjaan (Work Type Hierarchy) & Pemindahan Sepaket
 - **Struktur Hirarki 3 Level:**
   - **Level 1 (`INITIATIVE`):** Sasaran strategis makro (tanpa parent).
   - **Level 0 (`USER_STORY`, `TASK`, `BUG`):** Pekerjaan fungsional standar (opsional memiliki parent Inisiatif).
@@ -36,7 +51,7 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - Subtask mandiri tetap dapat dialokasikan secara independen jika diperlukan.
 - **Visual Indentasi Rapi:** Kartu subtask tampil menempel dan bersarang rapi di bawah kartu parent dengan border penanda khusus.
 
-### 4. Field Deskripsi WYSIWYG & Copy-Paste Tabel Excel
+### 5. Field Deskripsi WYSIWYG & Copy-Paste Tabel Excel
 - **Toolbar Pemformatan Lengkap:**
   - Gaya huruf: Bold, Italic, Underline, Strikethrough.
   - Hirarki: Heading 2, Heading 3, Paragraf Normal.
@@ -48,17 +63,17 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - **TSV Paste:** Mengonversi data plaintext berpemisah tab (`\t`) dan baris baru (`\n`) menjadi tabel HTML ber-header lengkap secara otomatis.
   - **Scroll Responsif:** Tabel dibungkus kontainer `overflow-x-auto` ber-border halus sehingga tabel lebar tidak merusak tampilan.
 
-### 5. Modal Detail Work Item (`#modal-task-detail`) & Quick Edit
+### 6. Modal Detail Work Item (`#modal-task-detail`) & Quick Edit
 - **Klik Kartu untuk Buka Detail:** Mengklik kartu tugas pada Kanban Board atau Backlog memunculkan dialog modal detail lengkap yang menampilkan status, assignee, estimasi, dan rendering HTML deskripsi secara utuh.
 - **Tombol Edit Cepat:** Tombol *Edit Work Item* membuka form edit modal terisi data lengkap untuk pembaruan cepat.
 - **Indikator Visual `📝`:** Kartu di Kanban dan Backlog otomatis menampilkan ikon `📝` jika task telah dilengkapi deskripsi atau tabel rincian.
 
-### 6. Time-in-Status & Cycle Time Reporting
+### 7. Time-in-Status & Cycle Time Reporting
 - **Pelacakan Durasi Per Kolom:** Mengukur durasi aktual sebuah task berada di kolom `TODO`, `IN_PROGRESS`, dan `REVIEW`, termasuk penanganan akumulasi durasi pada kasus *re-entry* (misal dikembalikan dari Review ke In Progress).
 - **Dual-Channel API:** Menjamin pemrosesan tanggal GAS yang aman dan serialisasi data yang akurat.
 - **Deteksi Blocker Otomatis:** Menyorot task non-DONE yang macet di status tertentu melampaui 48 jam.
 
-### 7. Manajemen Pengguna & Granular RBAC Permissions
+### 8. Manajemen Pengguna & Granular RBAC Permissions
 - **Role Presets:** `ADMIN`, `PM`, `MEMBER`, `CLIENT`.
 - **Modular Permissions:** Administrator dapat menyesuaikan izin per pengguna secara mandiri:
   - `can_create_project`: Inisiasi / buat project baru.
@@ -71,7 +86,7 @@ Aplikasi manajemen proyek *hybrid* (menjembatani fleksibilitas Notion dan ketega
   - `can_manage_demand`: Akses modul Demand Management & alokasi kapasitas.
   - `can_manage_users`: Akses menu CRUD User Management (Admin only).
 
-### 8. Senior AI Product Challenger (Gemini API) & Demand Management
+### 9. Senior AI Product Challenger (Gemini API) & Demand Management
 - **Evaluasi Kritis ex-CPO AI:** Sesi tanya-jawab interaktif untuk menantang inisiatif produk baru dari sisi ROI, urgensi, regulasi OJK/BI, dan kelayakan teknis.
 - **Auto-Routing ke Demand:** Inisiatif yang disetujui (`APPROVED`) otomatis masuk ke pipeline `Demands`.
 - **Alokasi Kapasitas & Konversi Proyek:** Estimasi kebutuhan insinyur dan durasi pengerjaan pada demand dapat dikonversi langsung menjadi Proyek aktif di sistem.
@@ -85,7 +100,7 @@ Alternate Project Delivery/
 ├── spec.md              # Spesifikasi produk, roles, core mechanics & work type hierarchy
 ├── plan.md              # Arsitektur sistem, alur Backlog/Sprint engine & WYSIWYG paste
 ├── data-model.md        # Skema 7 sheet Google Sheets dan diagram relasi data
-├── tasks.md             # Catatan tahapan eksekusi agile (Tahap 1 s.d. Tahap 14)
+├── tasks.md             # Catatan tahapan eksekusi agile (Tahap 1 s.d. Tahap 15)
 ├── README.md            # Dokumentasi panduan setup, fitur, dan pedoman teknis
 │
 ├── src/                 # Berkas sumber aplikasi Google Apps Script
