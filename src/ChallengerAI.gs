@@ -541,7 +541,7 @@ function ensure_initiative_in_demands(session_id, title, user_email, full_text, 
  * @param {number} [est_duration_days] - Estimasi durasi hari kerja
  * @return {Object} Status respon dan data demand yang terbentuk
  */
-function override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days) {
+function override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days, work_item_config) {
   try {
     const user_profile = get_user_role();
     const user_email = user_profile.data ? user_profile.data.email : 'unknown';
@@ -611,6 +611,80 @@ function override_rejected_initiative(session_id, override_reason, mitigation_pl
     sheet_tests.getRange(row_index, hist_idx + 1).setValue(JSON.stringify(current_history));
     sheet_tests.getRange(row_index, upd_idx + 1).setValue(now_iso);
 
+    // Opsi Konversi langsung ke Work Item (Hirarki 1 & 0 Saja)
+    let created_task_info = null;
+    let target_project_id = '';
+    let target_project_name = '';
+
+    if (work_item_config && typeof work_item_config === 'object') {
+      const raw_type = String(work_item_config.work_type || 'USER_STORY').toUpperCase().trim();
+      // Validasi ketat: Hanya boleh Hirarki 1 (INITIATIVE) atau Hirarki 0 (USER_STORY, TASK, BUG)
+      const allowed_types = ['INITIATIVE', 'USER_STORY', 'TASK', 'BUG'];
+      const safe_type = allowed_types.includes(raw_type) ? raw_type : 'USER_STORY';
+      const hierarchy_level = get_work_type_level(safe_type);
+
+      // 1. Tentukan Proyek Tujuan
+      let proj_id = work_item_config.project_id;
+      if (!proj_id || proj_id === 'NEW') {
+        const new_proj = create_new_project({
+          name: initiative_title,
+          mode: 'SCRUM'
+        });
+        if (new_proj && new_proj.success && new_proj.data) {
+          target_project_id = new_proj.data.id;
+          target_project_name = new_proj.data.name;
+        } else if (new_proj && new_proj.project_id) {
+          target_project_id = new_proj.project_id;
+          target_project_name = initiative_title;
+        }
+      } else {
+        target_project_id = String(proj_id).trim();
+        target_project_name = target_project_id;
+      }
+
+      // 2. Tentukan Wadah Penempatan (Sprint atau Product Backlog)
+      let target_sprint_id = 'BACKLOG-' + target_project_id;
+      if (work_item_config.target_bucket === 'SPRINT') {
+        const sheet_sprints = spreadsheet.getSheetByName('Sprints');
+        if (sheet_sprints && sheet_sprints.getLastRow() > 1) {
+          const sp_values = sheet_sprints.getDataRange().getValues();
+          const sp_hdr = sp_values[0].map(h => String(h).trim().toLowerCase());
+          const sp_id_idx = sp_hdr.indexOf('id');
+          const sp_pid_idx = sp_hdr.indexOf('project_id');
+          const sp_stat_idx = sp_hdr.indexOf('status');
+          for (let s = 1; s < sp_values.length; s++) {
+            if (String(sp_values[s][sp_pid_idx]).trim() === target_project_id) {
+              const sp_stat = String(sp_values[s][sp_stat_idx] || '').toUpperCase();
+              if (sp_stat === 'ACTIVE' || sp_stat === 'PLANNING') {
+                target_sprint_id = String(sp_values[s][sp_id_idx]).trim();
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Buat Work Item di sheet Tasks
+      if (target_project_id) {
+        const eng = Number(est_engineers) || 3;
+        const days = Number(est_duration_days) || 20;
+        const hours = eng * days * 8;
+        const task_res = create_new_task({
+          sprint_id: target_sprint_id,
+          title: initiative_title,
+          work_type: safe_type,
+          story_points: (hierarchy_level === 0 && work_item_config.story_points !== undefined && work_item_config.story_points !== null) ? String(work_item_config.story_points).trim() : '',
+          estimate_hours: hours,
+          assignee_id: work_item_config.assignee_id || '',
+          description: `### Justifikasi Bisnis (Management Override):\n${clean_reason}\n\n### Rencana Mitigasi Risiko:\n${clean_mitigation}\n\n### Catatan Evaluasi AI:\n${override_note}`
+        });
+
+        if (task_res && task_res.success) {
+          created_task_info = task_res.data;
+        }
+      }
+    }
+
     // Daftarkan ke sheet Demands
     let sheet_demands = spreadsheet.getSheetByName('Demands');
     if (!sheet_demands) {
@@ -623,6 +697,10 @@ function override_rejected_initiative(session_id, override_reason, mitigation_pl
     const fsd_summary = `Rencana Mitigasi Risiko: ${clean_mitigation}`;
     const eng = Number(est_engineers) || 3;
     const days = Number(est_duration_days) || 20;
+    const initial_capacity_stat = created_task_info ? 'CONVERTED_TO_PROJECT' : 'PENDING_CAPACITY';
+    const capacity_note_detail = created_task_info 
+      ? `⚠️ OVERRIDDEN: ${clean_reason} | Work Item: ${created_task_info.id} (${created_task_info.work_type}) di ${target_project_id}`
+      : `⚠️ OVERRIDDEN: ${clean_reason} (Mitigasi: ${clean_mitigation})`;
 
     sheet_demands.appendRow([
       demand_id,
@@ -633,22 +711,28 @@ function override_rejected_initiative(session_id, override_reason, mitigation_pl
       fsd_summary,
       eng,
       days,
-      'PENDING_CAPACITY',
-      0,
-      `⚠️ OVERRIDDEN: ${clean_reason} (Mitigasi: ${clean_mitigation})`,
+      initial_capacity_stat,
+      created_task_info ? eng * days * 8 : 0,
+      capacity_note_detail,
       now_iso,
       now_iso
     ]);
 
+    const success_msg = created_task_info 
+      ? `Inisiatif "${initiative_title}" berhasil di-override & dikonversikan menjadi work item ${created_task_info.work_type} (${created_task_info.id}) di Product Backlog proyek ${target_project_name}!`
+      : `Inisiatif "${initiative_title}" berhasil di-override dan dimasukkan ke Demand Management!`;
+
     return {
       success: true,
-      message: `Inisiatif "${initiative_title}" berhasil di-override dan dimasukkan ke Demand Management!`,
+      message: success_msg,
       data: {
         session_id: session_id,
         demand_id: demand_id,
         status: 'APPROVED_OVERRIDE',
         note: override_note,
-        messages: current_history
+        messages: current_history,
+        task: created_task_info,
+        project_id: target_project_id
       }
     };
   } catch (error) {

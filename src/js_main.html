@@ -6580,7 +6580,63 @@ function open_management_override_modal(session_id, title, ai_reason) {
   if (input_eng) input_eng.value = '3';
   if (input_days) input_days.value = '20';
 
+  // Populate pilihan Target Proyek
+  const project_select = document.getElementById('override-target-project');
+  if (project_select) {
+    project_select.innerHTML = '<option value="NEW">✨ + Buat Proyek Baru Otomatis (sesuai nama inisiatif)</option>';
+    const projects = app_state.projects_list || app_state.projects || [];
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.id} - ${p.name}`;
+      project_select.appendChild(opt);
+    });
+  }
+
+  // Populate pilihan Assignee / PIC
+  const assignee_select = document.getElementById('override-assignee');
+  if (assignee_select) {
+    assignee_select.innerHTML = '<option value="">-- Belum Ditugaskan --</option>';
+    const users = app_state.assignee_options || app_state.users_list || [];
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id || u.email;
+      opt.textContent = `${u.name || u.email} (${u.role || 'Member'})`;
+      assignee_select.appendChild(opt);
+    });
+  }
+
+  // Reset work item fields (Default: USER_STORY Level 0)
+  const work_type_select = document.getElementById('override-work-type');
+  if (work_type_select) work_type_select.value = 'USER_STORY';
+
+  const bucket_select = document.getElementById('override-target-bucket');
+  if (bucket_select) bucket_select.value = 'BACKLOG';
+
+  const pts_input = document.getElementById('override-story-points');
+  if (pts_input) pts_input.value = '5';
+
+  handle_override_work_type_change();
+
   if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * Mengatur visibilitas field Story Points saat tipe work item berubah
+ * Level 1 (INITIATIVE) tidak menggunakan Story Points (disembunyikan)
+ * Level 0 (USER_STORY, TASK, BUG) menampilkan field Story Points
+ */
+function handle_override_work_type_change() {
+  const type_select = document.getElementById('override-work-type');
+  const pts_container = document.getElementById('override-story-points-container');
+  if (!type_select || !pts_container) return;
+
+  const val = type_select.value;
+  if (val === 'INITIATIVE') {
+    pts_container.classList.add('hidden');
+  } else {
+    pts_container.classList.remove('hidden');
+  }
 }
 
 /**
@@ -6602,15 +6658,30 @@ function handle_submit_management_override(e) {
   const engineers = parseInt(document.getElementById('override-input-engineers')?.value, 10) || 3;
   const days = parseInt(document.getElementById('override-input-days')?.value, 10) || 20;
 
+  // Konfigurasi konversi work item (Hirarki 1 & 0 Saja)
+  const target_project = document.getElementById('override-target-project')?.value || 'NEW';
+  const work_type = document.getElementById('override-work-type')?.value || 'USER_STORY';
+  const target_bucket = document.getElementById('override-target-bucket')?.value || 'BACKLOG';
+  const story_points = document.getElementById('override-story-points')?.value || '';
+  const assignee_id = document.getElementById('override-assignee')?.value || '';
+
   if (!session_id || !reason || !mitigation) {
     show_notification('Harap lengkapi justifikasi bisnis dan mitigasi risiko.', 'warning');
     return;
   }
 
+  const work_item_config = {
+    project_id: target_project,
+    work_type: work_type,
+    target_bucket: target_bucket,
+    story_points: work_type === 'INITIATIVE' ? '' : story_points,
+    assignee_id: assignee_id
+  };
+
   const btn_submit = document.getElementById('btn-submit-override');
   if (btn_submit) {
     btn_submit.disabled = true;
-    btn_submit.innerHTML = '<span>Menyimpan Override...</span>';
+    btn_submit.innerHTML = '<span>Menyimpan & Konversi ke Backlog...</span>';
   }
 
   if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -6618,12 +6689,12 @@ function handle_submit_management_override(e) {
       .withSuccessHandler(function(response) {
         if (btn_submit) {
           btn_submit.disabled = false;
-          btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+          btn_submit.innerHTML = '<span>⚠️ Konfirmasi Override & Masuk Backlog</span>';
         }
         close_management_override_modal();
 
         if (response && response.success) {
-          show_notification(response.message || 'Berhasil override inisiatif ke Demand!', 'success');
+          show_notification(response.message || 'Berhasil override inisiatif & masuk ke Project Backlog!', 'success');
           // Update active session if currently open
           if (app_state.active_initiative_session && app_state.active_initiative_session.id === session_id) {
             app_state.active_initiative_session.status = 'APPROVED_OVERRIDE';
@@ -6637,6 +6708,7 @@ function handle_submit_management_override(e) {
           }
           load_initiatives_list();
           load_demands_list();
+          if (typeof load_projects_list === 'function') load_projects_list();
         } else {
           show_notification(response ? response.message : 'Gagal melakukan override inisiatif', 'error');
         }
@@ -6644,21 +6716,20 @@ function handle_submit_management_override(e) {
       .withFailureHandler(function(err) {
         if (btn_submit) {
           btn_submit.disabled = false;
-          btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+          btn_submit.innerHTML = '<span>⚠️ Konfirmasi Override & Masuk Backlog</span>';
         }
         show_notification('Error: ' + err.message, 'error');
       })
-      .override_rejected_initiative(session_id, reason, mitigation, engineers, days);
+      .override_rejected_initiative(session_id, reason, mitigation, engineers, days, work_item_config);
   } else {
     // Mock simulation mode
     setTimeout(() => {
       if (btn_submit) {
         btn_submit.disabled = false;
-        btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+        btn_submit.innerHTML = '<span>⚠️ Konfirmasi Override & Masuk Backlog</span>';
       }
       close_management_override_modal();
 
-      // Update mock active initiative
       let overridden_title = 'Inisiatif (Overridden)';
       if (app_state.active_initiative_session && app_state.active_initiative_session.id === session_id) {
         app_state.active_initiative_session.status = 'APPROVED_OVERRIDE';
@@ -6667,7 +6738,7 @@ function handle_submit_management_override(e) {
         if (!app_state.active_initiative_session.messages) app_state.active_initiative_session.messages = [];
         app_state.active_initiative_session.messages.push({
           role: 'model',
-          text: `⚠️ [MANAGEMENT OVERRIDE]: Inisiatif disetujui melalui intervensi manajemen.\n\nJustifikasi Bisnis: ${reason}\nRencana Mitigasi: ${mitigation}\nEstimasi: ${engineers} engineers / ${days} hari. Inisiatif diteruskan ke Demand Management.`,
+          text: `⚠️ [MANAGEMENT OVERRIDE]: Inisiatif disetujui via intervensi manajemen.\n\nJustifikasi: ${reason}\nMitigasi: ${mitigation}\nWork Item: ${work_type} (${work_type === 'INITIATIVE' ? 'Hirarki Level 1' : 'Hirarki Level 0, Points: ' + (story_points || '-')})\nWadah: ${target_bucket === 'BACKLOG' ? 'Product Backlog' : 'Sprint Aktif'}.`,
           timestamp: new Date().toISOString()
         });
         render_active_initiative_chat(app_state.active_initiative_session);
@@ -6683,14 +6754,31 @@ function handle_submit_management_override(e) {
         prd_summary: `[OVERRIDDEN INITIATIVE] Justifikasi: ${reason}\nMitigasi: ${mitigation}`,
         est_engineers: engineers,
         est_duration_days: days,
-        capacity_status: 'PENDING_CAPACITY',
-        allocated_capacity_hours: 0,
-        capacity_notes: `⚠️ OVERRIDDEN: ${reason} | Mitigasi: ${mitigation}`,
+        capacity_status: 'CONVERTED_TO_PROJECT',
+        allocated_capacity_hours: engineers * days * 8,
+        capacity_notes: `⚠️ OVERRIDDEN: ${reason} | Work Item: ${work_type} di ${target_project}`,
         is_override: true,
         approved_at: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
       app_state.demands_list.unshift(new_demand);
+
+      // Create mock work item task
+      if (!app_state.tasks) app_state.tasks = [];
+      const mock_task_id = 'TSK-' + Math.floor(100 + Math.random() * 900);
+      const mock_task = {
+        id: mock_task_id,
+        title: overridden_title,
+        status: 'TODO',
+        sprint_id: target_bucket === 'BACKLOG' ? 'BACKLOG-' + (target_project === 'NEW' ? 'PRJ-NEW' : target_project) : 'SPR-001',
+        work_type: work_type,
+        hierarchy_level: work_type === 'INITIATIVE' ? 1 : 0,
+        story_points: work_type === 'INITIATIVE' ? '' : (story_points || '5'),
+        estimate_hours: engineers * days * 8,
+        assignee_id: assignee_id || '',
+        description: `### Justifikasi Bisnis:\n${reason}\n\n### Mitigasi:\n${mitigation}`
+      };
+      app_state.tasks.unshift(mock_task);
 
       // Remove from rejected_initiatives_list mock
       if (app_state.rejected_initiatives_list) {
@@ -6700,7 +6788,7 @@ function handle_submit_management_override(e) {
       render_demands_table(app_state.demands_list);
       render_rejected_demands_table(app_state.rejected_initiatives_list);
       update_demands_statistics(app_state.demands_list, null, app_state.rejected_initiatives_list);
-      show_notification('Inisiatif berhasil di-override ke Demand Management (Mock)!', 'success');
+      show_notification(`Inisiatif berhasil di-override & dikonversi menjadi work item ${work_type} (${mock_task_id}) di Product Backlog!`, 'success');
     }, 400);
   }
 }

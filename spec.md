@@ -203,5 +203,6 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Product Backlog menyajikan Tree View Hirarki Bersarang: Kartu Inisiatif makro beraksen ungu, baris User Story/Task Level 0 dengan cabang subtask bertaut berindentasi (`ml-6 pl-4 border-l-2 border-indigo-200`) dan konektor `↳`, serta toggle collapse jika subtask > 2.
 - [x] Mini-widget kemajuan sprint aktif terpasang di sisi kiri bawah sidebar (`Sprint Scope Progress: 82%` - `28 of 34 tasks completed`).
 - [x] Option 3 (Human-in-the-Loop Management Override) aktif: PM/Admin dapat meng-override inisiatif yang ditolak AI Challenger dengan justifikasi bisnis & mitigasi risiko wajib.
-- [x] Inisiatif yang di-override otomatis bertransisi ke status `APPROVED_OVERRIDE`, diteruskan ke Demand Management bertanda badge `⚠️ OVERRIDDEN`, dan dicatat di audit log.
+- [x] Modal override menyertakan formulir konversi ke Work Item Project Backlog yang secara ketat hanya menyajikan work item Hirarki 1 (`INITIATIVE`) dan Hirarki 0 (`USER_STORY`, `TASK`, `BUG`), tanpa opsi Subtask Level -1.
+- [x] Inisiatif yang di-override otomatis bertransisi ke status `APPROVED_OVERRIDE`, diteruskan ke Demand Management bertanda badge `⚠️ OVERRIDDEN`, dan langsung dibuatkan tiketnya di Product Backlog proyek tujuan.
 - [x] Seluruh 20 test suites lulus 100% (Green).

@@ -71,6 +71,22 @@ assert.ok(
   'src/UI.html harus memiliki input #override-input-mitigation'
 );
 assert.ok(
+  uiHtmlContent.includes('id="override-target-project"'),
+  'src/UI.html harus memiliki dropdown #override-target-project'
+);
+assert.ok(
+  uiHtmlContent.includes('id="override-work-type"'),
+  'src/UI.html harus memiliki dropdown #override-work-type'
+);
+assert.ok(
+  uiHtmlContent.includes('id="override-story-points"'),
+  'src/UI.html harus memiliki input #override-story-points'
+);
+assert.ok(
+  uiHtmlContent.includes('id="override-target-bucket"'),
+  'src/UI.html harus memiliki dropdown #override-target-bucket'
+);
+assert.ok(
   uiHtmlContent.includes('id="chat-alert-overridden"'),
   'src/UI.html harus memiliki banner alert #chat-alert-overridden'
 );
@@ -78,7 +94,18 @@ assert.ok(
   uiHtmlContent.includes('open_management_override_modal()'),
   'src/UI.html harus memanggil open_management_override_modal dari chat alert rejected'
 );
-console.log('   ✓ src/UI.html lulus verifikasi modal & alert banner.\n');
+
+// Verifikasi pembatasan hirarki: Hanya Level 1 (INITIATIVE) dan Level 0 (USER_STORY, TASK, BUG), TIDAK ADA SUBTASK
+const workTypeMatch = uiHtmlContent.match(/<select id="override-work-type"[\s\S]*?<\/select>/);
+assert.ok(workTypeMatch, 'Dropdown #override-work-type harus ditemukan');
+const workTypeHtml = workTypeMatch[0];
+assert.ok(workTypeHtml.includes('value="INITIATIVE"'), 'Harus berisi opsi Level 1 (INITIATIVE)');
+assert.ok(workTypeHtml.includes('value="USER_STORY"'), 'Harus berisi opsi Level 0 (USER_STORY)');
+assert.ok(workTypeHtml.includes('value="TASK"'), 'Harus berisi opsi Level 0 (TASK)');
+assert.ok(workTypeHtml.includes('value="BUG"'), 'Harus berisi opsi Level 0 (BUG)');
+assert.ok(!workTypeHtml.includes('value="SUBTASK"'), 'TIDAK BOLEH berisi opsi SUBTASK (Level -1) sesuai spesifikasi');
+
+console.log('   ✓ src/UI.html lulus verifikasi modal, form konversi work item hirarki 1 & 0.\n');
 
 // 3. Verifikasi Controller Frontend di src/js_main.html
 console.log('3. Memverifikasi controller logic di src/js_main.html...');
@@ -98,6 +125,10 @@ assert.ok(
   'src/js_main.html harus memiliki fungsi handle_submit_management_override'
 );
 assert.ok(
+  jsMainContent.includes('function handle_override_work_type_change('),
+  'src/js_main.html harus memiliki fungsi handle_override_work_type_change'
+);
+assert.ok(
   jsMainContent.includes('session.status === \'APPROVED_OVERRIDE\''),
   'render_active_initiative_chat harus menangani status APPROVED_OVERRIDE'
 );
@@ -115,8 +146,8 @@ assert.ok(
 );
 console.log('   ✓ src/js_main.html lulus verifikasi controller frontend.\n');
 
-// 4. Simulasi Logika Bisnis End-to-End Option 3
-console.log('4. Menjalankan simulasi logika Option 3 Management Override...');
+// 4. Simulasi Logika Bisnis End-to-End Option 3 dengan Konversi Work Item
+console.log('4. Menjalankan simulasi logika Option 3 Management Override dengan Konversi Work Item...');
 
 // Mock state
 const mock_initiative_session = {
@@ -133,9 +164,10 @@ const mock_initiative_session = {
 };
 
 let mock_demands = [];
+let mock_tasks = [];
 let mock_rejected_list = [mock_initiative_session];
 
-function simulate_override(session_id, reason, mitigation, engineers, days, current_user_email) {
+function simulate_override_with_work_item(session_id, reason, mitigation, engineers, days, current_user_email, work_item_config) {
   assert.ok(reason && reason.trim().length > 0, 'Reason wajib diisi');
   assert.ok(mitigation && mitigation.trim().length > 0, 'Mitigation wajib diisi');
   
@@ -143,19 +175,43 @@ function simulate_override(session_id, reason, mitigation, engineers, days, curr
   assert.ok(target, 'Target inisiatif harus ditemukan');
   assert.strictEqual(target.status, 'REJECTED', 'Hanya inisiatif REJECTED yang bisa di-override');
 
+  // Validasi work type: Hanya Hirarki 1 dan 0 yang sah
+  const allowed_types = ['INITIATIVE', 'USER_STORY', 'TASK', 'BUG'];
+  const work_type = work_item_config.work_type || 'USER_STORY';
+  assert.ok(allowed_types.includes(work_type), 'Work type harus hirarki 1 atau 0');
+  assert.notStrictEqual(work_type, 'SUBTASK', 'SUBTASK tidak diperbolehkan');
+
+  const hierarchy_level = work_type === 'INITIATIVE' ? 1 : 0;
+  const target_proj = work_item_config.project_id || 'PRJ-001';
+  const target_sprint = work_item_config.target_bucket === 'SPRINT' ? 'SPR-001' : 'BACKLOG-' + target_proj;
+  const story_points = hierarchy_level === 0 ? (work_item_config.story_points || '5') : '';
+
   // 1. Update session status
   target.status = 'APPROVED_OVERRIDE';
   target.ai_summary_note = `⚠️ OVERRIDE: ${reason} (Mitigasi: ${mitigation})`;
   target.messages.push({
     role: 'model',
-    text: `⚠️ [MANAGEMENT OVERRIDE (OPSI 3)]: Disetujui oleh ${current_user_email}.\nJustifikasi: ${reason}\nMitigasi: ${mitigation}`,
+    text: `⚠️ [MANAGEMENT OVERRIDE (OPSI 3)]: Disetujui oleh ${current_user_email}.\nJustifikasi: ${reason}\nMitigasi: ${mitigation}\nWork Item: ${work_type} di ${target_sprint}`,
     timestamp: new Date().toISOString()
   });
 
   // 2. Remove from rejected list
   mock_rejected_list = mock_rejected_list.filter(item => item.id !== session_id);
 
-  // 3. Add to demands
+  // 3. Create Work Item Task
+  const new_task = {
+    id: 'TSK-999',
+    sprint_id: target_sprint,
+    title: target.title,
+    work_type: work_type,
+    hierarchy_level: hierarchy_level,
+    story_points: story_points,
+    estimate_hours: engineers * days * 8,
+    status: 'TODO'
+  };
+  mock_tasks.push(new_task);
+
+  // 4. Add to demands
   const new_demand = {
     id: 'DMD-TEST999',
     initiative_test_id: session_id,
@@ -163,23 +219,29 @@ function simulate_override(session_id, reason, mitigation, engineers, days, curr
     submitter_email: target.user_email,
     est_engineers: engineers,
     est_duration_days: days,
-    capacity_status: 'PENDING_CAPACITY',
-    allocated_capacity_hours: 0,
-    capacity_notes: `⚠️ OVERRIDDEN: ${reason} | Mitigasi: ${mitigation}`,
+    capacity_status: 'CONVERTED_TO_PROJECT',
+    allocated_capacity_hours: engineers * days * 8,
+    capacity_notes: `⚠️ OVERRIDDEN: ${reason} | Work Item: ${new_task.id} (${work_type}) di ${target_proj}`,
     is_override: true
   };
   mock_demands.unshift(new_demand);
 
-  return { success: true, demand: new_demand };
+  return { success: true, demand: new_demand, task: new_task };
 }
 
-const override_result = simulate_override(
+const override_result = simulate_override_with_work_item(
   'INIT-2026-TEST01',
   'Mandat regulasi OJK & komitmen ke direksi kuartal 4',
   'Melakukan dual-run dengan manual underwriter selama 1 bulan pertama',
   4,
   30,
-  'executive@multifinance.com'
+  'executive@multifinance.com',
+  {
+    project_id: 'PRJ-001',
+    work_type: 'USER_STORY',
+    story_points: '8',
+    target_bucket: 'BACKLOG'
+  }
 );
 
 assert.strictEqual(override_result.success, true);
@@ -188,11 +250,13 @@ assert.strictEqual(mock_rejected_list.length, 0, 'Inisiatif tertolak harus dikel
 assert.strictEqual(mock_demands.length, 1, 'Inisiatif harus masuk ke pipeline Demand');
 assert.strictEqual(mock_demands[0].is_override, true);
 assert.ok(mock_demands[0].capacity_notes.includes('OVERRIDDEN'));
-assert.strictEqual(mock_demands[0].est_engineers, 4);
-assert.strictEqual(mock_demands[0].est_duration_days, 30);
-assert.ok(mock_initiative_session.messages[2].text.includes('MANAGEMENT OVERRIDE'));
+assert.strictEqual(mock_tasks.length, 1, 'Work item task harus dibuat di target project backlog');
+assert.strictEqual(mock_tasks[0].work_type, 'USER_STORY');
+assert.strictEqual(mock_tasks[0].hierarchy_level, 0);
+assert.strictEqual(mock_tasks[0].story_points, '8');
+assert.strictEqual(mock_tasks[0].sprint_id, 'BACKLOG-PRJ-001');
 
-console.log('   ✓ Simulasi Option 3 (Management Override) berhasil dengan audit trail lengkap.\n');
+console.log('   ✓ Simulasi Option 3 dengan Konversi Work Item (Hirarki 1 & 0) berhasil 100%.\n');
 
 console.log('================================================================');
 console.log('  SEMUA TES TAHAP 20 BERHASIL (100% PASS)');

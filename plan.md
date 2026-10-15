@@ -256,7 +256,7 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
 
 ---
 
-## 12. Option 3: Human-in-the-Loop Management Override untuk Inisiatif Tertolak AI
+## 12. Option 3: Human-in-the-Loop Management Override untuk Inisiatif Tertolak AI & Konversi Work Item
 
 1. **Alur Kerja & Otorisasi:**
    - Inisiatif yang ditolak oleh AI Challenger (`status: 'REJECTED'`) tidak harus dibuang atau ditolak permanen.
@@ -265,17 +265,23 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
      - **Alasan Bisnis / Justifikasi Strategis:** Mandat regulasi OJK, komitmen direksi, atau urgensi pasar.
      - **Rencana Mitigasi Risiko:** Strategi teknis/operasional untuk memitigasi risiko yang sebelumnya diidentifikasi oleh AI.
      - Estimasi Engineers dan Hari Kerja awal untuk pipeline kapasitas.
+   - **Formulir Konversi ke Work Item Project Backlog (Hirarki 1 & 0 Saja):**
+     - Target Proyek: Membuat proyek baru otomatis (`NEW`) atau memilih proyek yang sudah berjalan.
+     - Tipe Work Item: Hanya dibatasi pada **Hirarki 1** (`INITIATIVE`) dan **Hirarki 0** (`USER_STORY`, `TASK`, `BUG`). Opsi Subtask Level -1 sengaja ditiadakan.
+     - Wadah Penempatan: Product Backlog (`BACKLOG-[project_id]`) atau Sprint Aktif.
+     - Story Points: Bersifat dinamis, hanya tampil dan disimpan jika pengguna memilih work item Hirarki Level 0.
 
 2. **Backend & Sheet Integration (`ChallengerAI.gs`):**
-   - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days)`.
+   - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days, work_item_config)`.
    - Mengubah status sesi inisiatif di `Initiative_Tests` menjadi `APPROVED_OVERRIDE`.
    - Menambahkan catatan audit trail ke `conversation_history` dan `ai_summary_note`.
-   - Menambahkan entri baru ke `Demands` dengan status `PENDING_CAPACITY` dan catatan bertanda `⚠️ OVERRIDDEN: ...`.
-   - Item tertolak secara otomatis keluar dari daftar inisiatif tertolak dan masuk ke pipeline Demand Management.
+   - Menambahkan entri ke `Demands` dengan status `CONVERTED_TO_PROJECT` dan catatan bertanda `⚠️ OVERRIDDEN: ... | Work Item: TSK-xxx`.
+   - Membuat work item langsung di sheet `Tasks` sesuai proyek dan tipe yang dipilih.
+   - Item tertolak secara otomatis keluar dari daftar inisiatif tertolak dan langsung siap dikerjakan di Scrum/Kanban board proyek.
 
 3. **Frontend UI/UX Presentation:**
    - Chat view menampilkan status badge `⚠️ APPROVED (OVERRIDE)` dan banner alert amber `#chat-alert-overridden` dengan tombol `Buka Demand →`.
    - Tombol `⚠️ Management Override (Opsi 3)` tersedia di dalam banner penolakan chat.
-   - Tabel Inisiatif Tertolak di Demand Management menyediakan tombol cepat `⚠️ Override` di kolom aksi.
+   - Tabel Inisiatif Tertolak di Demand Management menyediakan tombol cepat `⚠️ Override` di kolom aksi yang memunculkan form konversi work item lengkap.
    - Tabel Demand Pipeline menandai item yang di-override dengan badge khusus `⚠️ OVERRIDDEN`.
 

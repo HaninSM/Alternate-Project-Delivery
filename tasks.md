@@ -405,24 +405,34 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba simulasi pengelompokan hierarki tree view dan collapsing subtask.
   - Uji coba simulasi multi-kriteria filtering (search key, work type, points only). (Diverifikasi lulus 100% via `tests/test_stage19_stitch_backlog_planning.js`).
 
-## Tahap 20 - Option 3: Management Override untuk Inisiatif Tertolak AI Challenger
+## Tahap 20 - Option 3: Management Override untuk Inisiatif Tertolak AI Challenger & Konversi Work Item (Hirarki 1 & 0 Saja)
 - [x] Backend Apps Script di `src/ChallengerAI.gs`:
-  - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days)` untuk otorisasi PM/Admin melakukan override inisiatif tertolak.
+  - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days, work_item_config)` untuk otorisasi PM/Admin melakukan override inisiatif tertolak.
+  - Mendukung parameter opsional `work_item_config`: `project_id`, `work_type`, `story_points`, `target_bucket`, `assignee_id`.
+  - Validasi ketat tipe work item: Hanya mengizinkan Hirarki 1 (`INITIATIVE`) dan Hirarki 0 (`USER_STORY`, `TASK`, `BUG`).
+  - Mengonversi inisiatif langsung ke sheet `Tasks` di bawah target proyek (atau proyek baru) pada wadah Product Backlog (`BACKLOG-[project_id]`) atau Sprint aktif.
   - Mengubah status sesi inisiatif di `Initiative_Tests` menjadi `APPROVED_OVERRIDE`.
   - Menyisipkan log intervensi audit trail ke dalam `conversation_history` & `ai_summary_note`.
-  - Mendaftarkan entri baru ke sheet `Demands` dengan status `PENDING_CAPACITY`, estimasi resources, dan catatan `⚠️ OVERRIDDEN: [alasan] | Mitigasi: [rencana]`.
-  - Memetakan flag `is_override` pada fungsi `get_demands_list()`.
+  - Mendaftarkan entri ke sheet `Demands` bertanda `⚠️ OVERRIDDEN`.
 - [x] Frontend UI di `src/UI.html`:
   - Menambahkan tombol aksi `⚠️ Management Override (Opsi 3)` pada `#chat-alert-rejected`.
   - Menambahkan alert banner `#chat-alert-overridden` dengan tombol tautan cepat `Buka Demand →`.
   - Menambahkan modal dialog `#modal-management-override` dengan validasi input wajib justifikasi strategis dan mitigasi risiko.
+  - Menambahkan section form **Konversi ke Work Item Project Backlog**:
+    - Dropdown target proyek (`#override-target-project`): `NEW` (Buat proyek baru) atau pilih proyek yang sudah ada.
+    - Dropdown tipe work item (`#override-work-type`): Hirarki 1 (`INITIATIVE`) dan Hirarki 0 (`USER_STORY`, `TASK`, `BUG`) saja (tanpa Subtask Level -1).
+    - Wadah penempatan (`#override-target-bucket`): Product Backlog atau Sprint Aktif.
+    - Input Story Points (`#override-story-points`): Dinamis, hanya tampil untuk Hirarki Level 0.
+    - Assignee / PIC (`#override-assignee`).
 - [x] Frontend Controller di `src/js_main.html`:
-  - Handler `open_management_override_modal`, `close_management_override_modal`, dan `handle_submit_management_override`.
+  - Handler `open_management_override_modal`, `close_management_override_modal`, `handle_override_work_type_change`, dan `handle_submit_management_override`.
+  - Dynamic population daftar proyek dan member pada form override.
+  - Toggle otomatis visibilitas field Story Points saat berpindah antara Level 1 dan Level 0.
   - Dukungan status badge `⚠️ APPROVED (OVERRIDE)` dan `⚠️ Overridden` pada chat view dan sidebar history list.
   - Badge visual `⚠️ OVERRIDDEN` pada baris tabel Demand Management.
   - Tombol aksi `⚠️ Override` pada kolom aksi tabel Inisiatif Tertolak di Demand Management.
 - [x] **Quality Gate / Uji Coba Tahap 20:**
   - Verifikasi backend `override_rejected_initiative` dan skema sheet Demands.
-  - Verifikasi elemen DOM modal `#modal-management-override` dan alert `#chat-alert-overridden`.
-  - Verifikasi controller logic dan simulasi end-to-end Option 3 (Diverifikasi lulus 100% via `tests/test_stage20_management_override_rejected_initiative.js`).
+  - Verifikasi elemen DOM modal `#modal-management-override` dan form konversi work item (Hirarki 1 & 0 saja, tanpa subtask).
+  - Verifikasi controller logic dan simulasi end-to-end Option 3 dengan pembuatan task di Product Backlog (Diverifikasi lulus 100% via `tests/test_stage20_management_override_rejected_initiative.js`).
 
