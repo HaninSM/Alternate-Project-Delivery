@@ -404,3 +404,25 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba simulasi kalkulasi agregasi backlog (jam & points) dan persentase penyelesaian sprint (28/34 = 82%).
   - Uji coba simulasi pengelompokan hierarki tree view dan collapsing subtask.
   - Uji coba simulasi multi-kriteria filtering (search key, work type, points only). (Diverifikasi lulus 100% via `tests/test_stage19_stitch_backlog_planning.js`).
+
+## Tahap 20 - Option 3: Management Override untuk Inisiatif Tertolak AI Challenger
+- [x] Backend Apps Script di `src/ChallengerAI.gs`:
+  - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days)` untuk otorisasi PM/Admin melakukan override inisiatif tertolak.
+  - Mengubah status sesi inisiatif di `Initiative_Tests` menjadi `APPROVED_OVERRIDE`.
+  - Menyisipkan log intervensi audit trail ke dalam `conversation_history` & `ai_summary_note`.
+  - Mendaftarkan entri baru ke sheet `Demands` dengan status `PENDING_CAPACITY`, estimasi resources, dan catatan `⚠️ OVERRIDDEN: [alasan] | Mitigasi: [rencana]`.
+  - Memetakan flag `is_override` pada fungsi `get_demands_list()`.
+- [x] Frontend UI di `src/UI.html`:
+  - Menambahkan tombol aksi `⚠️ Management Override (Opsi 3)` pada `#chat-alert-rejected`.
+  - Menambahkan alert banner `#chat-alert-overridden` dengan tombol tautan cepat `Buka Demand →`.
+  - Menambahkan modal dialog `#modal-management-override` dengan validasi input wajib justifikasi strategis dan mitigasi risiko.
+- [x] Frontend Controller di `src/js_main.html`:
+  - Handler `open_management_override_modal`, `close_management_override_modal`, dan `handle_submit_management_override`.
+  - Dukungan status badge `⚠️ APPROVED (OVERRIDE)` dan `⚠️ Overridden` pada chat view dan sidebar history list.
+  - Badge visual `⚠️ OVERRIDDEN` pada baris tabel Demand Management.
+  - Tombol aksi `⚠️ Override` pada kolom aksi tabel Inisiatif Tertolak di Demand Management.
+- [x] **Quality Gate / Uji Coba Tahap 20:**
+  - Verifikasi backend `override_rejected_initiative` dan skema sheet Demands.
+  - Verifikasi elemen DOM modal `#modal-management-override` dan alert `#chat-alert-overridden`.
+  - Verifikasi controller logic dan simulasi end-to-end Option 3 (Diverifikasi lulus 100% via `tests/test_stage20_management_override_rejected_initiative.js`).
+

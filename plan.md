@@ -253,3 +253,29 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
 
 4. **Sidebar Left Mini-Widget:**
    - Widget ringkasan kemajuan sprint aktif (`Sprint Scope Progress: 82%` - `28 of 34 tasks completed`) dengan bilah progress bar berwarna indigo.
+
+---
+
+## 12. Option 3: Human-in-the-Loop Management Override untuk Inisiatif Tertolak AI
+
+1. **Alur Kerja & Otorisasi:**
+   - Inisiatif yang ditolak oleh AI Challenger (`status: 'REJECTED'`) tidak harus dibuang atau ditolak permanen.
+   - PM / Administrator memiliki wewenang strategis untuk melakukan **Management Override (Opsi 3)**.
+   - Dialog override (`#modal-management-override`) mewajibkan 2 masukan utama:
+     - **Alasan Bisnis / Justifikasi Strategis:** Mandat regulasi OJK, komitmen direksi, atau urgensi pasar.
+     - **Rencana Mitigasi Risiko:** Strategi teknis/operasional untuk memitigasi risiko yang sebelumnya diidentifikasi oleh AI.
+     - Estimasi Engineers dan Hari Kerja awal untuk pipeline kapasitas.
+
+2. **Backend & Sheet Integration (`ChallengerAI.gs`):**
+   - Fungsi `override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days)`.
+   - Mengubah status sesi inisiatif di `Initiative_Tests` menjadi `APPROVED_OVERRIDE`.
+   - Menambahkan catatan audit trail ke `conversation_history` dan `ai_summary_note`.
+   - Menambahkan entri baru ke `Demands` dengan status `PENDING_CAPACITY` dan catatan bertanda `⚠️ OVERRIDDEN: ...`.
+   - Item tertolak secara otomatis keluar dari daftar inisiatif tertolak dan masuk ke pipeline Demand Management.
+
+3. **Frontend UI/UX Presentation:**
+   - Chat view menampilkan status badge `⚠️ APPROVED (OVERRIDE)` dan banner alert amber `#chat-alert-overridden` dengan tombol `Buka Demand →`.
+   - Tombol `⚠️ Management Override (Opsi 3)` tersedia di dalam banner penolakan chat.
+   - Tabel Inisiatif Tertolak di Demand Management menyediakan tombol cepat `⚠️ Override` di kolom aksi.
+   - Tabel Demand Pipeline menandai item yang di-override dengan badge khusus `⚠️ OVERRIDDEN`.
+

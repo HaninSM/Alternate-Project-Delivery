@@ -530,6 +530,133 @@ function ensure_initiative_in_demands(session_id, title, user_email, full_text, 
 }
 
 /**
+ * Melakukan Management Override terhadap inisiatif yang ditolak oleh AI Challenger (Opsi 3).
+ * Menyetujui inisiatif secara strategis, mendokumentasikan justifikasi bisnis & mitigasi risiko,
+ * serta mendaftarkannya ke Demand Management dengan flag OVERRIDDEN.
+ *
+ * @param {string} session_id - ID Sesi inisiatif (INIT-...)
+ * @param {string} override_reason - Alasan justifikasi bisnis/strategis
+ * @param {string} [mitigation_plan] - Rencana mitigasi risiko teknis/operasional
+ * @param {number} [est_engineers] - Estimasi jumlah engineer
+ * @param {number} [est_duration_days] - Estimasi durasi hari kerja
+ * @return {Object} Status respon dan data demand yang terbentuk
+ */
+function override_rejected_initiative(session_id, override_reason, mitigation_plan, est_engineers, est_duration_days) {
+  try {
+    const user_profile = get_user_role();
+    const user_email = user_profile.data ? user_profile.data.email : 'unknown';
+    const permissions = (user_profile.data && user_profile.data.permissions) 
+      ? user_profile.data.permissions 
+      : resolve_user_permissions(user_profile.data ? user_profile.data.role : 'CLIENT');
+
+    if (permissions.can_manage_demand === false && user_profile.data && user_profile.data.role !== 'PM' && user_profile.data.role !== 'ADMIN') {
+      return { success: false, message: 'Akses Ditolak: Hanya Project Manager dan Administrator yang berhak melakukan Management Override.' };
+    }
+
+    if (!session_id || !override_reason || !override_reason.trim()) {
+      return { success: false, message: 'ID sesi dan Alasan Justifikasi Override wajib diisi.' };
+    }
+
+    const spreadsheet = get_db_spreadsheet();
+    const sheet_tests = spreadsheet.getSheetByName('Initiative_Tests');
+    if (!sheet_tests || sheet_tests.getLastRow() <= 1) {
+      return { success: false, message: 'Sesi inisiatif tidak ditemukan.' };
+    }
+
+    const values = sheet_tests.getDataRange().getValues();
+    const header = values[0].map(h => String(h).trim().toLowerCase());
+    const id_idx = header.indexOf('id');
+    const title_idx = header.indexOf('initiative_title');
+    const status_idx = header.indexOf('status');
+    const note_idx = header.indexOf('ai_summary_note');
+    const hist_idx = header.indexOf('conversation_history');
+    const upd_idx = header.indexOf('updated_at');
+
+    let row_index = -1;
+    let initiative_title = '';
+    let current_history = [];
+
+    for (let r = 1; r < values.length; r++) {
+      if (String(values[r][id_idx]).trim() === session_id) {
+        row_index = r + 1;
+        initiative_title = String(values[r][title_idx] || 'Inisiatif');
+        try {
+          current_history = JSON.parse(values[r][hist_idx] || '[]');
+        } catch (e) {
+          current_history = [];
+        }
+        break;
+      }
+    }
+
+    if (row_index === -1) {
+      return { success: false, message: 'Sesi inisiatif ' + session_id + ' tidak ditemukan.' };
+    }
+
+    const now_iso = new Date().toISOString();
+    const clean_reason = override_reason.trim();
+    const clean_mitigation = (mitigation_plan && mitigation_plan.trim()) ? mitigation_plan.trim() : 'Mitigasi risiko standar operasional.';
+    const override_note = `⚠️ [MANAGEMENT OVERRIDE oleh ${user_email}]: ${clean_reason} | Mitigasi: ${clean_mitigation}`;
+
+    // Tambahkan record override ke riwayat chat
+    current_history.push({
+      role: 'model',
+      text: `⚠️ **MANAGEMENT OVERRIDE APPLIED**\nInisiatif ini telah disetujui secara strategis oleh **${user_email}** (Project Manager / Executive).\n\n**Justifikasi Bisnis:**\n${clean_reason}\n\n**Rencana Mitigasi:**\n${clean_mitigation}\n\n*Inisiatif otomatis diteruskan ke Demand Management dengan flag OVERRIDDEN.*`,
+      timestamp: now_iso
+    });
+
+    // Update baris di sheet Initiative_Tests
+    sheet_tests.getRange(row_index, status_idx + 1).setValue('APPROVED_OVERRIDE');
+    sheet_tests.getRange(row_index, note_idx + 1).setValue(override_note);
+    sheet_tests.getRange(row_index, hist_idx + 1).setValue(JSON.stringify(current_history));
+    sheet_tests.getRange(row_index, upd_idx + 1).setValue(now_iso);
+
+    // Daftarkan ke sheet Demands
+    let sheet_demands = spreadsheet.getSheetByName('Demands');
+    if (!sheet_demands) {
+      setup_database_schema(SPREADSHEET_ID);
+      sheet_demands = spreadsheet.getSheetByName('Demands');
+    }
+
+    const demand_id = 'DEM-' + Utilities.getUuid().substring(0, 8).toUpperCase();
+    const prd_summary = `⚠️ OVERRIDDEN INITIATIVE: Disetujui melalui Management Override (${clean_reason})`;
+    const fsd_summary = `Rencana Mitigasi Risiko: ${clean_mitigation}`;
+    const eng = Number(est_engineers) || 3;
+    const days = Number(est_duration_days) || 20;
+
+    sheet_demands.appendRow([
+      demand_id,
+      session_id,
+      initiative_title,
+      user_email,
+      prd_summary,
+      fsd_summary,
+      eng,
+      days,
+      'PENDING_CAPACITY',
+      0,
+      `⚠️ OVERRIDDEN: ${clean_reason} (Mitigasi: ${clean_mitigation})`,
+      now_iso,
+      now_iso
+    ]);
+
+    return {
+      success: true,
+      message: `Inisiatif "${initiative_title}" berhasil di-override dan dimasukkan ke Demand Management!`,
+      data: {
+        session_id: session_id,
+        demand_id: demand_id,
+        status: 'APPROVED_OVERRIDE',
+        note: override_note,
+        messages: current_history
+      }
+    };
+  } catch (error) {
+    return { success: false, message: 'Gagal melakukan override inisiatif: ' + error.message };
+  }
+}
+
+/**
  * Mengambil riwayat daftar pengujian inisiatif untuk Admin (semua user) atau User (milik sendiri).
  *
  * @param {string} [filter_email] - Opsional filter email
@@ -685,6 +812,8 @@ function get_demands_list() {
 
       for (let r = 1; r < values.length; r++) {
         const row = values[r];
+        const notes_val = String(row[notes_idx] || '');
+        const is_override = notes_val.includes('OVERRIDDEN');
         demands.push({
           id: row[id_idx],
           initiative_test_id: row[init_idx],
@@ -696,7 +825,8 @@ function get_demands_list() {
           est_duration_days: Number(row[day_idx]) || 0,
           capacity_status: String(row[stat_idx] || 'PENDING_CAPACITY'),
           allocated_capacity_hours: Number(row[cap_idx]) || 0,
-          capacity_notes: row[notes_idx] || '',
+          capacity_notes: notes_val,
+          is_override: is_override,
           approved_at: row[app_idx],
           created_at: row[crt_idx]
         });

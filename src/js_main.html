@@ -6225,6 +6225,9 @@ function render_initiatives_history_list(items) {
     if (item.status === 'APPROVED') {
       status_badge_cls = 'bg-emerald-100 text-emerald-800 border-emerald-200';
       status_label = '✓ Approved';
+    } else if (item.status === 'APPROVED_OVERRIDE') {
+      status_badge_cls = 'bg-amber-100 text-amber-800 border-amber-300';
+      status_label = '⚠️ Overridden';
     } else if (item.status === 'REJECTED') {
       status_badge_cls = 'bg-rose-100 text-rose-800 border-rose-200';
       status_label = '✕ Ditolak (No Value)';
@@ -6294,8 +6297,10 @@ function render_active_initiative_chat(session) {
   const mini_banner = document.getElementById('chat-approved-banner-mini');
   const alert_approved = document.getElementById('chat-alert-approved');
   const alert_rejected = document.getElementById('chat-alert-rejected');
+  const alert_overridden = document.getElementById('chat-alert-overridden');
   const alert_appr_note = document.getElementById('chat-alert-approved-note');
   const alert_rej_note = document.getElementById('chat-alert-rejected-note');
+  const alert_ovr_note = document.getElementById('chat-alert-overridden-note');
   const messages_container = document.getElementById('initiative-chat-messages');
   const input_msg = document.getElementById('input-initiative-message');
   const btn_send = document.getElementById('btn-send-initiative');
@@ -6309,6 +6314,9 @@ function render_active_initiative_chat(session) {
     if (session.status === 'APPROVED') {
       status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
       status_badge.textContent = '✓ APPROVED';
+    } else if (session.status === 'APPROVED_OVERRIDE') {
+      status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
+      status_badge.textContent = '⚠️ APPROVED (OVERRIDE)';
     } else if (session.status === 'REJECTED') {
       status_badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300';
       status_badge.textContent = '✕ DITOLAK (NO VALUE)';
@@ -6323,16 +6331,25 @@ function render_active_initiative_chat(session) {
     if (mini_banner) mini_banner.classList.remove('hidden');
     if (alert_approved) alert_approved.classList.remove('hidden');
     if (alert_rejected) alert_rejected.classList.add('hidden');
+    if (alert_overridden) alert_overridden.classList.add('hidden');
     if (alert_appr_note) alert_appr_note.textContent = session.ai_summary_note || 'Inisiatif disetujui & otomatis diteruskan ke Demand Management.';
+  } else if (session.status === 'APPROVED_OVERRIDE') {
+    if (mini_banner) mini_banner.classList.remove('hidden');
+    if (alert_approved) alert_approved.classList.add('hidden');
+    if (alert_rejected) alert_rejected.classList.add('hidden');
+    if (alert_overridden) alert_overridden.classList.remove('hidden');
+    if (alert_ovr_note) alert_ovr_note.textContent = session.ai_summary_note || 'Inisiatif ditolak oleh AI namun disetujui secara strategis oleh manajemen dengan mitigasi risiko.';
   } else if (session.status === 'REJECTED') {
     if (mini_banner) mini_banner.classList.add('hidden');
     if (alert_approved) alert_approved.classList.add('hidden');
     if (alert_rejected) alert_rejected.classList.remove('hidden');
+    if (alert_overridden) alert_overridden.classList.add('hidden');
     if (alert_rej_note) alert_rej_note.textContent = session.ai_summary_note || 'AI Challenger menyatakan inisiatif ini tidak memiliki value bisnis yang memadai.';
   } else {
     if (mini_banner) mini_banner.classList.add('hidden');
     if (alert_approved) alert_approved.classList.add('hidden');
     if (alert_rejected) alert_rejected.classList.add('hidden');
+    if (alert_overridden) alert_overridden.classList.add('hidden');
   }
 
   // Render Messages
@@ -6374,12 +6391,13 @@ function render_active_initiative_chat(session) {
     }
   }
 
+  const is_finalized = (session.status === 'APPROVED' || session.status === 'APPROVED_OVERRIDE');
   if (input_msg) {
-    input_msg.disabled = false;
+    input_msg.disabled = is_finalized;
     input_msg.value = '';
-    input_msg.focus();
+    if (!is_finalized) input_msg.focus();
   }
-  if (btn_send) btn_send.disabled = false;
+  if (btn_send) btn_send.disabled = is_finalized;
 }
 
 /**
@@ -6517,6 +6535,173 @@ function handle_send_initiative_message(e) {
       render_active_initiative_chat(app_state.active_initiative_session);
       load_initiatives_list();
     }, 600);
+  }
+}
+
+/**
+ * ============================================================================
+ * MANAGEMENT OVERRIDE CONTROLLER (OPSI 3 - HUMAN-IN-THE-LOOP)
+ * ============================================================================
+ */
+
+/**
+ * Membuka Modal Management Override untuk inisiatif yang ditolak AI
+ */
+function open_management_override_modal(session_id, title, ai_reason) {
+  let target_id = session_id;
+  let target_title = title;
+  let target_reason = ai_reason;
+
+  if (!target_id && app_state.active_initiative_session) {
+    target_id = app_state.active_initiative_session.id;
+    target_title = app_state.active_initiative_session.title || app_state.active_initiative_session.initiative_title;
+    target_reason = app_state.active_initiative_session.ai_summary_note;
+  }
+
+  if (!target_id) {
+    show_notification('Sesi inisiatif tidak ditemukan.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-management-override');
+  const input_id = document.getElementById('override-session-id');
+  const title_el = document.getElementById('override-modal-initiative-title');
+  const reason_el = document.getElementById('override-modal-ai-reason');
+  const input_reason = document.getElementById('override-input-reason');
+  const input_mitigation = document.getElementById('override-input-mitigation');
+  const input_eng = document.getElementById('override-input-engineers');
+  const input_days = document.getElementById('override-input-days');
+
+  if (input_id) input_id.value = target_id;
+  if (title_el) title_el.textContent = target_title || target_id;
+  if (reason_el) reason_el.textContent = 'Catatan AI: ' + (target_reason || 'Inisiatif ditolak oleh AI Challenger.');
+  if (input_reason) input_reason.value = '';
+  if (input_mitigation) input_mitigation.value = '';
+  if (input_eng) input_eng.value = '3';
+  if (input_days) input_days.value = '20';
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+/**
+ * Menutup Modal Management Override
+ */
+function close_management_override_modal() {
+  const modal = document.getElementById('modal-management-override');
+  if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Menangani submit form Management Override
+ */
+function handle_submit_management_override(e) {
+  e.preventDefault();
+  const session_id = document.getElementById('override-session-id')?.value;
+  const reason = document.getElementById('override-input-reason')?.value.trim();
+  const mitigation = document.getElementById('override-input-mitigation')?.value.trim();
+  const engineers = parseInt(document.getElementById('override-input-engineers')?.value, 10) || 3;
+  const days = parseInt(document.getElementById('override-input-days')?.value, 10) || 20;
+
+  if (!session_id || !reason || !mitigation) {
+    show_notification('Harap lengkapi justifikasi bisnis dan mitigasi risiko.', 'warning');
+    return;
+  }
+
+  const btn_submit = document.getElementById('btn-submit-override');
+  if (btn_submit) {
+    btn_submit.disabled = true;
+    btn_submit.innerHTML = '<span>Menyimpan Override...</span>';
+  }
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(response) {
+        if (btn_submit) {
+          btn_submit.disabled = false;
+          btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+        }
+        close_management_override_modal();
+
+        if (response && response.success) {
+          show_notification(response.message || 'Berhasil override inisiatif ke Demand!', 'success');
+          // Update active session if currently open
+          if (app_state.active_initiative_session && app_state.active_initiative_session.id === session_id) {
+            app_state.active_initiative_session.status = 'APPROVED_OVERRIDE';
+            if (response.data && response.data.note) {
+              app_state.active_initiative_session.ai_summary_note = response.data.note;
+            }
+            if (response.data && response.data.messages) {
+              app_state.active_initiative_session.messages = response.data.messages;
+            }
+            render_active_initiative_chat(app_state.active_initiative_session);
+          }
+          load_initiatives_list();
+          load_demands_list();
+        } else {
+          show_notification(response ? response.message : 'Gagal melakukan override inisiatif', 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (btn_submit) {
+          btn_submit.disabled = false;
+          btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+        }
+        show_notification('Error: ' + err.message, 'error');
+      })
+      .override_rejected_initiative(session_id, reason, mitigation, engineers, days);
+  } else {
+    // Mock simulation mode
+    setTimeout(() => {
+      if (btn_submit) {
+        btn_submit.disabled = false;
+        btn_submit.innerHTML = '<span>⚠️ Konfirmasi & Teruskan ke Demand</span>';
+      }
+      close_management_override_modal();
+
+      // Update mock active initiative
+      let overridden_title = 'Inisiatif (Overridden)';
+      if (app_state.active_initiative_session && app_state.active_initiative_session.id === session_id) {
+        app_state.active_initiative_session.status = 'APPROVED_OVERRIDE';
+        overridden_title = app_state.active_initiative_session.title || app_state.active_initiative_session.initiative_title || overridden_title;
+        app_state.active_initiative_session.ai_summary_note = `⚠️ OVERRIDE: ${reason} (Mitigasi: ${mitigation})`;
+        if (!app_state.active_initiative_session.messages) app_state.active_initiative_session.messages = [];
+        app_state.active_initiative_session.messages.push({
+          role: 'model',
+          text: `⚠️ [MANAGEMENT OVERRIDE]: Inisiatif disetujui melalui intervensi manajemen.\n\nJustifikasi Bisnis: ${reason}\nRencana Mitigasi: ${mitigation}\nEstimasi: ${engineers} engineers / ${days} hari. Inisiatif diteruskan ke Demand Management.`,
+          timestamp: new Date().toISOString()
+        });
+        render_active_initiative_chat(app_state.active_initiative_session);
+      }
+
+      // Add to demands_list mock
+      if (!app_state.demands_list) app_state.demands_list = [];
+      const new_demand = {
+        id: 'DMD-' + Math.floor(1000 + Math.random() * 9000),
+        initiative_test_id: session_id,
+        title: overridden_title,
+        submitter_email: (app_state.current_user && app_state.current_user.email) || 'admin@company.com',
+        prd_summary: `[OVERRIDDEN INITIATIVE] Justifikasi: ${reason}\nMitigasi: ${mitigation}`,
+        est_engineers: engineers,
+        est_duration_days: days,
+        capacity_status: 'PENDING_CAPACITY',
+        allocated_capacity_hours: 0,
+        capacity_notes: `⚠️ OVERRIDDEN: ${reason} | Mitigasi: ${mitigation}`,
+        is_override: true,
+        approved_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      };
+      app_state.demands_list.unshift(new_demand);
+
+      // Remove from rejected_initiatives_list mock
+      if (app_state.rejected_initiatives_list) {
+        app_state.rejected_initiatives_list = app_state.rejected_initiatives_list.filter(item => item.id !== session_id);
+      }
+
+      render_demands_table(app_state.demands_list);
+      render_rejected_demands_table(app_state.rejected_initiatives_list);
+      update_demands_statistics(app_state.demands_list, null, app_state.rejected_initiatives_list);
+      show_notification('Inisiatif berhasil di-override ke Demand Management (Mock)!', 'success');
+    }, 400);
   }
 }
 
@@ -6737,12 +6922,20 @@ function render_rejected_demands_table(rejected_list) {
         ${formatted_date}
       </td>
       <td class="py-3 px-4 text-center whitespace-nowrap">
-        <button 
-          type="button" 
-          onclick="open_rejected_initiative_session('${escape_html(item.id)}')" 
-          class="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200 cursor-pointer">
-          Lihat Chat Sesi &rarr;
-        </button>
+        <div class="flex items-center justify-center space-x-1.5">
+          <button 
+            type="button" 
+            onclick="open_rejected_initiative_session('${escape_html(item.id)}')" 
+            class="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200 cursor-pointer">
+            Lihat Chat Sesi &rarr;
+          </button>
+          <button 
+            type="button" 
+            onclick="open_management_override_modal('${escape_html(item.id)}', '${escape_html(item.title || '')}', '${escape_html(item.ai_summary_note || '')}')" 
+            class="px-2 py-1 text-[11px] font-bold text-amber-700 hover:text-amber-900 hover:bg-amber-100 bg-amber-50 rounded-lg transition-colors border border-amber-300 cursor-pointer flex items-center space-x-1" title="Management Override ke Demand Pipeline">
+            <span>⚠️ Override</span>
+          </button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -6797,7 +6990,14 @@ function render_demands_table(demands) {
     tr.innerHTML = `
       <td class="py-3 px-4">
         <div>
-          <div class="font-bold text-slate-900">${escape_html(d.title)}</div>
+          <div class="flex items-center space-x-1.5 flex-wrap">
+            <span class="font-bold text-slate-900">${escape_html(d.title)}</span>
+            ${(d.is_override || (d.capacity_notes && d.capacity_notes.includes('OVERRIDDEN'))) ? `
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex-shrink-0" title="${escape_html(d.capacity_notes || '')}">
+                ⚠️ OVERRIDDEN
+              </span>
+            ` : ''}
+          </div>
           <div class="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center space-x-2">
             <span>${escape_html(d.id)}</span>
             <span>&bull;</span>
