@@ -137,7 +137,8 @@ Alternate Project Delivery/
     ├── test_stage15_kanban_grouping_parent_done.js # Kanban Swimlanes & Auto-Parent Done
     ├── test_stage16_story_points_level_0.js # Story Points Field (Khusus Level 0)
     ├── test_stage17_sprint_progress_burndown.js # Sprint Progress & Burndown (Story Points)
-    └── test_stage18_stitch_executive_dashboard_detail_modal.js # Stitch UI Redesign
+    ├── test_stage18_stitch_executive_dashboard_detail_modal.js # Stitch UI Redesign
+    └── test_stage19_stitch_backlog_planning.js                # Stitch Backlog & Sprint Planning
 ```
 
 ---
@@ -172,9 +173,10 @@ Alternate Project Delivery/
 ---
 
 ## 🧪 Pengujian Otomatis (Quality Gate)
-Seluruh modul dan logika bisnis dilindungi oleh 18 automated test suite berbasis Node.js:
+Seluruh modul dan logika bisnis dilindungi oleh 19 automated test suite berbasis Node.js:
 ```bash
-# Menjalankan seluruh test suite tahap 1 sampai 18
+# Menjalankan seluruh test suite tahap 1 sampai 19
 Get-ChildItem -Path tests -Filter *.js | ForEach-Object { node $_.FullName }
 ```
-Hasil uji coba: **18 Test Suites PASS (100% Green)** tanpa error.
+Hasil uji coba: **19 Test Suites PASS (100% Green)** tanpa error.
+

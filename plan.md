@@ -225,3 +225,31 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
 
 
 
+
+
+---
+
+## 11. Redesain UI Google Stitch: Sprint Planning & Product Backlog Full-Width Enterprise
+
+1. **Transformasi Layout Full-Width Stacked Enterprise:**
+   - Mengubah arsitektur 2-kolom lama menjadi tata letak bertumpuk horizontal penuh (Full-Width Stacked) sesuai rancangan Google Stitch `7bed65713a4c4824a4600a1f846c1b00`.
+   - **Notice Banner:** Banner cadensi tinggi dengan status sinkronisasi aktif klien (`● Client Sync Active`).
+   - **Framework Header & Controls:** Identitas `AGILE FRAMEWORK V2.4 • Continuous Iteration Flow`, badge `Bundled Hierarchy Enabled`, widget metrik total Backlog (`340 Jam (42 pts)`), tombol `+ Buat Bucket Sprint`, dan tombol `+ Buat Work Item Baru`.
+   - **Unified Search & Filter Bar:** Pencarian real-time berdasarkan kata kunci/ID, penyaringan tipe item (Inisiatif, User Story, Task, Bug), filter per Assignee, dan tombol toggle penyaringan khusus item ber-Story Points.
+
+2. **Section 1: Accordion Sprint Buckets (#scrum-sprint-buckets-container):**
+   - Setiap sprint disajikan sebagai kartu accordion mandiri yang dapat dibuka-tutup.
+   - Active Sprint: Menampilkan badge `ACTIVE`, persentase progres (`Progress sprint: 82%`), rentang tanggal, metrik tugas, jam, poin, dan tombol `🏁 Selesaikan Sprint`.
+   - Planning Sprint: Menampilkan badge `PLANNING`, tombol `Edit Scope`, tombol `🚀 Start Sprint`, dan empty-state tray drag-and-drop.
+   - Row Card Work Item: Baris horizontal rapi berfitur drag handle `::`, badge work type, ID tiket, judul, poin, jam, avatar PIC, status badge, dan quick move selector.
+
+3. **Section 2: Product Backlog & Hierarchical Tree View (#bucket-product-backlog):**
+   - Header Backlog dengan total work item counter dan badge indikator `Hierarchical Bundled Move: Active`.
+   - Callout box edukasi prinsip Bundled Move (Section 3.3).
+   - **Tree View Hirarki Bersarang:**
+     - *Level 1 (Inisiatif):* Kartu makro beraksen ungu dengan ringkasan jumlah cerita & subtask terhubung, deskripsi fungsional, dan target rilis.
+     - *Level 0 (Story/Task/Bug):* Baris utama dengan badge Story Points, estimasi jam, pill subtask bertaut, avatar PIC, dan dropdown pemindahan.
+     - *Level -1 (Subtask):* Cabang pohon bersarang dengan indentasi visual (`ml-6 pl-4 border-l-2 border-indigo-200`) dan konektor `↳`. Dilengkapi kontrol ciut/buka (`🔗 X subtask lainnya disembunyikan`) jika subtask > 2.
+
+4. **Sidebar Left Mini-Widget:**
+   - Widget ringkasan kemajuan sprint aktif (`Sprint Scope Progress: 82%` - `28 of 34 tasks completed`) dengan bilah progress bar berwarna indigo.

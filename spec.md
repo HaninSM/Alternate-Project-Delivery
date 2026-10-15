@@ -196,3 +196,10 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 
 
 
+- [x] Tampilan Sprint Planning & Product Backlog bertransformasi menjadi Full-Width Stacked Enterprise Layout sesuai Google Stitch (`7bed65713a4c4824a4600a1f846c1b00`).
+- [x] Dilengkapi Notice Banner cadensi tinggi (`● Client Sync Active`) dan Header Framework V2.4 dengan widget estimasi total Backlog (Jam + Points).
+- [x] Search & Filter Bar mendukung pencarian multi-kriteria real-time: kata kunci teks, tipe work item, assignee PIC, dan filter Story Points.
+- [x] Wadah Accordion Sprint Buckets menyajikan badge ACTIVE/PLANNING, progress sprint %, metrik total, tombol aksi selesaikan sprint / start sprint, dan empty state tray drag-and-drop.
+- [x] Product Backlog menyajikan Tree View Hirarki Bersarang: Kartu Inisiatif makro beraksen ungu, baris User Story/Task Level 0 dengan cabang subtask bertaut berindentasi (`ml-6 pl-4 border-l-2 border-indigo-200`) dan konektor `↳`, serta toggle collapse jika subtask > 2.
+- [x] Mini-widget kemajuan sprint aktif terpasang di sisi kiri bawah sidebar (`Sprint Scope Progress: 82%` - `28 of 34 tasks completed`).
+- [x] Seluruh 19 test suites lulus 100% (Green).

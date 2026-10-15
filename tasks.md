@@ -367,6 +367,40 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba elemen DOM Executive Health Dashboard & Escalation Alert Table.
   - Uji coba controller functions di `js_main.html`. (Diverifikasi lulus 100% via `tests/test_stage18_stitch_executive_dashboard_detail_modal.js`).
 
+---
 
-
-
+## Tahap 19 - Redesain Google Stitch: Sprint Planning & Product Backlog Full-Width Enterprise
+- [x] Redesain Layout Tab Sprint Planning di `UI.html` (`#view-scrum-planning`):
+  - Mengubah layout dari 2-kolom sempit menjadi **Full-Width Stacked Enterprise Layout** sesuai screenshot Google Stitch (`7bed65713a4c4824a4600a1f846c1b00`):
+    - **Notice Banner:** `Project workspace running in high-cadence delivery mode. All scope modifications track toward sprint velocity targets.` & status dot `● Client Sync Active`.
+    - **Framework Header:** `AGILE FRAMEWORK V2.4 • Continuous Iteration Flow`, `Sprint Planning & Product Backlog`, badge `Bundled Hierarchy Enabled`, widget Estimasi Total Backlog (`X Jam Scope (Y pts)`), tombol `+ Buat Bucket Sprint`, dan tombol `+ Buat Work Item Baru`.
+    - **Search & Filter Bar:** Input pencarian kata kunci (`#scrum-search-input`), dropdown tipe work item (`#scrum-filter-work-type`), dropdown assignee (`#scrum-filter-assignee`), dan tombol toggle filter Story Points (`#scrum-btn-points-filter`).
+    - **Section 1 (Top Stack): Wadah Accordion Sprint Buckets (`#scrum-sprint-buckets-container`):**
+      - Kartu accordion untuk masing-masing sprint:
+        - Active Sprint: Label progress sprint %, tanggal, metrik tugas, dan tombol aksi `🏁 Selesaikan Sprint`.
+        - Planning Sprint: Tanggal, metrik tugas, tombol `Edit Scope`, dan tombol `🚀 Start Sprint`.
+        - Empty State bergaya Stitch dengan ikon tray drag & drop jika sprint belum terisi task.
+    - **Section 2 (Bottom Stack): Wadah Product Backlog (`#bucket-product-backlog`):**
+      - Header dengan counter total work item dan badge `Hierarchical Bundled Move: Active`.
+      - Box Callout Edukasi: `Prinsip Bundled Move (Section 3.3)`.
+      - Hierarchical Tree View untuk work items di Backlog:
+        - Kartu Inisiatif Level 1 dengan aksen ungu, rincian cerita & subtask terhubung, dan target rilis.
+        - Baris Story/Task Level 0 dengan cabang pohon Subtask bersarang (indented dengan konektor `↳`).
+        - Fitur toggle ciut/buka (`🔗 X subtask lainnya disembunyikan. Semua subtask Level -1 akan ikut berpindah bersama...`) jika subtask > 2.
+        - Selector pemindahan instan (`Pindahkan ke... ▾`) pada tiap kartu.
+    - **Sidebar Left Mini-Widget:**
+      - Widget kemajuan sprint aktif (`#sidebar-sprint-scope-widget`): label sprint scope, persentase bold, progress bar berwarna indigo, dan deskripsi tugas tuntas (`X of Y tasks completed`).
+- [x] Implementasikan fungsi rendering & interaktivitas di `js_main.html`:
+  - `render_scrum_planning_view`: Kalkulasi jam & points total backlog, pembaruan mini-widget sidebar, populasi dinamis dropdown assignee, rendering tumpukan sprint buckets, dan penyusunan hirarki tree view backlog.
+  - `create_stitch_task_row_element`: Membuat elemen baris work item bergaya Stitch (drag handle, work type badge, task ID link, judul, points, hours, avatar inisial PIC, status badge, dan dropdown quick move).
+  - `create_stitch_initiative_card_element`: Membuat kartu inisiatif makro beraksen ungu dengan banner pemindahan sepaket dan target rilis.
+  - `create_stitch_subtask_row_element`: Membuat baris subtask bersarang dengan konektor `↳` dan indentasi visual.
+  - `toggle_sprint_accordion`: Mengatur expand/collapse wadah bucket sprint.
+  - `toggle_subtasks_collapse`: Mengatur toggle subtask bertaut di bawah parent Level 0.
+  - `handle_filter_scrum_backlog` & `handle_toggle_points_filter`: Menyaring work item secara real-time berdasarkan query teks, tipe tugas, assignee, dan ketersediaan story points.
+- [x] **Quality Gate / Uji Coba Tahap 19:**
+  - Uji coba struktur elemen DOM di `UI.html` (Notice banner, framework header, total estimate widget, search & filter bar, sprint buckets container, product backlog container, bundled move callout, sidebar mini-widget).
+  - Uji coba ketersediaan fungsi controller dan row renderers di `js_main.html`.
+  - Uji coba simulasi kalkulasi agregasi backlog (jam & points) dan persentase penyelesaian sprint (28/34 = 82%).
+  - Uji coba simulasi pengelompokan hierarki tree view dan collapsing subtask.
+  - Uji coba simulasi multi-kriteria filtering (search key, work type, points only). (Diverifikasi lulus 100% via `tests/test_stage19_stitch_backlog_planning.js`).

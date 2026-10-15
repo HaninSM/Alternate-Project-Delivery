@@ -3419,7 +3419,61 @@ function sort_tasks_by_hierarchy(tasks) {
 }
 
 /**
- * Merender seluruh tampilan Scrum Planning (Wadah Backlog dan Sprints)
+ * Toggles accordion collapse for a sprint bucket
+ */
+function toggle_sprint_accordion(sprint_id) {
+  app_state.sprint_collapsed = app_state.sprint_collapsed || {};
+  app_state.sprint_collapsed[sprint_id] = !app_state.sprint_collapsed[sprint_id];
+  render_scrum_planning_view();
+}
+
+/**
+ * Toggles subtasks collapse for a parent task in backlog
+ */
+function toggle_subtasks_collapse(parent_id) {
+  app_state.backlog_subtasks_collapsed = app_state.backlog_subtasks_collapsed || {};
+  app_state.backlog_subtasks_collapsed[parent_id] = !app_state.backlog_subtasks_collapsed[parent_id];
+  render_scrum_planning_view();
+}
+
+/**
+ * Handles filtering in Scrum Backlog & Sprint Planning
+ */
+function handle_filter_scrum_backlog() {
+  app_state.scrum_filter = app_state.scrum_filter || { search: '', work_type: 'ALL', assignee: 'ALL', points_only: false };
+  const search_el = document.getElementById('scrum-search-input');
+  const type_el = document.getElementById('scrum-filter-work-type');
+  const assign_el = document.getElementById('scrum-filter-assignee');
+
+  if (search_el) app_state.scrum_filter.search = search_el.value.trim().toLowerCase();
+  if (type_el) app_state.scrum_filter.work_type = type_el.value;
+  if (assign_el) app_state.scrum_filter.assignee = assign_el.value;
+
+  render_scrum_planning_view();
+}
+
+/**
+ * Toggles points-only filter
+ */
+function handle_toggle_points_filter() {
+  app_state.scrum_filter = app_state.scrum_filter || { search: '', work_type: 'ALL', assignee: 'ALL', points_only: false };
+  app_state.scrum_filter.points_only = !app_state.scrum_filter.points_only;
+
+  const btn = document.getElementById('scrum-btn-points-filter');
+  if (btn) {
+    if (app_state.scrum_filter.points_only) {
+      btn.classList.add('bg-indigo-100', 'text-indigo-700', 'border-indigo-300', 'font-bold');
+      btn.classList.remove('bg-slate-50', 'text-slate-700');
+    } else {
+      btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'border-indigo-300', 'font-bold');
+      btn.classList.add('bg-slate-50', 'text-slate-700');
+    }
+  }
+  render_scrum_planning_view();
+}
+
+/**
+ * Merender seluruh tampilan Scrum Planning (Google Stitch Full-Width Stacked Layout)
  */
 function render_scrum_planning_view() {
   const current_user = app_state.current_user || {};
@@ -3429,6 +3483,11 @@ function render_scrum_planning_view() {
 
   const backlog_tasks = app_state.backlog_tasks || [];
   const sprints = app_state.sprints || [];
+
+  // Inisialisasi state filter & accordion
+  app_state.scrum_filter = app_state.scrum_filter || { search: '', work_type: 'ALL', assignee: 'ALL', points_only: false };
+  app_state.sprint_collapsed = app_state.sprint_collapsed || {};
+  app_state.backlog_subtasks_collapsed = app_state.backlog_subtasks_collapsed || {};
 
   // Hitung relasi subtask di seluruh bucket Scrum
   const all_planning_tasks = [...backlog_tasks];
@@ -3449,156 +3508,672 @@ function render_scrum_planning_view() {
     t.subtask_done_count = subtask_done_counts[t.id] || 0;
   });
 
-  // 1. Render Product Backlog Bucket
-  const backlog_container = document.getElementById('bucket-product-backlog');
+  // Sinkronisasi opsi dropdown Assignee pada Search & Filter Bar
+  const assignee_select = document.getElementById('scrum-filter-assignee');
+  if (assignee_select && assignee_select.options.length <= 1) {
+    const unique_assignees = new Set();
+    all_planning_tasks.forEach(t => {
+      const name = t.assignee_name || t.assignee_id;
+      if (name) unique_assignees.add(name);
+    });
+    unique_assignees.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      assignee_select.appendChild(opt);
+    });
+  }
+
+  // 1. Kalkulasi & Render Header Stats Backlog
+  let total_backlog_hours = 0;
+  let total_backlog_points = 0;
+  backlog_tasks.forEach(t => {
+    total_backlog_hours += (Number(t.estimate_hours) || 0);
+    const lvl = Number(t.hierarchy_level !== undefined ? t.hierarchy_level : 0);
+    const wtype = String(t.work_type || 'TASK').toUpperCase();
+    if (lvl === 0 || (wtype !== 'INITIATIVE' && wtype !== 'SUBTASK')) {
+      total_backlog_points += (Number(t.story_points) || 0);
+    }
+  });
+
   const backlog_count_el = document.getElementById('scrum-backlog-count');
   const backlog_hours_el = document.getElementById('scrum-backlog-hours');
+  const backlog_points_el = document.getElementById('scrum-backlog-points');
 
-  let total_backlog_hours = 0;
-  backlog_tasks.forEach(t => total_backlog_hours += (Number(t.estimate_hours) || 0));
-
-  if (backlog_count_el) backlog_count_el.textContent = backlog_tasks.length + ' task';
+  if (backlog_count_el) backlog_count_el.textContent = backlog_tasks.length + ' Work Items';
   if (backlog_hours_el) backlog_hours_el.textContent = total_backlog_hours + ' Jam Scope';
+  if (backlog_points_el) backlog_points_el.textContent = total_backlog_points + ' pts';
 
-  if (backlog_container) {
-    backlog_container.innerHTML = '';
-    if (backlog_tasks.length === 0) {
-      backlog_container.innerHTML = `
-        <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400 flex flex-col items-center">
-          <span class="mb-1 text-slate-600 font-medium">Belum ada task di Backlog.</span>
-          <span class="text-slate-400 mb-3">Isi task perencanaan terlebih dahulu sebelum dimasukkan ke sprint.</span>
+  // 2. Render Sidebar Sprint Scope Progress Mini-Widget
+  const active_sprint = sprints.find(s => String(s.status || '').toUpperCase() === 'ACTIVE') || sprints[0];
+  const sidebar_label = document.getElementById('sidebar-sprint-scope-label');
+  const sidebar_pct = document.getElementById('sidebar-sprint-scope-pct');
+  const sidebar_bar = document.getElementById('sidebar-sprint-scope-bar');
+  const sidebar_desc = document.getElementById('sidebar-sprint-scope-desc');
+
+  if (sidebar_label && active_sprint) {
+    const sp_tasks = active_sprint.tasks || [];
+    const done_count = sp_tasks.filter(t => String(t.status || '').toUpperCase() === 'DONE').length;
+    const total_count = sp_tasks.length;
+    const pct = total_count > 0 ? Math.round((done_count / total_count) * 100) : 0;
+
+    sidebar_label.textContent = (active_sprint.name || active_sprint.id) + ' Scope';
+    if (sidebar_pct) sidebar_pct.textContent = pct + '%';
+    if (sidebar_bar) sidebar_bar.style.width = pct + '%';
+    if (sidebar_desc) sidebar_desc.textContent = `${done_count} of ${total_count} tasks completed`;
+  }
+
+  // 3. Render Section 1: Sprint Buckets Container (Accordion Stack)
+  const sprints_container = document.getElementById('scrum-sprint-buckets-container');
+  if (sprints_container) {
+    sprints_container.innerHTML = '';
+
+    if (sprints.length === 0) {
+      sprints_container.innerHTML = `
+        <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 flex flex-col items-center">
+          <span class="mb-1 text-slate-600 font-medium">Belum ada bucket sprint aktif.</span>
+          <span class="text-slate-400 mb-3">Klik tombol di bawah untuk membuat wadah sprint baru.</span>
           <button 
             type="button" 
-            onclick="open_backlog_task_modal()" 
-            class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
-            <span>+ Tambah Task ke Backlog</span>
+            onclick="open_new_sprint_modal()" 
+            class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer">
+            + Buat Sprint Sekarang
           </button>
         </div>
       `;
     } else {
-      const sorted_backlog = sort_tasks_by_hierarchy(backlog_tasks);
-      sorted_backlog.forEach(task => {
-        const card = create_bucket_task_card_element(task, 'BACKLOG', can_edit);
-        backlog_container.appendChild(card);
+      sprints.forEach(sp => {
+        const sp_card = document.createElement('div');
+        sp_card.className = 'bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden transition-all';
+
+        const sp_tasks = sp.tasks || [];
+        let total_sp_hours = 0;
+        let total_sp_points = 0;
+        let done_sp_tasks = 0;
+
+        sp_tasks.forEach(t => {
+          total_sp_hours += (Number(t.estimate_hours) || 0);
+          total_sp_points += (Number(t.story_points) || 0);
+          if (String(t.status || '').toUpperCase() === 'DONE') done_sp_tasks++;
+        });
+
+        const sp_pct = sp_tasks.length > 0 ? Math.round((done_sp_tasks / sp_tasks.length) * 100) : 0;
+        const sp_status = String(sp.status || 'PLANNING').toUpperCase();
+        const is_collapsed = Boolean(app_state.sprint_collapsed[sp.id]);
+
+        let badge_html = '';
+        let header_actions_html = '';
+
+        if (sp_status === 'ACTIVE') {
+          badge_html = `<span class="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-600 text-white tracking-wider">ACTIVE</span>`;
+          if (can_edit) {
+            header_actions_html = `
+              <div class="flex items-center space-x-3">
+                <span class="text-xs font-bold text-slate-700">Progress sprint: ${sp_pct}%</span>
+                <button 
+                  type="button" 
+                  onclick="open_complete_sprint_modal('${sp.id}')" 
+                  class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-lg text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer">
+                  <span>🏁 Selesaikan Sprint</span>
+                </button>
+              </div>
+            `;
+          }
+        } else if (sp_status === 'COMPLETED') {
+          badge_html = `<span class="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-300 text-slate-700 tracking-wider">COMPLETED</span>`;
+          header_actions_html = `<span class="text-xs font-bold text-emerald-600">✓ Selesai</span>`;
+        } else {
+          badge_html = `<span class="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-slate-700 text-white tracking-wider">PLANNING</span>`;
+          if (can_edit) {
+            header_actions_html = `
+              <div class="flex items-center space-x-2">
+                <button 
+                  type="button" 
+                  onclick="open_start_sprint_modal('${sp.id}')" 
+                  class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center space-x-1">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  <span>Edit Scope</span>
+                </button>
+                <button 
+                  type="button" 
+                  onclick="open_start_sprint_modal('${sp.id}')" 
+                  class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer">
+                  <span>🚀 Start Sprint</span>
+                </button>
+              </div>
+            `;
+          }
+        }
+
+        sp_card.innerHTML = `
+          <!-- Sprint Accordion Header -->
+          <div class="p-3.5 bg-slate-50/90 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center space-x-3 min-w-0">
+              <button 
+                type="button" 
+                onclick="toggle_sprint_accordion('${sp.id}')" 
+                class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-transform ${is_collapsed ? '-rotate-90' : ''} cursor-pointer"
+                title="${is_collapsed ? 'Buka accordion' : 'Tutup accordion'}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div class="flex items-center space-x-2.5 flex-wrap">
+                <h4 class="text-sm font-bold text-slate-900">${escape_html(sp.name)}</h4>
+                ${badge_html}
+                <span class="text-xs text-slate-500 font-medium">${sp.start_date || 'TBD'} – ${sp.end_date || 'TBD'}</span>
+                <span class="text-xs text-slate-400">• Total: <strong class="text-slate-700">${sp_tasks.length} Tasks</strong> • <strong class="text-slate-700">${total_sp_hours} Jam</strong> ${total_sp_points > 0 ? `• <strong class="text-indigo-600">${total_sp_points} pts</strong>` : ''}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-3 self-end md:self-auto">
+              ${header_actions_html}
+            </div>
+          </div>
+
+          <!-- Droppable Sprint Task Container -->
+          <div 
+            id="bucket-sprint-${sp.id}" 
+            data-bucket-id="${sp.id}"
+            ${sp_status !== 'COMPLETED' ? `
+            ondragover="handle_bucket_drag_over(event)" 
+            ondragleave="handle_bucket_drag_leave(event)" 
+            ondrop="handle_bucket_drop(event, '${sp.id}')"
+            ` : ''}
+            class="bucket-droppable-area p-3 space-y-2 min-h-[90px] bg-white transition-colors ${is_collapsed ? 'hidden' : 'block'}">
+          </div>
+        `;
+
+        sprints_container.appendChild(sp_card);
+
+        const task_list_container = sp_card.querySelector('#bucket-sprint-' + sp.id);
+        if (task_list_container) {
+          if (sp_tasks.length === 0) {
+            task_list_container.innerHTML = `
+              <div class="py-7 px-4 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400 flex flex-col items-center justify-center bg-slate-50/50">
+                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2 text-indigo-500">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                </div>
+                <div class="font-bold text-slate-700 text-xs">Drag work items from Backlog to plan ${escape_html(sp.name)}</div>
+                <div class="text-slate-400 text-[11px] mt-0.5">Item yang dipindahkan akan dialokasikan kapasitasnya otomatis</div>
+              </div>
+            `;
+          } else {
+            const sorted_sp_tasks = sort_tasks_by_hierarchy(sp_tasks);
+            sorted_sp_tasks.forEach(task => {
+              const card = create_stitch_task_row_element(task, sp.id, can_edit && sp_status !== 'COMPLETED');
+              task_list_container.appendChild(card);
+            });
+          }
+        }
       });
     }
   }
 
-  // 2. Render Sprint Buckets
-  const sprints_container = document.getElementById('scrum-sprint-buckets-container');
-  if (!sprints_container) return;
+  // 4. Render Section 2: Product Backlog Bucket (Hierarchical Tree View)
+  const backlog_container = document.getElementById('bucket-product-backlog');
+  if (backlog_container) {
+    backlog_container.innerHTML = '';
 
-  sprints_container.innerHTML = '';
+    // Terapkan filter pencarian & kategori pada Backlog
+    const filter = app_state.scrum_filter || {};
+    let filtered_backlog = [...backlog_tasks];
 
-  if (sprints.length === 0) {
-    sprints_container.innerHTML = `
-      <div class="p-8 bg-white border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-400 flex flex-col items-center">
-        <span class="mb-1 text-slate-600 font-medium">Belum ada bucket sprint untuk proyek ini.</span>
-        <span class="text-slate-400 mb-3">Buat bucket sprint baru untuk mulai mendistribusikan task dari Backlog.</span>
-        <button 
-          type="button" 
-          onclick="open_new_sprint_modal()" 
-          class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5">
-          <span>+ Buat Sprint Baru</span>
-        </button>
-      </div>
-    `;
-    return;
+    if (filter.search) {
+      const q = filter.search;
+      filtered_backlog = filtered_backlog.filter(t => {
+        const match_self = String(t.id).toLowerCase().includes(q) ||
+                           String(t.title).toLowerCase().includes(q) ||
+                           String(t.description || '').toLowerCase().includes(q) ||
+                           String(t.assignee_name || '').toLowerCase().includes(q);
+        if (match_self) return true;
+        const has_matching_child = backlog_tasks.some(c => c.parent_id === t.id && (
+          String(c.id).toLowerCase().includes(q) || String(c.title).toLowerCase().includes(q)
+        ));
+        const has_matching_parent = t.parent_id && backlog_tasks.some(p => p.id === t.parent_id && (
+          String(p.id).toLowerCase().includes(q) || String(p.title).toLowerCase().includes(q)
+        ));
+        return has_matching_child || has_matching_parent;
+      });
+    }
+
+    if (filter.work_type && filter.work_type !== 'ALL') {
+      filtered_backlog = filtered_backlog.filter(t => {
+        const wt = String(t.work_type || 'TASK').toUpperCase();
+        if (filter.work_type === 'INITIATIVE') return wt === 'INITIATIVE' || Number(t.hierarchy_level) === 1;
+        if (filter.work_type === 'USER_STORY') return wt === 'USER_STORY';
+        if (filter.work_type === 'TASK') return wt === 'TASK';
+        if (filter.work_type === 'BUG') return wt === 'BUG';
+        return true;
+      });
+    }
+
+    if (filter.assignee && filter.assignee !== 'ALL') {
+      filtered_backlog = filtered_backlog.filter(t => (t.assignee_name === filter.assignee || t.assignee_id === filter.assignee));
+    }
+
+    if (filter.points_only) {
+      filtered_backlog = filtered_backlog.filter(t => Number(t.story_points) > 0);
+    }
+
+    if (filtered_backlog.length === 0) {
+      backlog_container.innerHTML = `
+        <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-xs text-slate-400 flex flex-col items-center">
+          <span class="mb-1 text-slate-600 font-medium">Belum ada work item di Backlog yang sesuai filter.</span>
+          <span class="text-slate-400 mb-3">Klik tombol di bawah untuk menambahkan item baru ke Backlog.</span>
+          <button 
+            type="button" 
+            onclick="open_backlog_task_modal()" 
+            class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer">
+            + Tambah Task ke Backlog
+          </button>
+        </div>
+      `;
+    } else {
+      // Kelompokkan Work Items: Inisiatif (Level 1), Story/Task (Level 0), Subtask (Level -1)
+      const initiatives = filtered_backlog.filter(t => t.work_type === 'INITIATIVE' || Number(t.hierarchy_level) === 1);
+      const level_0_items = filtered_backlog.filter(t => t.work_type !== 'INITIATIVE' && Number(t.hierarchy_level) !== 1 && t.work_type !== 'SUBTASK' && Number(t.hierarchy_level) !== -1);
+      const subtasks = filtered_backlog.filter(t => t.work_type === 'SUBTASK' || Number(t.hierarchy_level) === -1);
+
+      // Render Level 1 Initiatives
+      initiatives.forEach(init => {
+        const child_stories = level_0_items.filter(s => s.parent_id === init.id);
+        const child_subtasks = subtasks.filter(sub => {
+          if (sub.parent_id === init.id) return true;
+          return child_stories.some(cs => cs.id === sub.parent_id);
+        });
+
+        const init_el = create_stitch_initiative_card_element(init, child_stories.length, child_subtasks.length, can_edit);
+        backlog_container.appendChild(init_el);
+      });
+
+      // Render Level 0 Items (Story/Task/Bug) dengan nested Subtasks tree
+      const rendered_subtask_ids = new Set();
+
+      level_0_items.forEach(task => {
+        const child_subtasks = subtasks.filter(sub => sub.parent_id === task.id);
+        child_subtasks.forEach(s => rendered_subtask_ids.add(s.id));
+
+        const tree_block = document.createElement('div');
+        tree_block.className = 'flex flex-col space-y-1.5';
+
+        // Kartu Utama Level 0
+        const l0_card = create_stitch_task_row_element(task, 'BACKLOG', can_edit, child_subtasks.length);
+        tree_block.appendChild(l0_card);
+
+        // Nested Subtask Tree
+        if (child_subtasks.length > 0) {
+          const sub_container = document.createElement('div');
+          sub_container.className = 'ml-6 pl-4 border-l-2 border-indigo-200 space-y-1.5 pt-0.5';
+
+          const is_collapsed = app_state.backlog_subtasks_collapsed[task.id] !== false && child_subtasks.length > 2;
+          const display_subs = is_collapsed ? child_subtasks.slice(0, 2) : child_subtasks;
+
+          display_subs.forEach(sub => {
+            const sub_card = create_stitch_subtask_row_element(sub, 'BACKLOG', can_edit);
+            sub_container.appendChild(sub_card);
+          });
+
+          if (child_subtasks.length > 2) {
+            const notice_row = document.createElement('div');
+            notice_row.className = 'px-3 py-1.5 bg-slate-100 rounded-lg text-[11px] text-slate-500 flex items-center justify-between border border-slate-200';
+            if (is_collapsed) {
+              notice_row.innerHTML = `
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-indigo-500 font-bold">🔗</span>
+                  <span><strong>${child_subtasks.length - 2} subtask lainnya</strong> disembunyikan. Semua subtask Level -1 akan ikut berpindah bersama ${escape_html(task.id)}.</span>
+                </div>
+                <button 
+                  type="button" 
+                  onclick="toggle_subtasks_collapse('${task.id}')" 
+                  class="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold ml-2 cursor-pointer flex-shrink-0">
+                  Lihat Semua (${child_subtasks.length}) ▾
+                </button>
+              `;
+            } else {
+              notice_row.innerHTML = `
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-indigo-500 font-bold">🔗</span>
+                  <span>Menampilkan seluruh ${child_subtasks.length} subtask bertaut.</span>
+                </div>
+                <button 
+                  type="button" 
+                  onclick="toggle_subtasks_collapse('${task.id}')" 
+                  class="text-[10px] text-slate-600 hover:text-slate-900 font-semibold ml-2 cursor-pointer flex-shrink-0">
+                  Sembunyikan ▴
+                </button>
+              `;
+            }
+            sub_container.appendChild(notice_row);
+          }
+
+          tree_block.appendChild(sub_container);
+        }
+
+        backlog_container.appendChild(tree_block);
+      });
+
+      // Render Subtask Mandiri jika belum dirender di bawah parent
+      subtasks.forEach(sub => {
+        if (!rendered_subtask_ids.has(sub.id)) {
+          const standalone_sub = create_stitch_subtask_row_element(sub, 'BACKLOG', can_edit);
+          backlog_container.appendChild(standalone_sub);
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Membuat kartu baris work item untuk Google Stitch Sprint Buckets & Backlog
+ * Tampilan Enterprise Horizontal Row: Drag Handle, Badge Work Type, Key, Title, Points, Assignee Avatar, Status, Quick Move
+ */
+function create_stitch_task_row_element(task, source_bucket_id, can_edit, subtasks_count = 0) {
+  const card = document.createElement('div');
+  card.id = 'bucket-task-' + task.id;
+
+  const work_type = String(task.work_type || 'TASK').toUpperCase();
+  const is_subtask = (work_type === 'SUBTASK' || Number(task.hierarchy_level) === -1);
+  const is_level_0 = (!is_subtask && work_type !== 'INITIATIVE' && Number(task.hierarchy_level) !== 1);
+
+  let card_classes = 'p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 relative';
+  if (can_edit) {
+    card_classes += ' cursor-grab active:cursor-grabbing';
+    card.draggable = true;
+    card.ondragstart = (e) => handle_bucket_drag_start(e, task.id, source_bucket_id);
+    card.ondragend = (e) => handle_bucket_drag_end(e);
+  }
+  card.className = card_classes;
+
+  // Work Type Badge
+  const work_type_badge_map = {
+    INITIATIVE: '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">INITIATIVE</span>',
+    USER_STORY: '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex-shrink-0">STORY</span>',
+    TASK: '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 flex-shrink-0">TASK</span>',
+    BUG: '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 flex-shrink-0">BUG</span>',
+    SUBTASK: '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 flex-shrink-0">SUBTASK</span>'
+  };
+  const work_type_badge = work_type_badge_map[work_type] || work_type_badge_map.TASK;
+
+  // Status Badge
+  const status_str = String(task.status || 'TODO').toUpperCase();
+  const status_badge_map = {
+    IN_PROGRESS: '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">IN PROGRESS</span>',
+    DONE: '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300 flex-shrink-0">DONE</span>',
+    REVIEW: '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">REVIEW</span>',
+    TODO: '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex-shrink-0">TODO</span>'
+  };
+  const status_badge = status_badge_map[status_str] || status_badge_map.TODO;
+
+  // Story Points Badge (Level 0 only)
+  let points_badge = '';
+  if (is_level_0 && task.story_points && Number(task.story_points) > 0) {
+    points_badge = `<span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex-shrink-0">${escape_html(task.story_points)} pts</span>`;
   }
 
-  sprints.forEach(sp => {
-    const sp_card = document.createElement('div');
-    sp_card.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden';
-    
-    let total_sp_hours = 0;
-    (sp.tasks || []).forEach(t => total_sp_hours += (Number(t.estimate_hours) || 0));
+  // Hours badge
+  let hours_badge = '';
+  if (task.estimate_hours) {
+    hours_badge = `<span class="text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 flex-shrink-0">${escape_html(task.estimate_hours)}h est</span>`;
+  }
 
-    const sp_status = String(sp.status || 'PLANNING').toUpperCase();
-    let status_badge_html = '';
-    let action_btn_html = '';
+  // Subtasks bertaut pill
+  let subtasks_pill = '';
+  if (subtasks_count > 0) {
+    subtasks_pill = `
+      <span class="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 flex items-center space-x-1 flex-shrink-0">
+        <span>${subtasks_count} Subtasks bertaut</span>
+      </span>
+    `;
+  }
 
-    if (sp_status === 'ACTIVE') {
-      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">● Aktif Berjalan</span>`;
-      if (can_edit) {
-        action_btn_html = `
-          <button 
-            type="button" 
-            onclick="open_complete_sprint_modal('${sp.id}')" 
-            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
-            <span>🏁 Selesaikan Sprint</span>
-          </button>
-        `;
-      }
-    } else if (sp_status === 'COMPLETED') {
-      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">✓ Selesai</span>`;
-      action_btn_html = '';
-    } else {
-      status_badge_html = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Draft Planning</span>`;
-      if (can_edit) {
-        action_btn_html = `
-          <button 
-            type="button" 
-            onclick="open_start_sprint_modal('${sp.id}')" 
-            class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center space-x-1 cursor-pointer">
-            <span>🚀 Start Sprint</span>
-          </button>
-        `;
-      }
+  // Assignee Avatar
+  const assign_name = task.assignee_name || task.assignee_id || 'Unassigned';
+  const initials = get_initials_frontend(assign_name);
+
+  // Quick Move Selector
+  let move_select_html = '';
+  if (can_edit) {
+    const available_sprints = app_state.sprints || [];
+    let options = '<option value="" disabled selected>Pindahkan ke... ▾</option>';
+    if (source_bucket_id !== 'BACKLOG') {
+      options += '<option value="BACKLOG">↩ Product Backlog</option>';
     }
+    available_sprints.forEach(sp => {
+      if (sp.id !== source_bucket_id && String(sp.status || '').toUpperCase() !== 'COMPLETED') {
+        options += `<option value="${sp.id}">➔ ${escape_html(sp.name || sp.id)}</option>`;
+      }
+    });
 
-    sp_card.innerHTML = `
-      <div class="p-4 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div class="flex items-center space-x-3">
-          <span class="w-3 h-3 rounded-full ${sp_status === 'ACTIVE' ? 'bg-emerald-500' : (sp_status === 'COMPLETED' ? 'bg-slate-400' : 'bg-indigo-500')}"></span>
-          <div>
-            <div class="flex items-center space-x-2">
-              <h4 class="text-sm font-bold text-slate-800">${escape_html(sp.name)}</h4>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">${sp.id}</span>
-              ${status_badge_html}
-            </div>
-            <p class="text-[11px] text-slate-400">${sp.start_date || '-'} s/d ${sp.end_date || '-'}</p>
-          </div>
-        </div>
-
-        <div class="flex items-center space-x-3">
-          <span class="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-            ${(sp.tasks || []).length} Task • ${total_sp_hours} Jam
-          </span>
-          ${action_btn_html}
-        </div>
-      </div>
-
-      <div 
-        id="bucket-sprint-${sp.id}" 
-        data-bucket-id="${sp.id}"
-        ${sp_status !== 'COMPLETED' ? `
-        ondragover="handle_bucket_drag_over(event)" 
-        ondragleave="handle_bucket_drag_leave(event)" 
-        ondrop="handle_bucket_drop(event, '${sp.id}')"
-        ` : ''}
-        class="bucket-droppable-area p-4 space-y-2.5 min-h-[120px] bg-slate-50/30 transition-colors">
+    move_select_html = `
+      <div class="flex items-center space-x-1 flex-shrink-0" onclick="event.stopPropagation()">
+        <select 
+          title="Pindahkan task beserta subtask-nya"
+          onchange="handle_quick_move_task('${task.id}', '${source_bucket_id}', this.value)"
+          class="text-[10px] bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-slate-700 font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer">
+          ${options}
+        </select>
       </div>
     `;
+  }
 
-    sprints_container.appendChild(sp_card);
-
-    const task_list_container = sp_card.querySelector('#bucket-sprint-' + sp.id);
-    if (task_list_container) {
-      if (!sp.tasks || sp.tasks.length === 0) {
-        task_list_container.innerHTML = `
-          <div class="p-5 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
-            ${sp_status === 'COMPLETED' ? 'Tidak ada task di sprint yang telah selesai ini.' : 'Tarik (Drag) task dari Product Backlog ke sini, atau gunakan menu dropdown pada kartu task.'}
-          </div>
-        `;
-      } else {
-        const sorted_sp_tasks = sort_tasks_by_hierarchy(sp.tasks);
-        sorted_sp_tasks.forEach(task => {
-          const card = create_bucket_task_card_element(task, sp.id, can_edit && sp_status !== 'COMPLETED');
-          task_list_container.appendChild(card);
-        });
-      }
+  card.onclick = (e) => {
+    if (!e.target.closest('button') && !e.target.closest('select')) {
+      open_task_detail_modal(task.id);
     }
-  });
+  };
+
+  card.innerHTML = `
+    <!-- Left: Drag Handle, Work Type Badge, Task ID, Title -->
+    <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+      <div class="text-slate-400 hover:text-slate-600 cursor-grab pointer-events-none p-0.5 flex-shrink-0" title="Geser kartu">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+      </div>
+      ${work_type_badge}
+      <button 
+        type="button" 
+        onclick="event.stopPropagation(); open_task_detail_modal('${task.id}')" 
+        class="text-xs font-mono font-bold text-indigo-600 hover:underline flex-shrink-0">
+        ${escape_html(task.id)}
+      </button>
+      <span class="text-xs font-semibold text-slate-800 truncate cursor-pointer hover:text-indigo-600" title="${escape_html(task.title)}">
+        ${escape_html(task.title)}
+      </span>
+    </div>
+
+    <!-- Right: Points, Hours, Subtasks, Assignee Avatar, Status, Quick Move -->
+    <div class="flex items-center space-x-2.5 flex-shrink-0 self-end md:self-auto flex-wrap gap-y-1">
+      ${points_badge}
+      ${hours_badge}
+      ${subtasks_pill}
+      <div class="flex items-center space-x-1.5 flex-shrink-0" title="${escape_html(assign_name)}">
+        <div class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold">
+          ${initials}
+        </div>
+        <span class="text-xs text-slate-700 font-medium truncate max-w-[90px]">${escape_html(assign_name)}</span>
+      </div>
+      ${source_bucket_id !== 'BACKLOG' ? status_badge : ''}
+      ${move_select_html}
+    </div>
+  `;
+
+  return card;
+}
+
+/**
+ * Membuat kartu Inisiatif Level 1 untuk Product Backlog (Google Stitch Purple Card)
+ */
+function create_stitch_initiative_card_element(init, stories_count, subtasks_count, can_edit) {
+  const card = document.createElement('div');
+  card.id = 'bucket-task-' + init.id;
+
+  let card_classes = 'p-3.5 bg-purple-50/40 rounded-xl border-2 border-purple-200 hover:border-purple-300 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-2 relative';
+  if (can_edit) {
+    card_classes += ' cursor-grab active:cursor-grabbing';
+    card.draggable = true;
+    card.ondragstart = (e) => handle_bucket_drag_start(e, init.id, 'BACKLOG');
+    card.ondragend = (e) => handle_bucket_drag_end(e);
+  }
+  card.className = card_classes;
+
+  // Quick Move Selector
+  let move_select_html = '';
+  if (can_edit) {
+    const available_sprints = app_state.sprints || [];
+    let options = '<option value="" disabled selected>Pindahkan ke... ▾</option>';
+    available_sprints.forEach(sp => {
+      if (String(sp.status || '').toUpperCase() !== 'COMPLETED') {
+        options += `<option value="${sp.id}">➔ ${escape_html(sp.name || sp.id)}</option>`;
+      }
+    });
+
+    move_select_html = `
+      <div class="flex items-center space-x-1 flex-shrink-0" onclick="event.stopPropagation()">
+        <select 
+          title="Pindahkan seluruh inisiatif beserta subtask-nya"
+          onchange="handle_quick_move_task('${init.id}', 'BACKLOG', this.value)"
+          class="text-[10px] bg-white hover:bg-slate-50 border border-purple-300 rounded px-2 py-1 text-slate-700 font-semibold focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer">
+          ${options}
+        </select>
+      </div>
+    `;
+  }
+
+  card.onclick = (e) => {
+    if (!e.target.closest('button') && !e.target.closest('select')) {
+      open_task_detail_modal(init.id);
+    }
+  };
+
+  card.innerHTML = `
+    <!-- Top Row: Drag Icon, Badge, Key, Title, Purple Banner Pill, Quick Move -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+      <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+        <div class="text-purple-400 hover:text-purple-600 cursor-grab pointer-events-none p-0.5 flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+        </div>
+        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-700 text-white tracking-wider flex-shrink-0">INISIATIF</span>
+        <button 
+          type="button" 
+          onclick="event.stopPropagation(); open_task_detail_modal('${init.id}')" 
+          class="text-xs font-mono font-bold text-purple-700 hover:underline flex-shrink-0">
+          ${escape_html(init.id)}
+        </button>
+        <span class="text-sm font-bold text-slate-900 truncate cursor-pointer hover:text-purple-700" title="${escape_html(init.title)}">
+          ${escape_html(init.title)}
+        </span>
+      </div>
+
+      <div class="flex items-center space-x-2 flex-shrink-0 self-end md:self-auto">
+        <span class="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg text-[11px] font-medium border border-purple-200">
+          <span>Geser untuk memindahkan seluruh inisiatif beserta subtask</span>
+        </span>
+        ${move_select_html}
+      </div>
+    </div>
+
+    <!-- Middle Row: Sub-line badges -->
+    <div class="flex items-center space-x-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full bg-purple-100/80 text-purple-800 text-[10px] font-bold border border-purple-200">
+        ${stories_count} Stories • ${subtasks_count} Subtasks linked
+      </span>
+    </div>
+
+    <!-- Bottom Row: Description and Target Release -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-600 pt-1 border-t border-purple-100">
+      <div class="flex items-center space-x-1.5 truncate flex-1">
+        <span class="text-purple-600 font-bold">↳</span>
+        <span class="truncate">${escape_html(init.description || 'Inisiatif memayungi modul analisis streaming telemetry transaksi nasabah & score anomaly engine.')}</span>
+      </div>
+      <div class="text-slate-500 font-medium flex-shrink-0">
+        Target Rilis: <strong class="text-slate-700">${escape_html(init.target_release || 'Q1 Core Banking')}</strong>
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+/**
+ * Membuat kartu baris Subtask bertaut (Google Stitch Indented Row)
+ */
+function create_stitch_subtask_row_element(subtask, source_bucket_id, can_edit) {
+  const card = document.createElement('div');
+  card.id = 'bucket-task-' + subtask.id;
+
+  let card_classes = 'p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/90 border-l-4 border-l-indigo-400 hover:bg-white hover:border-indigo-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs relative';
+  if (can_edit) {
+    card_classes += ' cursor-grab active:cursor-grabbing';
+    card.draggable = true;
+    card.ondragstart = (e) => handle_bucket_drag_start(e, subtask.id, source_bucket_id);
+    card.ondragend = (e) => handle_bucket_drag_end(e);
+  }
+  card.className = card_classes;
+
+  const assign_name = subtask.assignee_name || subtask.assignee_id || 'Unassigned';
+  const initials = get_initials_frontend(assign_name);
+
+  // Quick Move Selector
+  let move_select_html = '';
+  if (can_edit) {
+    const available_sprints = app_state.sprints || [];
+    let options = '<option value="" disabled selected>Pindahkan ke... ▾</option>';
+    if (source_bucket_id !== 'BACKLOG') {
+      options += '<option value="BACKLOG">↩ Product Backlog</option>';
+    }
+    available_sprints.forEach(sp => {
+      if (sp.id !== source_bucket_id && String(sp.status || '').toUpperCase() !== 'COMPLETED') {
+        options += `<option value="${sp.id}">➔ ${escape_html(sp.name || sp.id)}</option>`;
+      }
+    });
+
+    move_select_html = `
+      <div class="flex items-center space-x-1 flex-shrink-0" onclick="event.stopPropagation()">
+        <select 
+          title="Pindahkan subtask ini"
+          onchange="handle_quick_move_task('${subtask.id}', '${source_bucket_id}', this.value)"
+          class="text-[10px] bg-white hover:bg-slate-50 border border-slate-300 rounded px-1.5 py-0.5 text-slate-700 font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer">
+          ${options}
+        </select>
+      </div>
+    `;
+  }
+
+  card.onclick = (e) => {
+    if (!e.target.closest('button') && !e.target.closest('select')) {
+      open_task_detail_modal(subtask.id);
+    }
+  };
+
+  card.innerHTML = `
+    <div class="flex items-center space-x-2 min-w-0 flex-1">
+      <span class="text-slate-400 font-bold">↳</span>
+      <div class="text-slate-300 hover:text-slate-500 cursor-grab pointer-events-none p-0.5 flex-shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+      </div>
+      <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 tracking-wider flex-shrink-0">SUBTASK</span>
+      <button 
+        type="button" 
+        onclick="event.stopPropagation(); open_task_detail_modal('${subtask.id}')" 
+        class="text-[11px] font-mono font-bold text-indigo-600 hover:underline flex-shrink-0">
+        ${escape_html(subtask.id)}
+      </button>
+      <span class="text-xs font-medium text-slate-700 truncate cursor-pointer hover:text-indigo-600" title="${escape_html(subtask.title)}">
+        ${escape_html(subtask.title)}
+      </span>
+    </div>
+
+    <div class="flex items-center space-x-2.5 flex-shrink-0 self-end sm:self-auto">
+      ${subtask.estimate_hours ? `<span class="text-[10px] font-semibold text-slate-500">${escape_html(subtask.estimate_hours)}h est</span>` : ''}
+      <div class="flex items-center space-x-1.5 flex-shrink-0" title="${escape_html(assign_name)}">
+        <div class="w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[8px] font-bold">
+          ${initials}
+        </div>
+        <span class="text-[11px] text-slate-600 font-medium truncate max-w-[80px]">${escape_html(assign_name)}</span>
+      </div>
+      ${move_select_html}
+    </div>
+  `;
+
+  return card;
 }
 
 /**
