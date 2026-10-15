@@ -276,3 +276,25 @@ Roadmap implementasi dilakukan secara bertahap (*incremental development*). Seti
   - Uji coba algoritma grouping parent swimlane dan item mandiri.
   - Uji coba simulasi trigger konfirmasi saat seluruh subtask berstatus `DONE`. (Diverifikasi lulus 100% via `tests/test_stage15_kanban_grouping_parent_done.js`).
 
+---
+
+## Tahap 16 - Story Point Field (Khusus Hirarki Level 0) & Dasar Metrik Agile
+- [x] Tambahkan kolom ke-13: `story_points` pada skema tabel `Tasks` di `Setup.gs`.
+- [x] Perbarui backend API di `API.gs`:
+  - `create_new_task`: Menerima `story_points`, memvalidasi hanya disimpan jika `hierarchy_level === 0` (`USER_STORY`, `TASK`, `BUG`). Mengosongkan nilai jika work type Level 1 atau Level -1. Menjamin ketersediaan header kolom secara dinamis dan aman.
+  - `update_task_details`: Memperbarui `story_points` hanya untuk item Level 0 dan membersihkan nilainya jika tipe item diubah di luar Level 0.
+  - `get_sprint_tasks` & `get_project_backlog_and_sprints`: Membaca dan menyertakan field `story_points` pada objek payload data tugas.
+- [x] Bangun antarmuka UI di `UI.html`:
+  - Input Text Box Story Point (`#input-task-story-points`) dengan wadah pembungkus (`#group-task-story-points`) pada modal pembuatan/pengubahan task (`#modal-task`).
+  - Field penampil Story Point (`#detail-task-story-points`) pada modal detail work item (`#modal-task-detail`).
+- [x] Implementasikan logika kontrol UI di `js_main.html`:
+  - `handle_work_type_change`: Menampilkan input Story Point hanya jika tipe pekerjaan yang dipilih berlevel 0 (`USER_STORY`, `TASK`, `BUG`), serta menyembunyikan dan mengosongkan nilai saat memilih Inisiatif (Level 1) atau Subtask (Level -1).
+  - Integrasikan field `story_points` pada pembukaan modal buat task, edit task, dan submit form.
+  - Tampilkan badge Story Point (contoh: `5 pts`) pada kartu Kanban Board dan kartu Product Backlog untuk item Level 0.
+- [x] **Quality Gate / Uji Coba Tahap 16:**
+  - Uji coba skema tabel `Tasks` di `Setup.gs`.
+  - Uji coba elemen UI input dan display Story Point di `UI.html`.
+  - Uji coba logika seleksi hirarki level 0 di `js_main.html`.
+  - Uji coba simulasi persistensi backend dan penolakan pada Level 1 & Level -1. (Diverifikasi lulus 100% via `tests/test_stage16_story_points_level_0.js`).
+
+

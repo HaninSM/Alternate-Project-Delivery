@@ -265,6 +265,7 @@ function get_sprint_tasks(sprint_id) {
     const level_idx = header.indexOf('hierarchy_level');
     const parent_idx = header.indexOf('parent_id');
     const desc_idx = header.indexOf('description');
+    const pts_idx = header.indexOf('story_points');
 
     const tasks = [];
     const target_sprint = String(sprint_id).trim();
@@ -280,6 +281,7 @@ function get_sprint_tasks(sprint_id) {
         const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
         const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
         const raw_desc = desc_idx !== -1 ? String(row[desc_idx] || '') : '';
+        const raw_pts = pts_idx !== -1 ? String(row[pts_idx] || '').trim() : '';
 
         tasks.push({
           id: row[id_idx],
@@ -295,6 +297,7 @@ function get_sprint_tasks(sprint_id) {
           hierarchy_level: raw_level,
           parent_id: raw_parent,
           description: raw_desc,
+          story_points: raw_pts,
           subtask_count: 0,
           subtask_done_count: 0
         });
@@ -422,9 +425,30 @@ function create_new_task(task_input) {
     }
 
     const description = task_input.description ? String(task_input.description) : '';
+    // Story point hanya berlaku di work item hirarki 0 saja
+    const story_points = (hierarchy_level === 0 && task_input.story_points !== undefined && task_input.story_points !== null)
+      ? String(task_input.story_points).trim()
+      : '';
+
+    // Pastikan header kolom story_points ada di sheet Tasks jika method didukung
+    try {
+      if (typeof sheet_tasks.getLastColumn === 'function' && typeof sheet_tasks.getRange === 'function') {
+        const lastCol = sheet_tasks.getLastColumn();
+        if (lastCol > 0) {
+          const t_hdr_vals = sheet_tasks.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+          if (!t_hdr_vals.includes('story_points')) {
+            const col_pts = t_hdr_vals.length + 1;
+            const cell = sheet_tasks.getRange(1, col_pts);
+            cell.setValue('story_points');
+            if (typeof cell.setFontWeight === 'function') cell.setFontWeight('bold');
+            if (typeof cell.setBackground === 'function') cell.setBackground('#E2E8F0');
+          }
+        }
+      }
+    } catch (ignore) {}
 
     sheet_tasks.appendRow([
-      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp, work_type, hierarchy_level, parent_id, description
+      task_id, sprint_id, title, 'TODO', assignee_id, estimate_hours, current_timestamp, current_timestamp, work_type, hierarchy_level, parent_id, description, story_points
     ]);
 
     const history_id = 'HIS-' + Utilities.getUuid().substring(0, 8).toUpperCase();
@@ -719,6 +743,19 @@ function update_task_details(task_input) {
       sheet_tasks.getRange(target_row_index, new_col_idx).setValue(description);
     }
 
+    const pts_idx = header.indexOf('story_points');
+    const story_points = (hierarchy_level === 0 && task_input.story_points !== undefined && task_input.story_points !== null)
+      ? String(task_input.story_points).trim()
+      : (hierarchy_level !== 0 ? '' : (pts_idx !== -1 ? String(current_row[pts_idx] || '') : ''));
+
+    if (pts_idx !== -1) {
+      sheet_tasks.getRange(target_row_index, pts_idx + 1).setValue(story_points);
+    } else {
+      const new_col_idx = sheet_tasks.getLastColumn() + 1;
+      sheet_tasks.getRange(1, new_col_idx).setValue('story_points');
+      sheet_tasks.getRange(target_row_index, new_col_idx).setValue(story_points);
+    }
+
     return {
       success: true,
       message: 'Rincian work item berhasil diperbarui.',
@@ -731,6 +768,7 @@ function update_task_details(task_input) {
         hierarchy_level: hierarchy_level,
         parent_id: parent_id,
         description: description,
+        story_points: story_points,
         updated_at: current_timestamp
       }
     };
@@ -849,6 +887,8 @@ function get_project_backlog_and_sprints(project_id) {
         const raw_level = level_idx !== -1 && row[level_idx] !== '' ? Number(row[level_idx]) : get_work_type_level(raw_type);
         const raw_parent = parent_idx !== -1 ? String(row[parent_idx] || '').trim() : '';
         const raw_desc = desc_idx !== -1 ? String(row[desc_idx] || '') : '';
+        const pts_idx = header.indexOf('story_points');
+        const raw_pts = pts_idx !== -1 ? String(row[pts_idx] || '').trim() : '';
 
         const task_obj = {
           id: row[id_idx],
@@ -863,7 +903,8 @@ function get_project_backlog_and_sprints(project_id) {
           work_type: raw_type,
           hierarchy_level: raw_level,
           parent_id: raw_parent,
-          description: raw_desc
+          description: raw_desc,
+          story_points: raw_pts
         };
 
         // Cek apakah masuk bucket Backlog

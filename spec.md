@@ -113,6 +113,17 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
     - Opsi status: `🔘 Done`.
     - Tombol: `Cancel` (membatalkan tanpa mutasi parent) dan `Update` (mengubah status parent ke `DONE`).
 
+### 3.9 Story Point Field (Khusus Hirarki Level 0) & Dasar Metrik Agile
+- **Aturan Hirarki Ketat:**
+  - Field `story_points` hanya berlaku dan ditampilkan untuk work item hirarki **Level 0** (`USER_STORY`, `TASK`, `BUG`).
+  - Untuk work item **Level 1** (`INITIATIVE`) dan **Level -1** (`SUBTASK`), form input Story Point disembunyikan/dikosongkan, dan di tingkat backend nilainya diabaikan/dikosongkan (`''`).
+- **Input Text Box:**
+  - Disediakan kontrol input teks (`#input-task-story-points`) pada modal pembuatan/pengubahan task.
+  - Mendukung input angka fleksibel (misal skala Fibonacci: 1, 2, 3, 5, 8, 13).
+- **Visibilitas pada UI Kartu & Modal:**
+  - Kartu Kanban Board dan kartu Product Backlog menampilkan pill badge `[N] pts` untuk work item Level 0 yang memiliki Story Point.
+  - Modal Detail Work Item (`#modal-task-detail`) menampilkan section Story Point jika item berlevel 0.
+
 ---
 
 ## 4. Acceptance Criteria
@@ -124,12 +135,15 @@ Sistem memiliki struktur hirarki bertingkat 3 level:
 - [x] Papan Kanban mendukung pengelompokan Swimlane berdasarkan Subtask/Parent (Default), Inisiatif, Assignee, dan None.
 - [x] Baris swimlane parent memiliki tombol collapse/expand, status badge, counter subtask, tombol cepat `+`, dan 4 sub-kolom drag-and-drop.
 - [x] Penyelesaian seluruh subtask memicu pop-up konfirmasi `Update [Type] [ID]` untuk menyelaraskan status parent menjadi `DONE`.
+- [x] Field Story Point berupa text box saat create/edit task hanya muncul dan berlaku pada work item hirarki Level 0 (`USER_STORY`, `TASK`, `BUG`).
+- [x] Field Story Point tersembunyi dan tidak disimpan pada Inisiatif (Level 1) dan Subtask (Level -1).
 - [x] Editor WYSIWYG pada form task mendukung formatting kaya (Bold, Italic, Headings, Lists, Insert Table).
 - [x] Paste tabel dari Microsoft Excel / Google Sheets otomatis dibersihkan dan dirender rapi sebagai tabel HTML responsif.
 - [x] Mengklik kartu task pada Kanban Board atau Backlog memunculkan Modal Detail Work Item lengkap dengan deskripsi dan tombol edit.
-- [x] Kartu tugas menampilkan indikator `📝` jika memiliki deskripsi rincian.
+- [x] Kartu tugas menampilkan indikator `📝` jika memiliki deskripsi rincian dan badge `pts` jika memiliki Story Point.
 - [x] Start Sprint dan Complete Sprint dengan post-sprint rollover berjalan akurat.
 - [x] AI Product Challenger mengevaluasi inisiatif produk dan merouting inisiatif yang disetujui ke Demand Management.
 - [x] Pelaporan Time-in-Status & Cycle Time akurat dengan deteksi blocker otomatis.
-- [x] Seluruh 15 stage test suites lulus 100% (Green).
+- [x] Seluruh 16 stage test suites lulus 100% (Green).
+
 

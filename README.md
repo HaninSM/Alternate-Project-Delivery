@@ -127,7 +127,9 @@ Alternate Project Delivery/
     ├── test_stage11_challenger_demand.js # AI Challenger & Demand Pipeline
     ├── test_stage12_work_type_hierarchy.js # Work Type Hierarchy Engine
     ├── test_stage13_subtask_bundle_move.js # Bundled Move & Subtask UI Alignment
-    └── test_stage14_wysiwyg_excel_paste.js # WYSIWYG Description & Excel Paste
+    ├── test_stage14_wysiwyg_excel_paste.js # WYSIWYG Description & Excel Paste
+    ├── test_stage15_kanban_grouping_parent_done.js # Kanban Swimlanes & Auto-Parent Done
+    └── test_stage16_story_points_level_0.js # Story Points Field (Khusus Level 0)
 ```
 
 ---
@@ -162,9 +164,9 @@ Alternate Project Delivery/
 ---
 
 ## 🧪 Pengujian Otomatis (Quality Gate)
-Seluruh modul dan logika bisnis dilindungi oleh 14 automated test suite berbasis Node.js:
+Seluruh modul dan logika bisnis dilindungi oleh 16 automated test suite berbasis Node.js:
 ```bash
-# Menjalankan seluruh test suite tahap 1 sampai 14
+# Menjalankan seluruh test suite tahap 1 sampai 16
 Get-ChildItem -Path tests -Filter *.js | ForEach-Object { node $_.FullName }
 ```
-Hasil uji coba: **14 Test Suites PASS (100% Green)** tanpa error.
+Hasil uji coba: **16 Test Suites PASS (100% Green)** tanpa error.

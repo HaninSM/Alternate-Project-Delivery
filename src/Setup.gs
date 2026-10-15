@@ -7,7 +7,7 @@ const SPREADSHEET_SCHEMA = {
   Users: ['id', 'name', 'email', 'role', 'permissions'],
   Projects: ['id', 'name', 'pm_id'],
   Sprints: ['id', 'project_id', 'name', 'start_date', 'end_date', 'status'],
-  Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at', 'work_type', 'hierarchy_level', 'parent_id', 'description'],
+  Tasks: ['id', 'sprint_id', 'title', 'status', 'assignee_id', 'estimate_hours', 'created_at', 'updated_at', 'work_type', 'hierarchy_level', 'parent_id', 'description', 'story_points'],
   Task_History: ['id', 'task_id', 'old_status', 'new_status', 'changed_by', 'timestamp'],
   Initiative_Tests: ['id', 'user_email', 'initiative_title', 'attempt_count', 'status', 'ai_summary_note', 'conversation_history', 'created_at', 'updated_at'],
   Demands: ['id', 'initiative_test_id', 'title', 'submitter_email', 'prd_summary', 'fsd_summary', 'est_engineers', 'est_duration_days', 'capacity_status', 'allocated_capacity_hours', 'capacity_notes', 'approved_at', 'created_at']

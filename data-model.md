@@ -59,6 +59,7 @@ Menyimpan daftar pekerjaan dalam backlog maupun sprint aktif, lengkap dengan tin
 | `hierarchy_level` | Number | Level hirarki numerik: `1` (Inisiatif), `0` (Story/Task/Bug), `-1` (Subtask) | `0` |
 | `parent_id` | String | Foreign Key ke item induk (`Tasks.id`). Kosong jika root/inisiatif. | `TSK-000` |
 | `description` | String (HTML) | Rincian deskripsi format WYSIWYG termasuk tabel Excel/Sheets, list, dan catatan teknis | `<h4>Acceptance Criteria</h4><div class="overflow-x-auto"><table class="wysiwyg-table">...</table></div>` |
+| `story_points` | String / Number | Estimasi Story Point (hanya berlaku pada work item hirarki level 0: User Story, Task, Bug) | `5` |
 
 ---
 

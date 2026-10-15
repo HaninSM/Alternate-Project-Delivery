@@ -165,3 +165,18 @@ Saat pengguna menempelkan data (<kbd>Ctrl+V</kbd>) ke dalam editor, event listen
    - Menampilkan modal konfirmasi bergaya Jira (`Update Story TES-3`, `All subtasks are now complete. Do you want to update this parent work item to match?`).
    - Eksekusi konfirmasi memperbarui status parent menjadi `DONE` secara atomik di UI dan backend.
 
+---
+
+## 8. Story Point Input Field (Khusus Hirarki Level 0) & Dasar Metrik Agile
+
+1. **Aturan Integritas Hirarki:**
+   - Story point hanya diperuntukkan bagi item Level 0 (`USER_STORY`, `TASK`, `BUG`).
+   - Mencegah inkonsistensi estimasi dengan menyembunyikan input pada Level 1 (Inisiatif) dan Level -1 (Subtask) serta membersihkan nilainya di backend database.
+2. **Pengalaman Pengguna (UI/UX):**
+   - Form pembuatan & pengubahan task menyediakan input Text Box Story Point yang dinamis muncul/hilang sesuai pilihan Work Type.
+   - Kartu tugas di Kanban Board dan Product Backlog menampilkan indikator poin yang jelas (misal: `5 pts`).
+   - Modal detail task menyajikan informasi Story Point secara terstruktur.
+3. **Pondasi Actionable Insights:**
+   - Menjadi basis agregasi untuk fitur *Sprint Progress* dan *Sprint Burndown* berbasis Story Points dan Jam Kerja di Actionable Insight.
+
+

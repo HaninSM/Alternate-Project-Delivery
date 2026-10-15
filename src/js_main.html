@@ -1166,6 +1166,7 @@ function create_task_card_element(task, can_edit) {
         <div class="flex items-center space-x-1">
           ${desc_badge}
           ${hierarchy_info_html}
+          ${task.story_points && (work_type === 'TASK' || work_type === 'USER_STORY' || work_type === 'BUG') ? `<span class="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded" title="Story Point">${escape_html(task.story_points)} pts</span>` : ''}
           <span class="text-[11px] font-medium text-slate-500 flex items-center">
             <svg class="w-3.5 h-3.5 mr-0.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1475,6 +1476,9 @@ function open_task_modal() {
   const type_select = document.getElementById('input-task-work-type');
   if (type_select) type_select.value = 'TASK';
 
+  const pts_input = document.getElementById('input-task-story-points');
+  if (pts_input) pts_input.value = '';
+
   const submit_btn = document.getElementById('btn-submit-task');
   if (submit_btn) submit_btn.textContent = 'Simpan Task';
 
@@ -1517,6 +1521,9 @@ function open_backlog_task_modal() {
 
   const type_select = document.getElementById('input-task-work-type');
   if (type_select) type_select.value = 'TASK';
+
+  const pts_input_b = document.getElementById('input-task-story-points');
+  if (pts_input_b) pts_input_b.value = '';
 
   const submit_btn = document.getElementById('btn-submit-task');
   if (submit_btn) submit_btn.textContent = 'Simpan Task';
@@ -1612,6 +1619,18 @@ function handle_work_type_change(preselected_parent_id) {
     if (hint_parent) hint_parent.textContent = 'Pilih inisiatif induk jika pekerjaan ini berhubungan langsung dengan inisiatif bisnis makro.';
     if (select_parent) select_parent.required = false;
     load_parent_dropdown_options('TASK', preselected_parent_id);
+  }
+
+  // Story Point hanya berlaku di work item hirarki 0 saja
+  const story_points_group = document.getElementById('group-task-story-points');
+  const story_points_input = document.getElementById('input-task-story-points');
+
+  if (work_type === 'INITIATIVE' || work_type === 'SUBTASK') {
+    if (story_points_group) story_points_group.classList.add('hidden');
+    if (story_points_input) story_points_input.value = '';
+  } else {
+    // Level 0: Task, User Story, BUG -> Story Points aktif!
+    if (story_points_group) story_points_group.classList.remove('hidden');
   }
 }
 
@@ -2057,6 +2076,18 @@ function open_task_detail_modal(task_id) {
 
   if (assignee_el) assignee_el.textContent = task.assignee_name || 'Belum Ditugaskan';
   if (estimate_el) estimate_el.textContent = (task.estimate_hours || 0) + ' Jam';
+
+  const pts_container = document.getElementById('detail-task-story-points-container');
+  const pts_el = document.getElementById('detail-task-story-points');
+  if (pts_container && pts_el) {
+    if (task.story_points && (work_type === 'USER_STORY' || work_type === 'TASK' || work_type === 'BUG')) {
+      pts_el.textContent = task.story_points + ' pts';
+      pts_container.classList.remove('hidden');
+    } else {
+      pts_container.classList.add('hidden');
+    }
+  }
+
   if (sprint_el) sprint_el.textContent = task.sprint_id || '-';
   if (updated_el) updated_el.textContent = task.updated_at ? task.updated_at.split('T')[0] : '-';
 
@@ -2133,6 +2164,9 @@ function open_task_modal_for_edit(task) {
   const est_input = document.getElementById('input-task-estimate');
   if (est_input) est_input.value = task.estimate_hours || 8;
 
+  const pts_input = document.getElementById('input-task-story-points');
+  if (pts_input) pts_input.value = task.story_points || '';
+
   const type_select = document.getElementById('input-task-work-type');
   if (type_select) type_select.value = String(task.work_type || 'TASK').toUpperCase();
 
@@ -2187,6 +2221,7 @@ function handle_submit_new_task(e) {
   const type_el = document.getElementById('input-task-work-type');
   const parent_el = document.getElementById('input-task-parent-id');
   const editor_el = document.getElementById('editor-task-description');
+  const pts_el = document.getElementById('input-task-story-points');
 
   if (!title_el || !title_el.value.trim()) return;
 
@@ -2196,6 +2231,10 @@ function handle_submit_new_task(e) {
   const work_type = type_el ? type_el.value : 'TASK';
   const parent_id = parent_el ? parent_el.value.trim() : '';
   const description = editor_el ? editor_el.innerHTML.trim() : '';
+
+  // Story Points hanya berlaku di work item hirarki 0 saja
+  const is_level_0 = (work_type === 'USER_STORY' || work_type === 'TASK' || work_type === 'BUG');
+  const story_points = (is_level_0 && pts_el) ? pts_el.value.trim() : '';
 
   // Validasi lokal sisi klien
   if (work_type === 'SUBTASK' && !parent_id) {
@@ -2211,7 +2250,8 @@ function handle_submit_new_task(e) {
     assignee_id: assignee_el ? assignee_el.value : '',
     work_type: work_type,
     parent_id: work_type === 'INITIATIVE' ? '' : parent_id,
-    description: description
+    description: description,
+    story_points: story_points
   };
 
   if (submit_btn) {
@@ -2295,6 +2335,7 @@ function handle_submit_new_task(e) {
         found.work_type = task_payload.work_type;
         found.parent_id = task_payload.parent_id;
         found.description = task_payload.description;
+        found.story_points = task_payload.story_points;
         found.updated_at = new Date().toISOString();
       }
       show_notification('Work item (' + task_id + ') berhasil diperbarui!', 'success');
@@ -2310,6 +2351,7 @@ function handle_submit_new_task(e) {
         hierarchy_level: work_type === 'INITIATIVE' ? 1 : (work_type === 'SUBTASK' ? -1 : 0),
         parent_id: task_payload.parent_id,
         description: task_payload.description,
+        story_points: task_payload.story_points,
         subtask_count: 0,
         subtask_done_count: 0,
         created_at: new Date().toISOString(),
@@ -3122,6 +3164,7 @@ function create_bucket_task_card_element(task, source_bucket_id, can_edit) {
           class="text-[10px] text-slate-500 hover:text-indigo-600 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 transition-colors cursor-pointer">
           Detail ↗
         </button>
+        ${task.story_points && is_level_0 ? `<span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded" title="Story Point">${escape_html(task.story_points)} pts</span>` : ''}
         <span class="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 select-none">
           <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           ${task.estimate_hours || 0} Jam
